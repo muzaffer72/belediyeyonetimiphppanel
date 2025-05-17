@@ -32,11 +32,27 @@ export default function Cities() {
       try {
         setIsLoading(true);
         const data = await getCities(page, pageSize, searchTerm, filters);
-        setCitiesData(data);
-        setIsError(false);
+        console.log("Şehir verileri yüklendi:", data);
+        if (data && data.data) {
+          setCitiesData(data);
+          setIsError(false);
+        } else {
+          throw new Error('Veri formatı hatalı');
+        }
       } catch (error) {
         console.error('Şehir verileri alınırken hata:', error);
         setIsError(true);
+        // Hata durumunda boş bir veri seti oluştur, sayfa hata göstermek yerine boş liste göstersin
+        setCitiesData({
+          data: [],
+          pagination: {
+            pageIndex: page,
+            pageSize: pageSize,
+            pageCount: 0,
+            total: 0
+          },
+          parties: []
+        });
       } finally {
         setIsLoading(false);
       }

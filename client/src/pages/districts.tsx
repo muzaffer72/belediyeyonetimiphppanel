@@ -34,12 +34,27 @@ export default function Districts() {
       try {
         setIsLoading(true);
         const data = await getDistricts(page, pageSize, searchTerm, filters);
-        setDistrictsData(data);
-        setIsError(false);
-        console.log("Fetched districts data:", data);
+        console.log("İlçe verileri yüklendi:", data);
+        if (data && data.data) {
+          setDistrictsData(data);
+          setIsError(false);
+        } else {
+          throw new Error('Veri formatı hatalı');
+        }
       } catch (error) {
         console.error('İlçe verileri alınırken hata:', error);
         setIsError(true);
+        // Hata durumunda boş bir veri seti oluştur
+        setDistrictsData({
+          data: [],
+          pagination: {
+            pageIndex: page,
+            pageSize: pageSize,
+            pageCount: 0,
+            total: 0
+          },
+          cities: []
+        });
       } finally {
         setIsLoading(false);
       }
@@ -296,7 +311,7 @@ export default function Districts() {
         description={t("notifications.confirmed")}
         isOpen={!!deletingDistrictId}
         onClose={() => setDeletingDistrictId(null)}
-        onConfirm={() => deletingDistrictId && deleteMutation.mutate(deletingDistrictId)}
+        onConfirm={() => deletingDistrictId && handleDeleteDistrict(deletingDistrictId)}
         variant="destructive"
       />
     </section>
