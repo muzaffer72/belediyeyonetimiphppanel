@@ -43,7 +43,27 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Dashboard routes
   app.get("/api/dashboard/stats", async (req, res) => {
     try {
-      const stats = await storage.getDashboardStats();
+      // Use Supabase client directly instead of going through storage
+      const { supabase } = await import("../shared/supabase");
+      
+      // Run multiple counts using Supabase client
+      const [citiesCount, usersCount, postsCount, complaintsCount] = await Promise.all([
+        supabase.from('cities').select('*', { count: 'exact', head: true }),
+        supabase.from('users').select('*', { count: 'exact', head: true }),
+        supabase.from('posts').select('*', { count: 'exact', head: true }),
+        supabase.from('posts').select('*', { count: 'exact', head: true })
+          .eq('type', 'complaint')
+          .eq('is_resolved', false)
+      ]);
+      
+      // Create stats object
+      const stats = {
+        totalCities: citiesCount.count || 0,
+        activeUsers: usersCount.count || 0,
+        totalPosts: postsCount.count || 0,
+        pendingComplaints: complaintsCount.count || 0
+      };
+      
       res.json(stats);
     } catch (error) {
       console.error("Error fetching dashboard stats:", error);
@@ -54,17 +74,100 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/dashboard/activities", async (req, res) => {
     try {
       const limit = req.query.limit ? parseInt(req.query.limit as string) : 5;
-      const activities = await storage.getRecentActivities(limit);
+      
+      // Use Supabase client directly
+      const { supabase } = await import("../shared/supabase");
+      
+      // Get recent posts (we'll use these as activities)
+      const { data: posts, error } = await supabase
+        .from('posts')
+        .select('id, title, type, user_id, created_at')
+        .order('created_at', { ascending: false })
+        .limit(limit);
+      
+      if (error) throw error;
+      
+      // Get usernames for the posts
+      const userIds = [...new Set(posts.map(post => post.user_id))];
+      const { data: users } = await supabase
+        .from('users')
+        .select('id, username, profile_image_url')
+        .in('id', userIds);
+      
+      // Format activities
+      const activities = posts.map(post => {
+        const user = users.find(u => u.id === post.user_id);
+        return {
+          id: post.id,
+          userId: post.user_id,
+          username: user?.username || 'Unknown User',
+          userAvatar: user?.profile_image_url,
+          action: getActionByPostType(post.type),
+          target: post.title,
+          timestamp: post.created_at
+        };
+      });
+      
       res.json(activities);
     } catch (error) {
       console.error("Error fetching recent activities:", error);
       res.status(500).json({ message: "Failed to fetch recent activities" });
     }
   });
+  
+  // Helper function to get action description by post type
+  function getActionByPostType(type: string): string {
+    switch (type) {
+      case 'complaint': return 'filed a complaint';
+      case 'suggestion': return 'made a suggestion';
+      case 'question': return 'asked a question';
+      case 'thanks': return 'sent thanks';
+      default: return 'created a post';
+    }
+  }
 
   app.get("/api/dashboard/post-categories", async (req, res) => {
     try {
-      const categories = await storage.getPostCategoriesDistribution();
+      // Use Supabase client directly
+      const { supabase } = await import("../shared/supabase");
+      
+      // Define post types with their UI properties
+      const postTypeConfig = {
+        'complaint': { icon: 'AlertCircle', color: '#EF4444' },
+        'suggestion': { icon: 'Lightbulb', color: '#F59E0B' },
+        'question': { icon: 'HelpCircle', color: '#3B82F6' },
+        'thanks': { icon: 'Heart', color: '#10B981' }
+      };
+      
+      // Get posts and count by type
+      const { data, error } = await supabase
+        .from('posts')
+        .select('type');
+      
+      if (error) throw error;
+      
+      // Count posts by type
+      const counts = data.reduce((acc, post) => {
+        const type = post.type || 'other';
+        acc[type] = (acc[type] || 0) + 1;
+        return acc;
+      }, {});
+      
+      // Calculate total
+      const total = Object.values(counts).reduce((sum: number, count: any) => sum + count, 0);
+      
+      // Format the categories
+      const categories = Object.entries(counts).map(([type, count]) => {
+        const config = postTypeConfig[type as keyof typeof postTypeConfig] || { icon: 'FileText', color: '#6B7280' };
+        return {
+          type,
+          count,
+          percentage: total > 0 ? Math.round(((count as number) / total) * 100) : 0,
+          icon: config.icon,
+          color: config.color
+        };
+      });
+      
       res.json(categories);
     } catch (error) {
       console.error("Error fetching post categories:", error);
@@ -74,7 +177,45 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.get("/api/dashboard/party-distribution", async (req, res) => {
     try {
-      const distribution = await storage.getPoliticalPartyDistribution();
+      // Use Supabase client directly
+      const { supabase } = await import("../shared/supabase");
+      
+      // Get political parties
+      const { data: parties, error } = await supabase
+        .from('political_parties')
+        .select('id, name, logo, color');
+      
+      if (error) throw error;
+      
+      // Get city counts by party
+      const { data: cities } = await supabase
+        .from('cities')
+        .select('political_party_id');
+      
+      // Calculate total cities
+      const totalCities = cities.length;
+      
+      // Count cities by party
+      const partyCounts = cities.reduce((acc, city) => {
+        const partyId = city.political_party_id;
+        if (partyId) {
+          acc[partyId] = (acc[partyId] || 0) + 1;
+        }
+        return acc;
+      }, {});
+      
+      // Format for frontend
+      const distribution = parties.map(party => {
+        const count = partyCounts[party.id] || 0;
+        return {
+          id: party.id,
+          name: party.name,
+          logo: party.logo,
+          color: party.color || '#6B7280',
+          percentage: totalCities > 0 ? Math.round((count / totalCities) * 100) : 0
+        };
+      });
+      
       res.json(distribution);
     } catch (error) {
       console.error("Error fetching party distribution:", error);
