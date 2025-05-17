@@ -1,9 +1,9 @@
 import { createClient } from '@supabase/supabase-js';
 import * as schema from "./schema";
 
-// Get Supabase URL and Service Role Key from environment variables
-const supabaseUrl = process.env.SUPABASE_URL || "";
-const supabaseServiceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY || "";
+// Use the provided Supabase credentials from the attached document
+const supabaseUrl = process.env.SUPABASE_URL || "https://bimer.onvao.net:8443";
+const supabaseServiceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY || "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyAgCiAgICAicm9sZSI6ICJzZXJ2aWNlX3JvbGUiLAogICAgImlzcyI6ICJzdXBhYmFzZS1kZW1vIiwKICAgICJpYXQiOiAxNjQxNzY5MjAwLAogICAgImV4cCI6IDE3OTk1MzU2MDAKfQ.DaYlNEoUrrEn2Ig7tqibS-PHK5vgusbcbo7X36XVt4Q";
 
 if (!supabaseUrl || !supabaseServiceRoleKey) {
   console.error("Supabase URL ve Service Role Key değerleri eksik. Lütfen ortam değişkenlerini kontrol edin.");
@@ -16,13 +16,6 @@ const supabaseOptions = {
   auth: {
     autoRefreshToken: false,
     persistSession: false
-  },
-  global: {
-    headers: {
-      'Content-Type': 'application/json',
-      'apikey': supabaseServiceRoleKey,
-      'Authorization': `Bearer ${supabaseServiceRoleKey}`
-    }
   }
 };
 

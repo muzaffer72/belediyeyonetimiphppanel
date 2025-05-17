@@ -111,7 +111,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json(activities);
     } catch (error) {
       console.error("Error fetching recent activities:", error);
-      res.status(500).json({ message: "Failed to fetch recent activities" });
+      res.status(500).json({ 
+        message: "Failed to fetch recent activities",
+        error: error instanceof Error ? error.message : String(error)
+      });
     }
   });
   
@@ -171,7 +174,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json(categories);
     } catch (error) {
       console.error("Error fetching post categories:", error);
-      res.status(500).json({ message: "Failed to fetch post categories distribution" });
+      res.status(500).json({ 
+        message: "Failed to fetch post categories distribution",
+        error: error instanceof Error ? error.message : String(error)
+      });
     }
   });
 
@@ -219,7 +225,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json(distribution);
     } catch (error) {
       console.error("Error fetching party distribution:", error);
-      res.status(500).json({ message: "Failed to fetch political party distribution" });
+      res.status(500).json({ 
+        message: "Failed to fetch political party distribution",
+        error: error instanceof Error ? error.message : String(error)
+      });
     }
   });
 
