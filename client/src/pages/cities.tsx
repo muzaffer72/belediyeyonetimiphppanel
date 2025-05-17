@@ -256,7 +256,17 @@ export default function Cities() {
 
       <DataTable
         columns={columns}
-        data={citiesData?.data || []}
+        data={(citiesData?.data || []).map(city => ({
+          id: city.id,
+          name: city.name,
+          email: city.email,
+          mayorName: city.mayor_name,
+          mayorParty: city.mayor_party,
+          population: city.population,
+          politicalPartyId: city.political_party_id,
+          logoUrl: city.logo_url,
+          partyLogoUrl: city.party_logo_url
+        }))}
         pagination={citiesData?.pagination as PaginationInfo}
         onPaginationChange={handlePaginationChange}
         onSearch={handleSearch}

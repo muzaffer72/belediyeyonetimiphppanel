@@ -276,7 +276,18 @@ export default function Districts() {
 
       <DataTable
         columns={columns}
-        data={districtsData?.data || []}
+        data={(districtsData?.data || []).map(district => ({
+          id: district.id,
+          name: district.name,
+          email: district.email,
+          cityId: district.city_id,
+          mayorName: district.mayor_name,
+          mayorParty: district.mayor_party,
+          population: district.population,
+          politicalPartyId: district.political_party_id,
+          logoUrl: district.logo_url,
+          partyLogoUrl: district.party_logo_url
+        }))}
         pagination={districtsData?.pagination as PaginationInfo}
         onPaginationChange={handlePaginationChange}
         onSearch={handleSearch}
