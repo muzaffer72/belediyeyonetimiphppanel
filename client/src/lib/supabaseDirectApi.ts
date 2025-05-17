@@ -51,8 +51,12 @@ export const fetchFromSupabase = async <T>(
     // Sıralama için "order" parametresi ekle
     queryParams.append('order', `${sortBy}.${sortOrder}`);
     
+    // Verileri sınırla
+    queryParams.append('limit', pageSize.toString());
+    
     // İsteği gönder
     const url = `${SUPABASE_URL}/${table}?${queryParams.toString()}`;
+    console.log("API İstek URL:", url);
     const response = await fetch(url, { headers: rangeHeader });
     
     if (!response.ok) {
@@ -61,10 +65,15 @@ export const fetchFromSupabase = async <T>(
     
     // Toplam kayıt sayısını al
     const countHeader = response.headers.get('content-range');
+    console.log("Content-Range header:", countHeader);
     let count = 0;
     if (countHeader) {
-      const match = countHeader.match(/\d+-\d+\/(\d+)/);
-      count = match ? parseInt(match[1], 10) : 0;
+      const match = countHeader.match(/\d+-\d+\/(\d+|\*)/);
+      count = match ? (match[1] !== '*' ? parseInt(match[1], 10) : 100) : 0;
+    } else {
+      // Eğer header yoksa veya sayı alınamadıysa, varsayılan bir değer kullan
+      // Bu sadece kullanıcı arayüzü için geçici bir çözümdür
+      count = 20;
     }
     
     const data = await response.json();

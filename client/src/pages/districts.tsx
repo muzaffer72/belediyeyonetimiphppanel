@@ -1,7 +1,5 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useTranslation } from "@/lib/i18n";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
 import { DataTable } from "@/components/ui/data-table";
@@ -11,11 +9,12 @@ import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { DistrictForm } from "@/components/forms/DistrictForm";
 import { Spinner } from "@/components/ui/spinner";
 import { PaginationInfo } from "@shared/types";
+import { getDistricts, deleteDistrict } from "@/lib/districtService";
+import { getCities } from "@/lib/cityService";
 
 export default function Districts() {
   const { t } = useTranslation();
   const { toast } = useToast();
-  const queryClient = useQueryClient();
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
   const [searchTerm, setSearchTerm] = useState("");
@@ -23,50 +22,75 @@ export default function Districts() {
   const [editingDistrictId, setEditingDistrictId] = useState<string | null>(null);
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [deletingDistrictId, setDeletingDistrictId] = useState<string | null>(null);
+  const [districtsData, setDistrictsData] = useState<any>(null);
+  const [cities, setCities] = useState<any>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isError, setIsError] = useState(false);
+  const [isDeletingDistrict, setIsDeletingDistrict] = useState(false);
 
-  // Fetch districts data
-  const {
-    data: districtsData,
-    isLoading,
-    isError,
-  } = useQuery({
-    queryKey: [
-      '/api/districts',
-      page,
-      pageSize,
-      searchTerm,
-      filters.politicalPartyId,
-      filters.cityId,
-    ],
-    // The actual queryFn is defined in queryClient.ts
-  });
+  // İlçe verilerini getir
+  useEffect(() => {
+    async function fetchDistricts() {
+      try {
+        setIsLoading(true);
+        const data = await getDistricts(page, pageSize, searchTerm, filters);
+        setDistrictsData(data);
+        setIsError(false);
+        console.log("Fetched districts data:", data);
+      } catch (error) {
+        console.error('İlçe verileri alınırken hata:', error);
+        setIsError(true);
+      } finally {
+        setIsLoading(false);
+      }
+    }
+    
+    fetchDistricts();
+  }, [page, pageSize, searchTerm, filters]);
+  
+  // Şehir verilerini getir (filtre için)
+  useEffect(() => {
+    async function fetchCities() {
+      try {
+        const data = await getCities(1, 100);
+        setCities(data);
+      } catch (error) {
+        console.error('Şehir verileri alınırken hata:', error);
+      }
+    }
+    
+    fetchCities();
+  }, []);
 
-  // Fetch cities for filter dropdown
-  const { data: cities } = useQuery({
-    queryKey: ['/api/cities'],
-  });
-
-  // Delete mutation
-  const deleteMutation = useMutation({
-    mutationFn: async (id: string) => {
-      return apiRequest("DELETE", `/api/districts/${id}`);
-    },
-    onSuccess: () => {
-      toast({
-        title: t("notifications.success"),
-        description: t("notifications.deleted"),
-      });
-      queryClient.invalidateQueries({ queryKey: ['/api/districts'] });
-      setDeletingDistrictId(null);
-    },
-    onError: (error) => {
+  // İlçe silme işlemi
+  const handleDeleteDistrict = async (id: string) => {
+    try {
+      setIsDeletingDistrict(true);
+      const result = await deleteDistrict(id);
+      
+      if (result) {
+        toast({
+          title: t("notifications.success"),
+          description: t("notifications.deleted"),
+        });
+        
+        // Verileri yenile
+        const updatedData = await getDistricts(page, pageSize, searchTerm, filters);
+        setDistrictsData(updatedData);
+      } else {
+        throw new Error('Silme işlemi başarısız oldu');
+      }
+    } catch (error) {
       toast({
         title: t("notifications.error"),
         description: t("notifications.error.occurred"),
         variant: "destructive",
       });
-    },
-  });
+    } finally {
+      setIsDeletingDistrict(false);
+      setDeletingDistrictId(null);
+    }
+  };
 
   // Handle pagination change
   const handlePaginationChange = (newPage: number, newPageSize: number) => {
