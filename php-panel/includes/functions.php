@@ -1,355 +1,604 @@
 <?php
-// Temel fonksiyonlar
+// Supabase API ile iletişim fonksiyonları
 
 /**
- * Mevcut sayfanın adını al
+ * Supabase'den veri al
+ * 
+ * @param string $table Tablo adı
+ * @param array $params Sorgu parametreleri
+ * @return array Veri ve hata bilgisini içeren dizi
  */
-function getCurrentPage() {
-    $page = '';
-    $script_name = basename($_SERVER['SCRIPT_FILENAME']);
+function getData($table, $params = []) {
+    global $demo_data;
     
-    if ($script_name === 'index.php' && isset($_GET['page'])) {
-        $page = $_GET['page'];
-    } elseif ($script_name !== 'index.php') {
-        $page = basename($script_name, '.php');
-    }
+    // API URL oluştur
+    $url = SUPABASE_REST_URL . '/' . $table;
     
-    return $page;
-}
-
-/**
- * Sayfa başlığını al
- */
-function getPageTitle($page) {
-    global $page_titles;
-    return isset($page_titles[$page]) ? $page_titles[$page] : APP_NAME;
-}
-
-/**
- * Supabase API isteği gönder
- */
-function supabaseRequest($table, $method = 'GET', $params = [], $headers = []) {
-    $url = API_URL . '/' . $table;
-    
-    // Varsayılan başlıklar
-    $default_headers = [
-        'apikey: ' . API_KEY,
-        'Authorization: Bearer ' . API_KEY,
-        'Content-Type: application/json',
-        'Prefer: return=representation'
-    ];
-    
-    // Başlıkları birleştir
-    $headers = array_merge($default_headers, $headers);
-    
-    // GET istekleri için query parametreleri
-    if ($method === 'GET' && !empty($params)) {
+    // Parametreler varsa URL'ye ekle
+    if (!empty($params)) {
         $url .= '?' . http_build_query($params);
     }
     
-    $ch = curl_init($url);
-    curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-    curl_setopt($ch, CURLOPT_HTTPHEADER, $headers);
-    
-    // POST, PUT, DELETE için veri gönder
-    if ($method !== 'GET' && !empty($params)) {
-        curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($params));
-    }
-    
-    // HTTP metodunu ayarla
-    curl_setopt($ch, CURLOPT_CUSTOMREQUEST, $method);
-    
-    // SSL doğrulamasını devre dışı bırak (geliştirme ortamında)
-    curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
-    curl_setopt($ch, CURLOPT_SSL_VERIFYHOST, false);
-    
-    $response = curl_exec($ch);
-    $http_code = curl_getinfo($ch, CURLINFO_HTTP_CODE);
-    
-    if (curl_errno($ch)) {
-        $error = curl_error($ch);
+    try {
+        // API isteği yap
+        $ch = curl_init();
+        curl_setopt($ch, CURLOPT_URL, $url);
+        curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+        curl_setopt($ch, CURLOPT_HTTPHEADER, [
+            'apikey: ' . SUPABASE_API_KEY,
+            'Authorization: ' . SUPABASE_AUTH_HEADER,
+            'Content-Type: application/json',
+            'Prefer: return=representation'
+        ]);
+        
+        $response = curl_exec($ch);
+        $status_code = curl_getinfo($ch, CURLINFO_HTTP_CODE);
         curl_close($ch);
-        return [
-            'error' => true,
-            'message' => $error,
-            'code' => $http_code
-        ];
+        
+        // API yanıtını kontrol et
+        if ($status_code >= 200 && $status_code < 300) {
+            $data = json_decode($response, true);
+            return ['error' => false, 'data' => $data, 'message' => 'Veriler başarıyla alındı'];
+        } else {
+            // API hatası, demo verileri kullan
+            $error_message = "API Hatası: HTTP $status_code - Demo veriler gösteriliyor.";
+            error_log($error_message);
+            
+            // Tablo varsa demo verileri döndür
+            if (isset($demo_data[$table])) {
+                return ['error' => false, 'data' => $demo_data[$table], 'message' => 'Demo veriler gösteriliyor', 'demo' => true];
+            } else {
+                return ['error' => true, 'data' => [], 'message' => 'Veri bulunamadı'];
+            }
+        }
+    } catch (Exception $e) {
+        // İstek hatası, demo verileri kullan
+        $error_message = "İstek Hatası: " . $e->getMessage() . " - Demo veriler gösteriliyor.";
+        error_log($error_message);
+        
+        // Tablo varsa demo verileri döndür
+        if (isset($demo_data[$table])) {
+            return ['error' => false, 'data' => $demo_data[$table], 'message' => 'Demo veriler gösteriliyor', 'demo' => true];
+        } else {
+            return ['error' => true, 'data' => [], 'message' => 'Veri bulunamadı'];
+        }
     }
-    
-    curl_close($ch);
-    
-    // JSON yanıtını işle
-    $data = json_decode($response, true);
-    
-    // Hata kontrolü
-    if ($http_code >= 400) {
-        return [
-            'error' => true,
-            'message' => isset($data['message']) ? $data['message'] : 'API isteği başarısız oldu',
-            'code' => $http_code,
-            'response' => $data
-        ];
-    }
-    
-    return [
-        'error' => false,
-        'data' => $data,
-        'code' => $http_code
-    ];
 }
 
 /**
- * Demo verileri kullan (API bağlantısı çalışmadığında)
- */
-function getDemoData($table) {
-    $demo_data = [
-        'cities' => [
-            [
-                'id' => 'city-01',
-                'name' => 'Ankara',
-                'email' => 'info@ankara.bel.tr',
-                'mayor_name' => 'Mansur Yavaş',
-                'mayor_party' => 'CHP',
-                'population' => '5.5M',
-                'logo_url' => 'https://upload.wikimedia.org/wikipedia/tr/9/99/Ankara_B%C3%BCy%C3%BCk%C5%9Fehir_Belediyesi_logo.png',
-                'party_logo_url' => 'https://upload.wikimedia.org/wikipedia/commons/d/dd/CHP_logo.png'
-            ],
-            [
-                'id' => 'city-02',
-                'name' => 'İstanbul',
-                'email' => 'info@ibb.gov.tr',
-                'mayor_name' => 'Ekrem İmamoğlu',
-                'mayor_party' => 'CHP',
-                'population' => '16M',
-                'logo_url' => 'https://upload.wikimedia.org/wikipedia/commons/a/a8/%C4%B0BB_logo.png',
-                'party_logo_url' => 'https://upload.wikimedia.org/wikipedia/commons/d/dd/CHP_logo.png'
-            ],
-            [
-                'id' => 'city-03',
-                'name' => 'İzmir',
-                'email' => 'info@izmir.bel.tr',
-                'mayor_name' => 'Cemil Tugay',
-                'mayor_party' => 'CHP',
-                'population' => '4.4M',
-                'logo_url' => 'https://upload.wikimedia.org/wikipedia/tr/2/20/Izmir_Buyuksehir_Belediyesi.png',
-                'party_logo_url' => 'https://upload.wikimedia.org/wikipedia/commons/d/dd/CHP_logo.png'
-            ]
-        ],
-        'districts' => [
-            [
-                'id' => 'district-01',
-                'name' => 'Çankaya',
-                'email' => 'info@cankaya.bel.tr',
-                'city_id' => 'city-01',
-                'mayor_name' => 'Hüseyin Boz',
-                'mayor_party' => 'CHP',
-                'population' => '600K',
-                'logo_url' => 'https://upload.wikimedia.org/wikipedia/tr/f/f2/%C3%87ankaya_Belediyesi_logo.png',
-                'party_logo_url' => 'https://upload.wikimedia.org/wikipedia/commons/d/dd/CHP_logo.png'
-            ],
-            [
-                'id' => 'district-02',
-                'name' => 'Keçiören',
-                'email' => 'info@kecioren.bel.tr',
-                'city_id' => 'city-01',
-                'mayor_name' => 'Mesut Akgül',
-                'mayor_party' => 'AK Parti',
-                'population' => '950K',
-                'logo_url' => 'https://www.kecioren.bel.tr/varliklar/img/logo.png',
-                'party_logo_url' => 'https://upload.wikimedia.org/wikipedia/tr/d/d5/Adalet_ve_Kalk%C4%B1nma_Partisi_logo.png'
-            ],
-            [
-                'id' => 'district-03',
-                'name' => 'Kadıköy',
-                'email' => 'info@kadikoy.bel.tr',
-                'city_id' => 'city-02',
-                'mayor_name' => 'Şerdil Odabaşı',
-                'mayor_party' => 'CHP',
-                'population' => '420K',
-                'logo_url' => 'https://www.kadikoy.bel.tr/Content/template/MainTemplate/frontend/img/logo.png',
-                'party_logo_url' => 'https://upload.wikimedia.org/wikipedia/commons/d/dd/CHP_logo.png'
-            ]
-        ],
-        'political_parties' => [
-            [
-                'id' => 'party-01',
-                'name' => 'CHP',
-                'logo_url' => 'https://upload.wikimedia.org/wikipedia/commons/d/dd/CHP_logo.png'
-            ],
-            [
-                'id' => 'party-02',
-                'name' => 'AK Parti',
-                'logo_url' => 'https://upload.wikimedia.org/wikipedia/tr/d/d5/Adalet_ve_Kalk%C4%B1nma_Partisi_logo.png'
-            ],
-            [
-                'id' => 'party-03',
-                'name' => 'MHP',
-                'logo_url' => 'https://upload.wikimedia.org/wikipedia/commons/thumb/3/3c/Logo_of_the_Nationalist_Movement_Party.svg/800px-Logo_of_the_Nationalist_Movement_Party.svg.png'
-            ]
-        ],
-        'posts' => [
-            [
-                'id' => 'post-01',
-                'title' => 'Sokaktaki çöpler toplanmıyor',
-                'content' => 'Evimizin önündeki çöpler 3 gündür toplanmıyor, lütfen ilgilenin.',
-                'type' => 'complaint',
-                'user_id' => 'user-01',
-                'username' => 'ahmet.yilmaz',
-                'is_resolved' => false,
-                'created_at' => '2023-05-15T12:30:00Z'
-            ],
-            [
-                'id' => 'post-02',
-                'title' => 'Parkta daha fazla bank olmalı',
-                'content' => 'Mahalle parkımızda yeterli bank yok, lütfen ekleyin.',
-                'type' => 'suggestion',
-                'user_id' => 'user-03',
-                'username' => 'mehmet.kaya',
-                'is_resolved' => false,
-                'created_at' => '2023-05-15T11:30:00Z'
-            ],
-            [
-                'id' => 'post-03',
-                'title' => 'Trafik ışıkları çalışmıyor',
-                'content' => 'Ana caddedeki trafik ışıkları arızalı, kazaya sebep olabilir.',
-                'type' => 'complaint',
-                'user_id' => 'user-05',
-                'username' => 'can.ozturk',
-                'is_resolved' => false,
-                'created_at' => '2023-05-15T10:00:00Z'
-            ]
-        ],
-        'users' => [
-            [
-                'id' => 'user-01',
-                'username' => 'ahmet.yilmaz',
-                'email' => 'ahmet@example.com',
-                'full_name' => 'Ahmet Yılmaz',
-                'role' => 'user',
-                'created_at' => '2023-01-15T08:30:00Z'
-            ],
-            [
-                'id' => 'user-02',
-                'username' => 'ayse.demir',
-                'email' => 'ayse@example.com',
-                'full_name' => 'Ayşe Demir',
-                'role' => 'user',
-                'created_at' => '2023-02-20T14:15:00Z'
-            ],
-            [
-                'id' => 'user-03',
-                'username' => 'mehmet.kaya',
-                'email' => 'mehmet@example.com',
-                'full_name' => 'Mehmet Kaya',
-                'role' => 'user',
-                'created_at' => '2023-03-10T11:45:00Z'
-            ],
-            [
-                'id' => 'user-04',
-                'username' => 'zeynep.yildiz',
-                'email' => 'zeynep@example.com',
-                'full_name' => 'Zeynep Yıldız',
-                'role' => 'user',
-                'created_at' => '2023-04-05T09:20:00Z'
-            ],
-            [
-                'id' => 'user-05',
-                'username' => 'can.ozturk',
-                'email' => 'can@example.com',
-                'full_name' => 'Can Öztürk',
-                'role' => 'user',
-                'created_at' => '2023-05-01T16:30:00Z'
-            ],
-            [
-                'id' => 'admin-01',
-                'username' => 'admin',
-                'email' => 'admin@belediye.gov.tr',
-                'full_name' => 'Sistem Yöneticisi',
-                'role' => 'admin',
-                'created_at' => '2023-01-01T00:00:00Z'
-            ]
-        ]
-    ];
-    
-    return isset($demo_data[$table]) ? $demo_data[$table] : [];
-}
-
-/**
- * Verileri getir (önce API'den dene, başarısız olursa demo verilere düş)
- */
-function getData($table, $params = []) {
-    // Supabase API'den veri çekmeyi dene
-    $response = supabaseRequest($table, 'GET', $params);
-    
-    // API başarılı olursa sonuçları döndür
-    if (!$response['error'] && isset($response['data'])) {
-        return [
-            'success' => true,
-            'data' => $response['data'],
-            'source' => 'api'
-        ];
-    }
-    
-    // API başarısız olursa demo verileri kullan
-    return [
-        'success' => true,
-        'data' => getDemoData($table),
-        'source' => 'demo',
-        'api_error' => $response['error'] ? $response['message'] : 'Bilinmeyen hata'
-    ];
-}
-
-/**
- * Veri ekle
+ * Supabase'e veri ekle
+ * 
+ * @param string $table Tablo adı
+ * @param array $data Eklenecek veri
+ * @return array Sonuç ve hata bilgisini içeren dizi
  */
 function addData($table, $data) {
-    return supabaseRequest($table, 'POST', $data);
+    // API URL oluştur
+    $url = SUPABASE_REST_URL . '/' . $table;
+    
+    try {
+        // API isteği yap
+        $ch = curl_init();
+        curl_setopt($ch, CURLOPT_URL, $url);
+        curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+        curl_setopt($ch, CURLOPT_POST, true);
+        curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($data));
+        curl_setopt($ch, CURLOPT_HTTPHEADER, [
+            'apikey: ' . SUPABASE_API_KEY,
+            'Authorization: ' . SUPABASE_AUTH_HEADER,
+            'Content-Type: application/json',
+            'Prefer: return=representation'
+        ]);
+        
+        $response = curl_exec($ch);
+        $status_code = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        curl_close($ch);
+        
+        // API yanıtını kontrol et
+        if ($status_code >= 200 && $status_code < 300) {
+            $result = json_decode($response, true);
+            return ['error' => false, 'data' => $result, 'message' => 'Veri başarıyla eklendi'];
+        } else {
+            $error = json_decode($response, true);
+            $error_message = isset($error['message']) ? $error['message'] : "API Hatası: HTTP $status_code";
+            return ['error' => true, 'data' => null, 'message' => $error_message];
+        }
+    } catch (Exception $e) {
+        return ['error' => true, 'data' => null, 'message' => 'İstek Hatası: ' . $e->getMessage()];
+    }
 }
 
 /**
- * Veri güncelle
+ * Supabase'deki veriyi güncelle
+ * 
+ * @param string $table Tablo adı
+ * @param string $id Güncellenecek verinin ID'si
+ * @param array $data Güncellenecek alanlar
+ * @return array Sonuç ve hata bilgisini içeren dizi
  */
 function updateData($table, $id, $data) {
-    $params = ['id' => 'eq.' . $id];
-    return supabaseRequest($table, 'PATCH', $data, [], $params);
+    // API URL oluştur
+    $url = SUPABASE_REST_URL . '/' . $table . '?id=eq.' . urlencode($id);
+    
+    try {
+        // API isteği yap
+        $ch = curl_init();
+        curl_setopt($ch, CURLOPT_URL, $url);
+        curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+        curl_setopt($ch, CURLOPT_CUSTOMREQUEST, 'PATCH');
+        curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($data));
+        curl_setopt($ch, CURLOPT_HTTPHEADER, [
+            'apikey: ' . SUPABASE_API_KEY,
+            'Authorization: ' . SUPABASE_AUTH_HEADER,
+            'Content-Type: application/json',
+            'Prefer: return=representation'
+        ]);
+        
+        $response = curl_exec($ch);
+        $status_code = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        curl_close($ch);
+        
+        // API yanıtını kontrol et
+        if ($status_code >= 200 && $status_code < 300) {
+            $result = json_decode($response, true);
+            return ['error' => false, 'data' => $result, 'message' => 'Veri başarıyla güncellendi'];
+        } else {
+            $error = json_decode($response, true);
+            $error_message = isset($error['message']) ? $error['message'] : "API Hatası: HTTP $status_code";
+            return ['error' => true, 'data' => null, 'message' => $error_message];
+        }
+    } catch (Exception $e) {
+        return ['error' => true, 'data' => null, 'message' => 'İstek Hatası: ' . $e->getMessage()];
+    }
 }
 
 /**
- * Veri sil
+ * Supabase'den veri sil
+ * 
+ * @param string $table Tablo adı
+ * @param string $id Silinecek verinin ID'si
+ * @return array Sonuç ve hata bilgisini içeren dizi
  */
 function deleteData($table, $id) {
-    $params = ['id' => 'eq.' . $id];
-    return supabaseRequest($table, 'DELETE', [], [], $params);
+    // API URL oluştur
+    $url = SUPABASE_REST_URL . '/' . $table . '?id=eq.' . urlencode($id);
+    
+    try {
+        // API isteği yap
+        $ch = curl_init();
+        curl_setopt($ch, CURLOPT_URL, $url);
+        curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+        curl_setopt($ch, CURLOPT_CUSTOMREQUEST, 'DELETE');
+        curl_setopt($ch, CURLOPT_HTTPHEADER, [
+            'apikey: ' . SUPABASE_API_KEY,
+            'Authorization: ' . SUPABASE_AUTH_HEADER,
+            'Content-Type: application/json'
+        ]);
+        
+        $response = curl_exec($ch);
+        $status_code = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        curl_close($ch);
+        
+        // API yanıtını kontrol et
+        if ($status_code >= 200 && $status_code < 300) {
+            return ['error' => false, 'message' => 'Veri başarıyla silindi'];
+        } else {
+            $error = json_decode($response, true);
+            $error_message = isset($error['message']) ? $error['message'] : "API Hatası: HTTP $status_code";
+            return ['error' => true, 'message' => $error_message];
+        }
+    } catch (Exception $e) {
+        return ['error' => true, 'message' => 'İstek Hatası: ' . $e->getMessage()];
+    }
 }
 
 /**
- * Güvenli giriş kontrolü
+ * ID'ye göre veriyi al
+ * 
+ * @param string $table Tablo adı
+ * @param string $id Veri ID'si
+ * @return array|null Veri veya null
  */
-function authenticate($username, $password) {
-    // Gerçek uygulamada burada Supabase Auth kullanılabilir
-    // Şimdilik basit bir demo login
+function getDataById($table, $id) {
+    $result = getData($table, ['id' => 'eq.' . $id]);
     
-    if ($username === 'admin' && $password === 'admin123') {
-        $_SESSION['user_id'] = 'admin-01';
-        $_SESSION['username'] = 'admin';
-        $_SESSION['role'] = 'admin';
-        return true;
+    if (!$result['error'] && !empty($result['data'])) {
+        return $result['data'][0];
     }
     
-    return false;
+    return null;
 }
 
 /**
- * Tarih formatlama
+ * ID listesine göre veri filtrele
+ * 
+ * @param array $data Tüm veri dizisi
+ * @param string $idField ID alanı adı
+ * @param array $idList Filtrelenecek ID listesi
+ * @return array Filtrelenmiş veri dizisi
  */
-function formatDate($date, $format = 'd.m.Y H:i') {
-    $dt = new DateTime($date);
-    return $dt->format($format);
+function filterDataByIds($data, $idField, $idList) {
+    return array_filter($data, function($item) use ($idField, $idList) {
+        return isset($item[$idField]) && in_array($item[$idField], $idList);
+    });
 }
 
 /**
- * HTML çıktısı güvenli hale getirme
+ * Dashboard için özet istatistikleri al
+ * 
+ * @return array İstatistikler
  */
-function escape($string) {
-    return htmlspecialchars($string, ENT_QUOTES, 'UTF-8');
+function getDashboardStats() {
+    $cities_result = getData('cities');
+    $cities = $cities_result['data'];
+    
+    $users_result = getData('users');
+    $users = $users_result['data'];
+    
+    $posts_result = getData('posts');
+    $posts = $posts_result['data'];
+    
+    // Bekleyen şikayetleri say
+    $pending_complaints = 0;
+    foreach ($posts as $post) {
+        if (isset($post['type']) && $post['type'] === 'complaint' && 
+            (!isset($post['is_resolved']) || $post['is_resolved'] === 'false')) {
+            $pending_complaints++;
+        }
+    }
+    
+    // Aktif kullanıcı: son 30 gün içinde etkileşimde bulunanlar
+    $active_users = 0;
+    $thirty_days_ago = time() - (30 * 24 * 60 * 60);
+    foreach ($users as $user) {
+        if (isset($user['created_at']) && strtotime($user['created_at']) > $thirty_days_ago) {
+            $active_users++;
+        }
+    }
+    
+    return [
+        'total_cities' => count($cities),
+        'active_users' => $active_users,
+        'total_posts' => count($posts),
+        'pending_complaints' => $pending_complaints
+    ];
 }
+
+/**
+ * Son aktiviteleri al
+ * 
+ * @param int $limit Kaç aktivite alınacak
+ * @return array Aktiviteler listesi
+ */
+function getRecentActivities($limit = 10) {
+    $posts_result = getData('posts', ['order' => 'created_at.desc', 'limit' => $limit]);
+    $posts = $posts_result['data'];
+    
+    $comments_result = getData('comments', ['order' => 'created_at.desc', 'limit' => $limit]);
+    $comments = $comments_result['data'];
+    
+    $users_result = getData('users');
+    $users = $users_result['data'];
+    
+    $activities = [];
+    
+    // Gönderileri aktivitelere ekle
+    foreach ($posts as $post) {
+        if (isset($post['created_at'])) {
+            $user_name = 'Bilinmeyen Kullanıcı';
+            $user_avatar = '';
+            
+            // Kullanıcı bilgilerini bul
+            if (isset($post['user_id'])) {
+                foreach ($users as $user) {
+                    if ($user['id'] === $post['user_id']) {
+                        $user_name = $user['username'];
+                        $user_avatar = $user['profile_image_url'] ?? '';
+                        break;
+                    }
+                }
+            }
+            
+            $post_type = 'gönderi';
+            if (isset($post['type'])) {
+                switch ($post['type']) {
+                    case 'complaint': $post_type = 'şikayet'; break;
+                    case 'suggestion': $post_type = 'öneri'; break;
+                    case 'question': $post_type = 'soru'; break;
+                    case 'thanks': $post_type = 'teşekkür'; break;
+                }
+            }
+            
+            $activities[] = [
+                'id' => $post['id'],
+                'userId' => $post['user_id'] ?? '',
+                'username' => $user_name,
+                'userAvatar' => $user_avatar,
+                'action' => $post_type . ' paylaştı',
+                'target' => $post['title'] ?? 'Başlıksız',
+                'timestamp' => $post['created_at'],
+                'type' => 'post'
+            ];
+        }
+    }
+    
+    // Yorumları aktivitelere ekle
+    foreach ($comments as $comment) {
+        if (isset($comment['created_at'])) {
+            $user_name = 'Bilinmeyen Kullanıcı';
+            $user_avatar = '';
+            
+            // Kullanıcı bilgilerini bul
+            if (isset($comment['user_id'])) {
+                foreach ($users as $user) {
+                    if ($user['id'] === $comment['user_id']) {
+                        $user_name = $user['username'];
+                        $user_avatar = $user['profile_image_url'] ?? '';
+                        break;
+                    }
+                }
+            }
+            
+            // Gönderi başlığını bul
+            $post_title = 'Bilinmeyen Gönderi';
+            if (isset($comment['post_id'])) {
+                foreach ($posts as $post) {
+                    if ($post['id'] === $comment['post_id']) {
+                        $post_title = $post['title'] ?? 'Başlıksız';
+                        break;
+                    }
+                }
+            }
+            
+            $activities[] = [
+                'id' => $comment['id'],
+                'userId' => $comment['user_id'] ?? '',
+                'username' => $user_name,
+                'userAvatar' => $user_avatar,
+                'action' => 'yorum yaptı',
+                'target' => $post_title,
+                'timestamp' => $comment['created_at'],
+                'type' => 'comment'
+            ];
+        }
+    }
+    
+    // Tarihe göre sırala (en yeni en üstte)
+    usort($activities, function($a, $b) {
+        return strtotime($b['timestamp']) - strtotime($a['timestamp']);
+    });
+    
+    // Limiti uygula
+    return array_slice($activities, 0, $limit);
+}
+
+/**
+ * Gönderi kategorilerinin dağılımını al
+ * 
+ * @return array Kategori dağılımı
+ */
+function getPostCategoriesDistribution() {
+    $posts_result = getData('posts');
+    $posts = $posts_result['data'];
+    
+    $categories = [
+        'complaint' => ['count' => 0, 'name' => 'Şikayet', 'color' => '#dc3545', 'icon' => 'fa-exclamation-circle'],
+        'suggestion' => ['count' => 0, 'name' => 'Öneri', 'color' => '#0d6efd', 'icon' => 'fa-lightbulb'],
+        'question' => ['count' => 0, 'name' => 'Soru', 'color' => '#ffc107', 'icon' => 'fa-question-circle'],
+        'thanks' => ['count' => 0, 'name' => 'Teşekkür', 'color' => '#198754', 'icon' => 'fa-heart']
+    ];
+    
+    $total = 0;
+    
+    // Kategori sayılarını hesapla
+    foreach ($posts as $post) {
+        if (isset($post['type']) && isset($categories[$post['type']])) {
+            $categories[$post['type']]['count']++;
+            $total++;
+        }
+    }
+    
+    // Yüzdeleri hesapla
+    if ($total > 0) {
+        foreach ($categories as $key => $category) {
+            $categories[$key]['percentage'] = round(($category['count'] / $total) * 100, 1);
+        }
+    }
+    
+    return array_values($categories);
+}
+
+/**
+ * Siyasi parti dağılımını al
+ * 
+ * @return array Parti dağılımı
+ */
+function getPoliticalPartyDistribution() {
+    $cities_result = getData('cities');
+    $cities = $cities_result['data'];
+    
+    $parties_result = getData('political_parties');
+    $parties = $parties_result['data'];
+    
+    $distribution = [];
+    $total = 0;
+    
+    // Parti adlarına göre dağılımı hesapla
+    foreach ($cities as $city) {
+        if (isset($city['mayor_party']) && !empty($city['mayor_party'])) {
+            $party_name = $city['mayor_party'];
+            
+            if (!isset($distribution[$party_name])) {
+                // Parti logosunu ve rengini bul
+                $logo = '';
+                $color = '#aaa';
+                
+                foreach ($parties as $party) {
+                    if ($party['name'] === $party_name) {
+                        $logo = $party['logo_url'] ?? '';
+                        // Rastgele renk ata (gerçek durumda parti rengi olabilir)
+                        $colors = ['#0d6efd', '#6610f2', '#6f42c1', '#d63384', '#dc3545', '#fd7e14', '#ffc107', '#198754', '#20c997', '#0dcaf0'];
+                        $color = $colors[array_rand($colors)];
+                        break;
+                    }
+                }
+                
+                $distribution[$party_name] = [
+                    'name' => $party_name,
+                    'count' => 0,
+                    'logo' => $logo,
+                    'color' => $color
+                ];
+            }
+            
+            $distribution[$party_name]['count']++;
+            $total++;
+        }
+    }
+    
+    // Yüzdeleri hesapla
+    if ($total > 0) {
+        foreach ($distribution as $key => $party) {
+            $distribution[$key]['percentage'] = round(($party['count'] / $total) * 100, 1);
+        }
+    }
+    
+    // Count değerine göre azalan sıralama yap
+    usort($distribution, function($a, $b) {
+        return $b['count'] - $a['count'];
+    });
+    
+    return array_values($distribution);
+}
+
+/**
+ * Breadcrumb navigasyonu oluştur
+ * 
+ * @param array $items Navigasyon öğeleri [['title' => 'Ana Sayfa', 'url' => 'index.php'], ...]
+ * @return string HTML breadcrumb 
+ */
+function generateBreadcrumb($items) {
+    $html = '<nav aria-label="breadcrumb"><ol class="breadcrumb">';
+    
+    $count = count($items);
+    foreach ($items as $index => $item) {
+        $isLast = $index === $count - 1;
+        
+        if ($isLast) {
+            $html .= '<li class="breadcrumb-item active" aria-current="page">' . escape($item['title']) . '</li>';
+        } else {
+            $html .= '<li class="breadcrumb-item"><a href="' . escape($item['url']) . '">' . escape($item['title']) . '</a></li>';
+        }
+    }
+    
+    $html .= '</ol></nav>';
+    return $html;
+}
+
+/**
+ * Ana menü öğelerini oluştur
+ * 
+ * @param string $active_page Aktif sayfa
+ * @return array Menü öğeleri
+ */
+function getMainMenuItems($active_page = '') {
+    return [
+        [
+            'id' => 'dashboard',
+            'title' => 'Dashboard',
+            'url' => 'index.php?page=dashboard',
+            'icon' => 'fas fa-tachometer-alt',
+            'active' => $active_page === 'dashboard'
+        ],
+        [
+            'id' => 'cities',
+            'title' => 'Şehirler',
+            'url' => 'index.php?page=cities',
+            'icon' => 'fas fa-city',
+            'active' => $active_page === 'cities'
+        ],
+        [
+            'id' => 'districts',
+            'title' => 'İlçeler',
+            'url' => 'index.php?page=districts',
+            'icon' => 'fas fa-map-marker-alt',
+            'active' => $active_page === 'districts'
+        ],
+        [
+            'id' => 'parties',
+            'title' => 'Siyasi Partiler',
+            'url' => 'index.php?page=parties',
+            'icon' => 'fas fa-flag',
+            'active' => $active_page === 'parties'
+        ],
+        [
+            'id' => 'posts',
+            'title' => 'Gönderiler',
+            'url' => 'index.php?page=posts',
+            'icon' => 'fas fa-newspaper',
+            'active' => $active_page === 'posts'
+        ],
+        [
+            'id' => 'comments',
+            'title' => 'Yorumlar',
+            'url' => 'index.php?page=comments',
+            'icon' => 'fas fa-comments',
+            'active' => $active_page === 'comments'
+        ],
+        [
+            'id' => 'announcements',
+            'title' => 'Duyurular',
+            'url' => 'index.php?page=announcements',
+            'icon' => 'fas fa-bullhorn',
+            'active' => $active_page === 'announcements'
+        ],
+        [
+            'id' => 'users',
+            'title' => 'Kullanıcılar',
+            'url' => 'index.php?page=users',
+            'icon' => 'fas fa-users',
+            'active' => $active_page === 'users'
+        ]
+    ];
+}
+
+/**
+ * Sayfa başlığı oluştur
+ * 
+ * @param string $page_id Sayfa kimliği
+ * @return string Sayfa başlığı
+ */
+function getPageTitle($page_id) {
+    $titles = [
+        'dashboard' => 'Dashboard',
+        'cities' => 'Şehirler Yönetimi',
+        'districts' => 'İlçeler Yönetimi',
+        'parties' => 'Siyasi Partiler Yönetimi',
+        'posts' => 'Gönderiler Yönetimi',
+        'comments' => 'Yorumlar Yönetimi',
+        'announcements' => 'Duyurular Yönetimi',
+        'users' => 'Kullanıcılar Yönetimi',
+        'login' => 'Giriş Yap',
+        'error' => 'Hata',
+        'not_found' => 'Sayfa Bulunamadı'
+    ];
+    
+    return isset($titles[$page_id]) ? $titles[$page_id] . ' - ' . SITE_TITLE : SITE_TITLE;
+}
+
+/**
+ * Rastgele UUID oluştur
+ * 
+ * @return string UUID
+ */
+function generateUUID() {
+    return sprintf(
+        '%04x%04x-%04x-%04x-%04x-%04x%04x%04x',
+        mt_rand(0, 0xffff), mt_rand(0, 0xffff),
+        mt_rand(0, 0xffff),
+        mt_rand(0, 0x0fff) | 0x4000,
+        mt_rand(0, 0x3fff) | 0x8000,
+        mt_rand(0, 0xffff), mt_rand(0, 0xffff), mt_rand(0, 0xffff)
+    );
+}
+?>
