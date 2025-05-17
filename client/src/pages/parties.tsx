@@ -5,9 +5,9 @@ import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
 import { DataTable } from "@/components/ui/data-table";
+import { StatusBadge } from "@/components/ui/status-badge";
 import { Modal } from "@/components/ui/modal";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
-import { PartyForm } from "@/components/forms/PartyForm";
 import { Spinner } from "@/components/ui/spinner";
 import { PaginationInfo } from "@shared/types";
 
@@ -22,8 +22,9 @@ export default function Parties() {
   const [editingPartyId, setEditingPartyId] = useState<string | null>(null);
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [deletingPartyId, setDeletingPartyId] = useState<string | null>(null);
+  const [viewingPartyId, setViewingPartyId] = useState<string | null>(null);
 
-  // Fetch parties data
+  // Fetch political parties data
   const {
     data: partiesData,
     isLoading,
@@ -34,8 +35,8 @@ export default function Parties() {
       page,
       pageSize,
       searchTerm,
+      filters.status,
     ],
-    // The actual queryFn is defined in queryClient.ts
   });
 
   // Delete mutation
@@ -78,70 +79,126 @@ export default function Parties() {
     setPage(1); // Reset to first page on new filter
   };
 
+  // Format date
+  const formatDate = (dateString: string) => {
+    const date = new Date(dateString);
+    return new Intl.DateTimeFormat('tr-TR', {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric'
+    }).format(date);
+  };
+
+  // Get color from party name (for consistent colors)
+  const getPartyColor = (name: string) => {
+    const colors = [
+      "bg-red-100 text-red-800",
+      "bg-blue-100 text-blue-800",
+      "bg-green-100 text-green-800",
+      "bg-yellow-100 text-yellow-800",
+      "bg-purple-100 text-purple-800",
+      "bg-indigo-100 text-indigo-800",
+      "bg-pink-100 text-pink-800",
+    ];
+    
+    let hash = 0;
+    for (let i = 0; i < name.length; i++) {
+      hash = name.charCodeAt(i) + ((hash << 5) - hash);
+    }
+    
+    const index = Math.abs(hash) % colors.length;
+    return colors[index];
+  };
+
   // Table columns
   const columns = [
     {
       accessorKey: "name",
-      header: t("common.name"),
+      header: t("parties.table.name"),
       cell: ({ row }: any) => (
         <div className="flex items-center">
           <div className="flex-shrink-0 h-10 w-10">
             <img 
               className="h-10 w-10 rounded-full" 
-              src={row.original.logoUrl || `https://ui-avatars.com/api/?name=${encodeURIComponent(row.original.name)}&background=random`} 
-              alt={row.original.name + " logo"} 
+              src={row.original.logo_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(row.original.name)}&background=random`} 
+              alt={row.original.name} 
             />
           </div>
           <div className="ml-4">
             <div className="text-sm font-medium text-gray-900">{row.original.name}</div>
+            <div className="text-xs text-gray-500">{row.original.short_name}</div>
           </div>
         </div>
       ),
     },
     {
+      accessorKey: "leader_name",
+      header: t("parties.table.leader"),
+      cell: ({ row }: any) => (
+        <span className="text-sm text-gray-900">{row.original.leader_name || "-"}</span>
+      ),
+    },
+    {
+      accessorKey: "city_count",
+      header: t("parties.table.cities"),
+      cell: ({ row }: any) => (
+        <div className="text-center">
+          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+            {row.original.city_count || 0}
+          </span>
+        </div>
+      ),
+    },
+    {
       accessorKey: "score",
-      header: t("common.score"),
+      header: t("parties.table.score"),
       cell: ({ row }: any) => {
-        const score = parseFloat(row.original.score);
-        
-        let colorClass = "text-gray-700";
-        if (score >= 8) colorClass = "text-green-600";
-        else if (score >= 6) colorClass = "text-blue-600";
-        else if (score >= 4) colorClass = "text-yellow-600";
-        else colorClass = "text-red-600";
+        const score = row.original.score ? parseFloat(row.original.score) : 0;
+        const maxScore = 5;
+        const fillPercentage = (score / maxScore) * 100;
         
         return (
           <div className="flex items-center">
-            <span className={`material-icons mr-1 ${colorClass}`}>star</span>
-            <span className={`text-sm font-medium ${colorClass}`}>
-              {score ? score.toFixed(1) : '-'}
-            </span>
+            <div className="w-24 bg-gray-200 rounded-full h-2.5 mr-2">
+              <div 
+                className="bg-blue-600 h-2.5 rounded-full" 
+                style={{ width: `${fillPercentage}%` }}
+              ></div>
+            </div>
+            <span className="text-sm text-gray-500">{score.toFixed(1)}</span>
           </div>
         );
       },
     },
     {
-      accessorKey: "municipalityCount",
-      header: t("cities.title"),
+      accessorKey: "founded_date",
+      header: t("parties.table.founded"),
       cell: ({ row }: any) => (
-        <span className="text-sm text-gray-700">
-          {row.original.municipalityCount || 0}
+        <span className="text-sm text-gray-500">
+          {row.original.founded_date ? formatDate(row.original.founded_date) : "-"}
         </span>
       ),
     },
     {
-      accessorKey: "lastUpdated",
-      header: t("common.updated.at"),
-      cell: ({ row }: any) => (
-        <span className="text-sm text-gray-700">
-          {new Date(row.original.lastUpdated).toLocaleDateString()}
-        </span>
-      ),
+      accessorKey: "status",
+      header: t("parties.table.status"),
+      cell: ({ row }: any) => {
+        const status = row.original.is_active ? "active" : "inactive";
+        return <StatusBadge status={status} />;
+      },
     },
     {
       id: "actions",
       cell: ({ row }: any) => (
         <div className="flex justify-end space-x-1">
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => setViewingPartyId(row.original.id)}
+            className="text-blue-600 hover:text-blue-900"
+          >
+            <span className="material-icons text-sm">visibility</span>
+          </Button>
           <Button
             variant="ghost"
             size="icon"
@@ -160,6 +217,19 @@ export default function Parties() {
           </Button>
         </div>
       ),
+    },
+  ];
+
+  // Filter options
+  const filterOptions = [
+    {
+      column: "is_active",
+      label: "parties.filter.status",
+      options: [
+        { value: "", label: "parties.filter.all.statuses" },
+        { value: "true", label: "parties.status.active" },
+        { value: "false", label: "parties.status.inactive" },
+      ],
     },
   ];
 
@@ -201,26 +271,99 @@ export default function Parties() {
         onPaginationChange={handlePaginationChange}
         onSearch={handleSearch}
         onFilter={handleFilter}
-        searchPlaceholder={t("common.search")}
+        searchPlaceholder={t("parties.search")}
+        filterOptions={filterOptions}
       />
 
-      {/* Add/Edit Modal */}
-      {(isAddModalOpen || editingPartyId) && (
+      {/* View Party Modal */}
+      {viewingPartyId && (
         <Modal
-          title={editingPartyId ? t("common.edit") : t("parties.addnew")}
+          title={t("parties.view")}
           isOpen={true}
-          onClose={() => {
-            setIsAddModalOpen(false);
-            setEditingPartyId(null);
-          }}
+          onClose={() => setViewingPartyId(null)}
         >
-          <PartyForm
-            partyId={editingPartyId || undefined}
-            onClose={() => {
-              setIsAddModalOpen(false);
-              setEditingPartyId(null);
-            }}
-          />
+          <div className="p-4">
+            {partiesData?.data.find((party: any) => party.id === viewingPartyId) && (
+              <div>
+                <div className="flex items-center mb-6">
+                  <div className="flex-shrink-0 h-16 w-16">
+                    <img 
+                      className="h-16 w-16 rounded-full" 
+                      src={partiesData?.data.find((party: any) => party.id === viewingPartyId)?.logo_url || 
+                        `https://ui-avatars.com/api/?name=${encodeURIComponent(
+                          partiesData?.data.find((party: any) => party.id === viewingPartyId)?.name || 'Party'
+                        )}&background=random&size=64`
+                      } 
+                      alt="Party logo" 
+                    />
+                  </div>
+                  <div className="ml-4">
+                    <h3 className="text-lg font-medium text-gray-900">
+                      {partiesData?.data.find((party: any) => party.id === viewingPartyId)?.name}
+                    </h3>
+                    <p className="text-sm text-gray-500">
+                      {partiesData?.data.find((party: any) => party.id === viewingPartyId)?.short_name}
+                    </p>
+                  </div>
+                </div>
+                
+                <div className="grid grid-cols-2 gap-4 mb-4">
+                  <div className="bg-gray-50 p-3 rounded-md">
+                    <p className="text-xs text-gray-500 mb-1">{t("parties.leader")}</p>
+                    <p className="text-sm font-medium">
+                      {partiesData?.data.find((party: any) => party.id === viewingPartyId)?.leader_name || "-"}
+                    </p>
+                  </div>
+                  <div className="bg-gray-50 p-3 rounded-md">
+                    <p className="text-xs text-gray-500 mb-1">{t("parties.founded")}</p>
+                    <p className="text-sm font-medium">
+                      {partiesData?.data.find((party: any) => party.id === viewingPartyId)?.founded_date ? 
+                        formatDate(partiesData?.data.find((party: any) => party.id === viewingPartyId)?.founded_date) : "-"}
+                    </p>
+                  </div>
+                </div>
+                
+                <div className="mb-4">
+                  <p className="text-xs text-gray-500 mb-1">{t("parties.description")}</p>
+                  <p className="text-sm text-gray-800 whitespace-pre-line">
+                    {partiesData?.data.find((party: any) => party.id === viewingPartyId)?.description || 
+                     t("parties.no.description")}
+                  </p>
+                </div>
+                
+                <div className="flex items-center justify-between p-3 bg-gray-50 rounded-md">
+                  <div>
+                    <p className="text-xs text-gray-500 mb-1">{t("parties.score")}</p>
+                    <div className="flex items-center">
+                      {Array.from({ length: 5 }).map((_, i) => (
+                        <span 
+                          key={i} 
+                          className={`material-icons text-lg ${
+                            i < (partiesData?.data.find((party: any) => party.id === viewingPartyId)?.score || 0) 
+                              ? "text-yellow-500" 
+                              : "text-gray-300"
+                          }`}
+                        >
+                          star
+                        </span>
+                      ))}
+                      <span className="ml-2 text-sm font-medium">
+                        {partiesData?.data.find((party: any) => party.id === viewingPartyId)?.score || "0"}/5
+                      </span>
+                    </div>
+                  </div>
+                  <div>
+                    <p className="text-xs text-gray-500 mb-1">{t("parties.cities")}</p>
+                    <div className="text-center">
+                      <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-blue-100 text-blue-800">
+                        {partiesData?.data.find((party: any) => party.id === viewingPartyId)?.city_count || 0}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
         </Modal>
       )}
 

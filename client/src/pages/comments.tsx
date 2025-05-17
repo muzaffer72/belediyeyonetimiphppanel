@@ -8,7 +8,6 @@ import { DataTable } from "@/components/ui/data-table";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { Modal } from "@/components/ui/modal";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
-import { Textarea } from "@/components/ui/textarea";
 import { Spinner } from "@/components/ui/spinner";
 import { PaginationInfo } from "@shared/types";
 import { formatDistanceToNow } from "date-fns";
@@ -22,8 +21,8 @@ export default function Comments() {
   const [pageSize, setPageSize] = useState(10);
   const [searchTerm, setSearchTerm] = useState("");
   const [filters, setFilters] = useState<any>({});
-  const [editingComment, setEditingComment] = useState<any>(null);
-  const [editContent, setEditContent] = useState("");
+  const [editingCommentId, setEditingCommentId] = useState<string | null>(null);
+  const [viewingCommentId, setViewingCommentId] = useState<string | null>(null);
   const [deletingCommentId, setDeletingCommentId] = useState<string | null>(null);
 
   // Fetch comments data
@@ -37,10 +36,9 @@ export default function Comments() {
       page,
       pageSize,
       searchTerm,
-      filters.postId,
-      filters.isHidden,
+      filters.status,
+      filters.postType,
     ],
-    // The actual queryFn is defined in queryClient.ts
   });
 
   // Delete mutation
@@ -65,10 +63,10 @@ export default function Comments() {
     },
   });
 
-  // Update comment mutation
-  const updateMutation = useMutation({
-    mutationFn: async ({ id, data }: { id: string; data: any }) => {
-      return apiRequest("PUT", `/api/comments/${id}`, data);
+  // Update comment status (approve/reject)
+  const updateStatusMutation = useMutation({
+    mutationFn: async ({ id, status }: { id: string; status: string }) => {
+      return apiRequest("PATCH", `/api/comments/${id}`, { status });
     },
     onSuccess: () => {
       toast({
@@ -76,7 +74,6 @@ export default function Comments() {
         description: t("notifications.updated"),
       });
       queryClient.invalidateQueries({ queryKey: ['/api/comments'] });
-      setEditingComment(null);
     },
     onError: (error) => {
       toast({
@@ -86,24 +83,6 @@ export default function Comments() {
       });
     },
   });
-
-  // Toggle comment hidden status
-  const toggleHidden = (id: string, isHidden: boolean) => {
-    updateMutation.mutate({ 
-      id, 
-      data: { isHidden: !isHidden } 
-    });
-  };
-
-  // Handle edit submission
-  const handleSaveEdit = () => {
-    if (!editingComment) return;
-    
-    updateMutation.mutate({ 
-      id: editingComment.id, 
-      data: { content: editContent } 
-    });
-  };
 
   // Handle pagination change
   const handlePaginationChange = (newPage: number, newPageSize: number) => {
@@ -123,99 +102,116 @@ export default function Comments() {
     setPage(1); // Reset to first page on new filter
   };
 
-  // Format date with locale
-  const formatDate = (date: string) => {
+  // Format date
+  const formatDate = (dateString: string) => {
     try {
-      return formatDistanceToNow(new Date(date), {
+      return formatDistanceToNow(new Date(dateString), {
         addSuffix: true,
         locale: locale === 'tr' ? tr : enUS,
       });
     } catch (error) {
-      return date;
+      return dateString;
     }
+  };
+
+  // Truncate text
+  const truncateText = (text: string, maxLength: number = 100) => {
+    if (!text) return '';
+    return text.length > maxLength ? text.slice(0, maxLength) + '...' : text;
   };
 
   // Table columns
   const columns = [
     {
       accessorKey: "content",
-      header: t("common.content"),
+      header: t("comments.table.comment"),
       cell: ({ row }: any) => (
         <div className="max-w-md">
-          <div className="text-sm text-gray-700">{row.original.content}</div>
+          <div className="text-sm text-gray-900">{truncateText(row.original.content, 150)}</div>
         </div>
       ),
     },
     {
-      accessorKey: "userId",
-      header: t("common.username"),
-      cell: ({ row }: any) => {
-        const user = row.original.user || {};
-        return (
-          <div className="flex items-center">
-            <div className="flex-shrink-0 h-8 w-8">
-              <img 
-                className="h-8 w-8 rounded-full" 
-                src={user.profileImageUrl || `https://ui-avatars.com/api/?name=${encodeURIComponent(user.username || "User")}&background=random`} 
-                alt={user.username} 
-              />
-            </div>
-            <div className="ml-3">
-              <p className="text-sm font-medium text-gray-700">{user.username || "Unknown"}</p>
-            </div>
-          </div>
-        );
-      },
+      accessorKey: "post",
+      header: t("comments.table.post"),
+      cell: ({ row }: any) => (
+        <div className="max-w-xs">
+          <div className="text-sm font-medium text-gray-900 truncate">{row.original.postTitle}</div>
+          <div className="text-xs text-gray-500">{row.original.postType}</div>
+        </div>
+      ),
     },
     {
-      accessorKey: "postId",
-      header: t("common.post"),
+      accessorKey: "user",
+      header: t("comments.table.author"),
       cell: ({ row }: any) => (
-        <span className="text-sm text-gray-700 truncate max-w-[200px] block">
-          {row.original.post?.title || row.original.postId}
-        </span>
+        <div className="flex items-center">
+          <div className="flex-shrink-0 h-8 w-8">
+            <img 
+              className="h-8 w-8 rounded-full" 
+              src={row.original.userAvatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(row.original.username || 'User')}&background=random`} 
+              alt={row.original.username} 
+            />
+          </div>
+          <div className="ml-3">
+            <div className="text-sm font-medium text-gray-900">{row.original.username}</div>
+          </div>
+        </div>
       ),
     },
     {
       accessorKey: "createdAt",
-      header: t("common.created.at"),
+      header: t("comments.table.date"),
       cell: ({ row }: any) => (
-        <span className="text-sm text-gray-700">
-          {formatDate(row.original.createdAt)}
-        </span>
+        <span className="text-sm text-gray-500">{formatDate(row.original.createdAt)}</span>
       ),
     },
     {
       accessorKey: "status",
-      header: t("common.status"),
-      cell: ({ row }: any) => (
-        <div>
-          {row.original.isHidden && (
-            <StatusBadge status="inactive" statusKey="common.hide" />
-          )}
-        </div>
-      ),
+      header: t("comments.table.status"),
+      cell: ({ row }: any) => {
+        const status = row.original.status || "pending";
+        return <StatusBadge status={status} />;
+      },
     },
     {
       id: "actions",
       cell: ({ row }: any) => (
         <div className="flex justify-end space-x-1">
+          {row.original.status === "pending" && (
+            <>
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => updateStatusMutation.mutate({ id: row.original.id, status: "approved" })}
+                className="text-green-600 hover:text-green-900"
+                title={t("comments.approve")}
+              >
+                <span className="material-icons text-sm">check_circle</span>
+              </Button>
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => updateStatusMutation.mutate({ id: row.original.id, status: "rejected" })}
+                className="text-red-600 hover:text-red-900"
+                title={t("comments.reject")}
+              >
+                <span className="material-icons text-sm">cancel</span>
+              </Button>
+            </>
+          )}
           <Button
             variant="ghost"
             size="icon"
-            onClick={() => toggleHidden(row.original.id, row.original.isHidden)}
-            className={row.original.isHidden ? "text-red-600" : "text-gray-400"}
-            title={row.original.isHidden ? t("common.show") : t("common.hide")}
+            onClick={() => setViewingCommentId(row.original.id)}
+            className="text-blue-600 hover:text-blue-900"
           >
-            <span className="material-icons text-sm">visibility_off</span>
+            <span className="material-icons text-sm">visibility</span>
           </Button>
           <Button
             variant="ghost"
             size="icon"
-            onClick={() => {
-              setEditingComment(row.original);
-              setEditContent(row.original.content);
-            }}
+            onClick={() => setEditingCommentId(row.original.id)}
             className="text-primary-600 hover:text-primary-900"
           >
             <span className="material-icons text-sm">edit</span>
@@ -236,12 +232,24 @@ export default function Comments() {
   // Filter options
   const filterOptions = [
     {
-      column: "isHidden",
-      label: "common.status",
+      column: "status",
+      label: "comments.filter.status",
       options: [
-        { value: "", label: "common.all" },
-        { value: "true", label: "common.hide" },
-        { value: "false", label: "common.show" },
+        { value: "", label: "comments.filter.all.statuses" },
+        { value: "pending", label: "comments.status.pending" },
+        { value: "approved", label: "comments.status.approved" },
+        { value: "rejected", label: "comments.status.rejected" },
+      ],
+    },
+    {
+      column: "postType",
+      label: "comments.filter.post.type",
+      options: [
+        { value: "", label: "comments.filter.all.types" },
+        { value: "complaint", label: "posts.types.complaint" },
+        { value: "suggestion", label: "posts.types.suggestion" },
+        { value: "question", label: "posts.types.question" },
+        { value: "thanks", label: "posts.types.thanks" },
       ],
     },
   ];
@@ -278,35 +286,54 @@ export default function Comments() {
         onPaginationChange={handlePaginationChange}
         onSearch={handleSearch}
         onFilter={handleFilter}
-        searchPlaceholder={t("common.search")}
+        searchPlaceholder={t("comments.search")}
         filterOptions={filterOptions}
       />
 
-      {/* Edit Modal */}
-      {editingComment && (
+      {/* View Comment Modal */}
+      {viewingCommentId && (
         <Modal
-          title={t("common.edit")}
+          title={t("comments.view")}
           isOpen={true}
-          onClose={() => setEditingComment(null)}
+          onClose={() => setViewingCommentId(null)}
         >
-          <div className="space-y-4 py-2">
-            <Textarea
-              value={editContent}
-              onChange={(e) => setEditContent(e.target.value)}
-              rows={4}
-            />
-            <div className="flex justify-end space-x-3">
-              <Button
-                variant="outline"
-                onClick={() => setEditingComment(null)}
-              >
-                {t("common.cancel")}
-              </Button>
-              <Button onClick={handleSaveEdit} disabled={updateMutation.isPending}>
-                {updateMutation.isPending ? <Spinner className="mr-2" /> : null}
-                {t("common.save")}
-              </Button>
-            </div>
+          <div className="p-4">
+            {commentsData?.data.find((comment: any) => comment.id === viewingCommentId) && (
+              <div>
+                <div className="flex items-center mb-4">
+                  <div className="flex-shrink-0 h-10 w-10">
+                    <img 
+                      className="h-10 w-10 rounded-full" 
+                      src={commentsData?.data.find((comment: any) => comment.id === viewingCommentId)?.userAvatar || 
+                        `https://ui-avatars.com/api/?name=${encodeURIComponent(
+                          commentsData?.data.find((comment: any) => comment.id === viewingCommentId)?.username || 'User'
+                        )}&background=random`
+                      } 
+                      alt="User avatar" 
+                    />
+                  </div>
+                  <div className="ml-3">
+                    <p className="text-sm font-medium text-gray-900">
+                      {commentsData?.data.find((comment: any) => comment.id === viewingCommentId)?.username}
+                    </p>
+                    <p className="text-xs text-gray-500">
+                      {formatDate(commentsData?.data.find((comment: any) => comment.id === viewingCommentId)?.createdAt)}
+                    </p>
+                  </div>
+                </div>
+                <div className="mb-4">
+                  <p className="text-gray-800">
+                    {commentsData?.data.find((comment: any) => comment.id === viewingCommentId)?.content}
+                  </p>
+                </div>
+                <div className="bg-gray-50 p-3 rounded-md">
+                  <p className="text-xs text-gray-500 mb-1">{t("comments.on.post")}</p>
+                  <p className="text-sm font-medium">
+                    {commentsData?.data.find((comment: any) => comment.id === viewingCommentId)?.postTitle}
+                  </p>
+                </div>
+              </div>
+            )}
           </div>
         </Modal>
       )}

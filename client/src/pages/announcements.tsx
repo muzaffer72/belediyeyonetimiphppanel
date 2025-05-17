@@ -8,7 +8,6 @@ import { DataTable } from "@/components/ui/data-table";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { Modal } from "@/components/ui/modal";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
-import { AnnouncementForm } from "@/components/forms/AnnouncementForm";
 import { Spinner } from "@/components/ui/spinner";
 import { PaginationInfo } from "@shared/types";
 import { formatDistanceToNow } from "date-fns";
@@ -25,6 +24,7 @@ export default function Announcements() {
   const [editingAnnouncementId, setEditingAnnouncementId] = useState<string | null>(null);
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [deletingAnnouncementId, setDeletingAnnouncementId] = useState<string | null>(null);
+  const [viewingAnnouncementId, setViewingAnnouncementId] = useState<string | null>(null);
 
   // Fetch announcements data
   const {
@@ -37,15 +37,9 @@ export default function Announcements() {
       page,
       pageSize,
       searchTerm,
-      filters.municipalityId,
-      filters.isActive,
+      filters.status,
+      filters.city,
     ],
-    // The actual queryFn is defined in queryClient.ts
-  });
-
-  // Fetch cities for filter dropdown
-  const { data: cities } = useQuery({
-    queryKey: ['/api/cities'],
   });
 
   // Delete mutation
@@ -70,31 +64,6 @@ export default function Announcements() {
     },
   });
 
-  // Toggle active status
-  const toggleActive = (id: string, isActive: boolean) => {
-    const updateMutation = useMutation({
-      mutationFn: async ({ id, data }: { id: string; data: any }) => {
-        return apiRequest("PUT", `/api/municipality-announcements/${id}`, data);
-      },
-      onSuccess: () => {
-        queryClient.invalidateQueries({ queryKey: ['/api/municipality-announcements'] });
-        toast({
-          title: t("notifications.success"),
-          description: isActive ? t("notifications.deactivated") : t("notifications.activated"),
-        });
-      },
-      onError: (error) => {
-        toast({
-          title: t("notifications.error"),
-          description: t("notifications.error.occurred"),
-          variant: "destructive",
-        });
-      },
-    });
-
-    updateMutation.mutate({ id, data: { isActive: !isActive } });
-  };
-
   // Handle pagination change
   const handlePaginationChange = (newPage: number, newPageSize: number) => {
     setPage(newPage);
@@ -113,68 +82,103 @@ export default function Announcements() {
     setPage(1); // Reset to first page on new filter
   };
 
-  // Format date with locale
-  const formatDate = (date: string) => {
+  // Format date
+  const formatDate = (dateString: string) => {
     try {
-      return formatDistanceToNow(new Date(date), {
+      return formatDistanceToNow(new Date(dateString), {
         addSuffix: true,
         locale: locale === 'tr' ? tr : enUS,
       });
     } catch (error) {
-      return date;
+      return dateString;
     }
+  };
+
+  // Format long date
+  const formatLongDate = (dateString: string) => {
+    try {
+      return new Date(dateString).toLocaleString(locale === 'tr' ? 'tr-TR' : 'en-US', {
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit',
+      });
+    } catch (error) {
+      return dateString;
+    }
+  };
+
+  // Truncate text
+  const truncateText = (text: string, maxLength: number = 100) => {
+    if (!text) return '';
+    return text.length > maxLength ? text.slice(0, maxLength) + '...' : text;
   };
 
   // Table columns
   const columns = [
     {
       accessorKey: "title",
-      header: t("common.title"),
+      header: t("announcements.table.title"),
       cell: ({ row }: any) => (
         <div className="max-w-md">
           <div className="text-sm font-medium text-gray-900">{row.original.title}</div>
-          <div className="text-xs text-gray-500 truncate">{row.original.content}</div>
+          <div className="text-xs text-gray-500 truncate">{truncateText(row.original.content, 100)}</div>
         </div>
       ),
     },
     {
-      accessorKey: "municipalityId",
-      header: t("dashboard.total.municipalities"),
-      cell: ({ row }: any) => {
-        const cityName = cities?.data?.find((city: any) => city.id === row.original.municipalityId)?.name || "-";
-        return <span className="text-sm text-gray-700">{cityName}</span>;
-      },
-    },
-    {
-      accessorKey: "imageUrl",
-      header: t("common.image"),
+      accessorKey: "city",
+      header: t("announcements.table.city"),
       cell: ({ row }: any) => (
-        row.original.imageUrl ? (
-          <div className="w-10 h-10 overflow-hidden rounded-md">
+        <div className="flex items-center">
+          <div className="flex-shrink-0 h-8 w-8">
             <img 
-              src={row.original.imageUrl} 
-              alt={row.original.title}
-              className="w-full h-full object-cover" 
+              className="h-8 w-8 rounded-full" 
+              src={row.original.cityLogo || `https://ui-avatars.com/api/?name=${encodeURIComponent(row.original.cityName || 'City')}&background=random`} 
+              alt={row.original.cityName} 
             />
           </div>
-        ) : <span className="text-gray-400">-</span>
+          <div className="ml-3">
+            <div className="text-sm font-medium text-gray-900">{row.original.cityName}</div>
+          </div>
+        </div>
       ),
     },
     {
-      accessorKey: "createdAt",
-      header: t("common.created.at"),
+      accessorKey: "startDate",
+      header: t("announcements.table.start.date"),
       cell: ({ row }: any) => (
-        <span className="text-sm text-gray-700">
-          {formatDate(row.original.createdAt)}
-        </span>
+        <span className="text-sm text-gray-500">{formatDate(row.original.startDate)}</span>
+      ),
+    },
+    {
+      accessorKey: "endDate",
+      header: t("announcements.table.end.date"),
+      cell: ({ row }: any) => (
+        <span className="text-sm text-gray-500">{formatDate(row.original.endDate)}</span>
       ),
     },
     {
       accessorKey: "status",
-      header: t("common.status"),
-      cell: ({ row }: any) => (
-        <StatusBadge status={row.original.isActive ? "active" : "inactive"} />
-      ),
+      header: t("announcements.table.status"),
+      cell: ({ row }: any) => {
+        // Determine status based on dates
+        const now = new Date();
+        const startDate = new Date(row.original.startDate);
+        const endDate = new Date(row.original.endDate);
+        
+        let status = "inactive";
+        if (now >= startDate && now <= endDate) {
+          status = "active";
+        } else if (now < startDate) {
+          status = "pending";
+        } else if (now > endDate) {
+          status = "expired";
+        }
+        
+        return <StatusBadge status={status} />;
+      },
     },
     {
       id: "actions",
@@ -183,13 +187,10 @@ export default function Announcements() {
           <Button
             variant="ghost"
             size="icon"
-            onClick={() => toggleActive(row.original.id, row.original.isActive)}
-            className={row.original.isActive ? "text-green-600" : "text-gray-400"}
-            title={row.original.isActive ? t("common.deactivate") : t("common.activate")}
+            onClick={() => setViewingAnnouncementId(row.original.id)}
+            className="text-blue-600 hover:text-blue-900"
           >
-            <span className="material-icons text-sm">
-              {row.original.isActive ? "toggle_on" : "toggle_off"}
-            </span>
+            <span className="material-icons text-sm">visibility</span>
           </Button>
           <Button
             variant="ghost"
@@ -215,23 +216,24 @@ export default function Announcements() {
   // Filter options
   const filterOptions = [
     {
-      column: "municipalityId",
-      label: "dashboard.total.municipalities",
+      column: "status",
+      label: "announcements.filter.status",
       options: [
-        { value: "", label: "common.all" },
-        ...(cities?.data || []).map((city: any) => ({
-          value: city.id,
-          label: city.name,
-        })),
+        { value: "", label: "announcements.filter.all.statuses" },
+        { value: "active", label: "announcements.status.active" },
+        { value: "pending", label: "announcements.status.pending" },
+        { value: "expired", label: "announcements.status.expired" },
       ],
     },
     {
-      column: "isActive",
-      label: "common.status",
+      column: "city",
+      label: "announcements.filter.city",
       options: [
-        { value: "", label: "common.all" },
-        { value: "true", label: "common.active" },
-        { value: "false", label: "common.inactive" },
+        { value: "", label: "announcements.filter.all.cities" },
+        ...(announcementsData?.cities || []).map((city: any) => ({
+          value: city.id,
+          label: city.name,
+        })),
       ],
     },
   ];
@@ -274,27 +276,63 @@ export default function Announcements() {
         onPaginationChange={handlePaginationChange}
         onSearch={handleSearch}
         onFilter={handleFilter}
-        searchPlaceholder={t("common.search")}
+        searchPlaceholder={t("announcements.search")}
         filterOptions={filterOptions}
       />
 
-      {/* Add/Edit Modal */}
-      {(isAddModalOpen || editingAnnouncementId) && (
+      {/* View Announcement Modal */}
+      {viewingAnnouncementId && (
         <Modal
-          title={editingAnnouncementId ? t("common.edit") : t("announcements.addnew")}
+          title={t("announcements.view")}
           isOpen={true}
-          onClose={() => {
-            setIsAddModalOpen(false);
-            setEditingAnnouncementId(null);
-          }}
+          onClose={() => setViewingAnnouncementId(null)}
         >
-          <AnnouncementForm
-            announcementId={editingAnnouncementId || undefined}
-            onClose={() => {
-              setIsAddModalOpen(false);
-              setEditingAnnouncementId(null);
-            }}
-          />
+          <div className="p-4">
+            {announcementsData?.data.find((announcement: any) => announcement.id === viewingAnnouncementId) && (
+              <div>
+                <div className="flex items-center mb-4">
+                  <div className="flex-shrink-0 h-10 w-10">
+                    <img 
+                      className="h-10 w-10 rounded-full" 
+                      src={announcementsData?.data.find((announcement: any) => announcement.id === viewingAnnouncementId)?.cityLogo || 
+                        `https://ui-avatars.com/api/?name=${encodeURIComponent(
+                          announcementsData?.data.find((announcement: any) => announcement.id === viewingAnnouncementId)?.cityName || 'City'
+                        )}&background=random`
+                      } 
+                      alt="City logo" 
+                    />
+                  </div>
+                  <div className="ml-3">
+                    <p className="text-sm font-medium text-gray-900">
+                      {announcementsData?.data.find((announcement: any) => announcement.id === viewingAnnouncementId)?.cityName}
+                    </p>
+                  </div>
+                </div>
+                <div className="mb-4">
+                  <h3 className="text-lg font-medium text-gray-900 mb-2">
+                    {announcementsData?.data.find((announcement: any) => announcement.id === viewingAnnouncementId)?.title}
+                  </h3>
+                  <p className="text-gray-800 whitespace-pre-line">
+                    {announcementsData?.data.find((announcement: any) => announcement.id === viewingAnnouncementId)?.content}
+                  </p>
+                </div>
+                <div className="grid grid-cols-2 gap-4 mt-4">
+                  <div className="bg-gray-50 p-3 rounded-md">
+                    <p className="text-xs text-gray-500 mb-1">{t("announcements.start.date")}</p>
+                    <p className="text-sm font-medium">
+                      {formatLongDate(announcementsData?.data.find((announcement: any) => announcement.id === viewingAnnouncementId)?.startDate)}
+                    </p>
+                  </div>
+                  <div className="bg-gray-50 p-3 rounded-md">
+                    <p className="text-xs text-gray-500 mb-1">{t("announcements.end.date")}</p>
+                    <p className="text-sm font-medium">
+                      {formatLongDate(announcementsData?.data.find((announcement: any) => announcement.id === viewingAnnouncementId)?.endDate)}
+                    </p>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
         </Modal>
       )}
 
