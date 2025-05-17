@@ -1,16 +1,31 @@
+import { useState, useEffect } from "react";
 import { useTranslation } from "@/lib/i18n";
 import { Button } from "@/components/ui/button";
 import { ChartCard } from "@/components/ui/chart-card";
 import { Skeleton } from "@/components/ui/skeleton";
-import { useQuery } from "@tanstack/react-query";
 import { formatMessage } from "@/lib/i18n";
+import { getPostCategoriesDistribution } from "@/lib/supabaseDirectApi";
 
 export function PostCategories() {
   const { t } = useTranslation();
+  const [categories, setCategories] = useState<any[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
   
-  const { data: categories, isLoading } = useQuery({
-    queryKey: ['/api/dashboard/post-categories'],
-  });
+  useEffect(() => {
+    async function fetchCategories() {
+      try {
+        setIsLoading(true);
+        const data = await getPostCategoriesDistribution();
+        setCategories(data);
+      } catch (error) {
+        console.error("Gönderi kategorileri alınırken hata oluştu:", error);
+      } finally {
+        setIsLoading(false);
+      }
+    }
+    
+    fetchCategories();
+  }, []);
 
   const getCategoryData = () => {
     if (!categories || categories.length === 0) return [];

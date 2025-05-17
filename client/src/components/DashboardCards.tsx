@@ -1,14 +1,28 @@
 import { useState, useEffect } from "react";
 import { StatCard } from "@/components/ui/stat-card";
-import { useQuery } from "@tanstack/react-query";
 import { useTranslation } from "@/lib/i18n";
+import { getDashboardStats } from "@/lib/supabaseDirectApi";
 
 export function DashboardCards() {
   const { t } = useTranslation();
+  const [isLoading, setIsLoading] = useState(true);
+  const [statsData, setStatsData] = useState<any>(null);
   
-  const { data: statsData, isLoading } = useQuery({
-    queryKey: ['/api/dashboard/stats'],
-  });
+  useEffect(() => {
+    async function fetchStats() {
+      try {
+        setIsLoading(true);
+        const data = await getDashboardStats();
+        setStatsData(data);
+      } catch (error) {
+        console.error("Gösterge Paneli verileri alınırken hata oluştu:", error);
+      } finally {
+        setIsLoading(false);
+      }
+    }
+    
+    fetchStats();
+  }, []);
 
   if (isLoading) {
     return (

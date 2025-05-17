@@ -1,9 +1,10 @@
-import { useQuery } from "@tanstack/react-query";
+import { useState, useEffect } from "react";
 import { useTranslation } from "@/lib/i18n";
 import { formatDistanceToNow } from "date-fns";
 import { tr, enUS } from "date-fns/locale";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
+import { getRecentActivities } from "@/lib/supabaseDirectApi";
 
 interface ActivityProps {
   limit?: number;
@@ -11,10 +12,24 @@ interface ActivityProps {
 
 export function RecentActivities({ limit = 5 }: ActivityProps) {
   const { t, locale } = useTranslation();
+  const [activities, setActivities] = useState<any[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
   
-  const { data: activities, isLoading } = useQuery({
-    queryKey: [`/api/dashboard/activities?limit=${limit}`],
-  });
+  useEffect(() => {
+    async function fetchActivities() {
+      try {
+        setIsLoading(true);
+        const data = await getRecentActivities(limit);
+        setActivities(data);
+      } catch (error) {
+        console.error("Son aktiviteler alınırken hata oluştu:", error);
+      } finally {
+        setIsLoading(false);
+      }
+    }
+    
+    fetchActivities();
+  }, [limit]);
 
   const getDateLocale = () => {
     return locale === 'tr' ? tr : enUS;
