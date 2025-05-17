@@ -66,15 +66,15 @@ export function RecentActivities({ limit = 5 }: ActivityProps) {
               <div className="flex-shrink-0 mr-3">
                 <img
                   className="h-8 w-8 rounded-full"
-                  src={activity.user.profileImageUrl || `https://ui-avatars.com/api/?name=${encodeURIComponent(activity.user.username)}&background=random`}
-                  alt={activity.user.username}
+                  src={activity.userAvatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(activity.username)}&background=random`}
+                  alt={activity.username}
                 />
               </div>
               <div>
                 <p className="text-sm text-gray-800">
-                  <span className="font-medium">{activity.user.username}</span>{" "}
+                  <span className="font-medium">{activity.username}</span>{" "}
                   <span className="text-gray-500">{activity.action}</span>{" "}
-                  {activity.content && <span className="font-medium">{activity.content}</span>}
+                  {activity.target && <span className="font-medium">{activity.target}</span>}
                 </p>
                 <p className="text-xs text-gray-500 mt-1">{formatDate(activity.timestamp)}</p>
               </div>
