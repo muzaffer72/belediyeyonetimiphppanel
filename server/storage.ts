@@ -1,5 +1,5 @@
 import { v4 as uuidv4 } from "uuid";
-import { db } from "../shared/supabase";
+import { db, supabase } from "../shared/supabase";
 import { eq, and, or, ilike, desc, asc, sql, inArray } from "drizzle-orm";
 import {
   cities,
