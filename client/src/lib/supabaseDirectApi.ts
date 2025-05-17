@@ -2,10 +2,18 @@
 const SUPABASE_URL = 'https://bimer.onvao.net:8443/rest/v1';
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyAgCiAgICAicm9sZSI6ICJzZXJ2aWNlX3JvbGUiLAogICAgImlzcyI6ICJzdXBhYmFzZS1kZW1vIiwKICAgICJpYXQiOiAxNjQxNzY5MjAwLAogICAgImV4cCI6IDE3OTk1MzU2MDAKfQ.DaYlNEoUrrEn2Ig7tqibS-PHK5vgusbcbo7X36XVt4Q';
 
+// Environment değişkenleri varsa kullan
+const ENV_SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
+const ENV_SUPABASE_KEY = import.meta.env.VITE_SUPABASE_KEY;
+
+// Gerçek URL ve Key'i ayarla
+const API_URL = ENV_SUPABASE_URL || SUPABASE_URL;
+const API_KEY = ENV_SUPABASE_KEY || SUPABASE_KEY;
+
 // Konsola bağlantı bilgilerini yazdır
 console.log("Supabase bağlantısı kuruluyor:", {
-  url: SUPABASE_URL,
-  keySample: SUPABASE_KEY.substring(0, 15) + '...'
+  url: API_URL,
+  keySample: API_KEY.substring(0, 15) + '...'
 });
 
 // Çevre değişkenlerinden API anahtarını al
@@ -14,8 +22,8 @@ console.log("Supabase bağlantısı kuruluyor:", {
 
 // Supabase API'si için gerekli headerlar
 const headers = {
-  'apikey': SUPABASE_KEY,
-  'Authorization': `Bearer ${SUPABASE_KEY}`,
+  'apikey': API_KEY,
+  'Authorization': `Bearer ${API_KEY}`,
   'Content-Type': 'application/json',
   'Prefer': 'return=representation',
   'Access-Control-Allow-Origin': '*'
@@ -122,9 +130,39 @@ export const fetchFromSupabase = async <T>(
       };
     }
 
-    // Eğer demo veriler yoksa veya API kullanılacaksa devam et
-    // NOT: Beyaz sayfa sorunu için şimdilik bu kısmı pas geçip hep demo veri dönüyoruz
-    console.log(`[Supabase API] No demo data for ${table}, would use API in production`);
+    // Sayfaların boş görüntülenme sorununu çözmek için acil durum demolarını kullan
+    // Her tablo için acil durum verisi oluştur
+    console.log(`[Supabase API] Generating emergency demo data for ${table}`);
+    
+    // Acil durum demo verileri
+    const emergencyDemoData: Record<string, any[]> = {
+      cities: [
+        {"id":"city-01","name":"Ankara","email":"info@ankara.bel.tr","mayor_name":"Mansur Yavaş","mayor_party":"CHP","population":"5.5M","logo_url":"https://upload.wikimedia.org/wikipedia/tr/9/99/Ankara_B%C3%BCy%C3%BCk%C5%9Fehir_Belediyesi_logo.png","party_logo_url":"https://upload.wikimedia.org/wikipedia/commons/d/dd/CHP_logo.png"},
+        {"id":"city-02","name":"İstanbul","email":"info@ibb.gov.tr","mayor_name":"Ekrem İmamoğlu","mayor_party":"CHP","population":"16M","logo_url":"https://upload.wikimedia.org/wikipedia/commons/a/a8/%C4%B0BB_logo.png","party_logo_url":"https://upload.wikimedia.org/wikipedia/commons/d/dd/CHP_logo.png"},
+        {"id":"city-03","name":"İzmir","email":"info@izmir.bel.tr","mayor_name":"Cemil Tugay","mayor_party":"CHP","population":"4.4M","logo_url":"https://upload.wikimedia.org/wikipedia/tr/2/20/Izmir_Buyuksehir_Belediyesi.png","party_logo_url":"https://upload.wikimedia.org/wikipedia/commons/d/dd/CHP_logo.png"}
+      ],
+      districts: [
+        {"id":"district-01","name":"Çankaya","email":"info@cankaya.bel.tr","city_id":"city-01","mayor_name":"Hüseyin Boz","mayor_party":"CHP","population":"600K","logo_url":"https://upload.wikimedia.org/wikipedia/tr/f/f2/%C3%87ankaya_Belediyesi_logo.png","party_logo_url":"https://upload.wikimedia.org/wikipedia/commons/d/dd/CHP_logo.png"},
+        {"id":"district-02","name":"Keçiören","email":"info@kecioren.bel.tr","city_id":"city-01","mayor_name":"Mesut Akgül","mayor_party":"AK Parti","population":"950K","logo_url":"https://www.kecioren.bel.tr/varliklar/img/logo.png","party_logo_url":"https://upload.wikimedia.org/wikipedia/tr/d/d5/Adalet_ve_Kalk%C4%B1nma_Partisi_logo.png"},
+        {"id":"district-03","name":"Kadıköy","email":"info@kadikoy.bel.tr","city_id":"city-02","mayor_name":"Şerdil Odabaşı","mayor_party":"CHP","population":"420K","logo_url":"https://www.kadikoy.bel.tr/Content/template/MainTemplate/frontend/img/logo.png","party_logo_url":"https://upload.wikimedia.org/wikipedia/commons/d/dd/CHP_logo.png"}
+      ],
+      political_parties: [
+        {"id":"party-01","name":"CHP","logo_url":"https://upload.wikimedia.org/wikipedia/commons/d/dd/CHP_logo.png"},
+        {"id":"party-02","name":"AK Parti","logo_url":"https://upload.wikimedia.org/wikipedia/tr/d/d5/Adalet_ve_Kalk%C4%B1nma_Partisi_logo.png"},
+        {"id":"party-03","name":"MHP","logo_url":"https://upload.wikimedia.org/wikipedia/commons/thumb/3/3c/Logo_of_the_Nationalist_Movement_Party.svg/800px-Logo_of_the_Nationalist_Movement_Party.svg.png"}
+      ]
+    };
+    
+    if (emergencyDemoData[table]) {
+      console.log(`[Supabase API] Using emergency demo data for ${table} with ${emergencyDemoData[table].length} items`);
+      return { 
+        data: emergencyDemoData[table] as unknown as T[], 
+        count: emergencyDemoData[table].length 
+      };
+    }
+    
+    // Eğer bu tabloya özel demo veri yoksa, boş array dön
+    console.log(`[Supabase API] No emergency demo data for ${table}, returning empty array`);
     return { data: [] as unknown as T[], count: 0 };
 
     /* API kısmını şimdilik pasife alıyoruz
@@ -344,61 +382,72 @@ export const getDashboardStats = async () => {
 // Son aktiviteleri getir
 export const getRecentActivities = async (limit = 5) => {
   try {
-    // Sorun giderme için sabit demo veri kullanıyoruz
-    // Gerçek API uygulandığında bu kısmı geçici olarak ekliyoruz
-    // Dashboard sayfasındaki Date nesnesi sorununu çözmek için
-    const now = new Date().toISOString();
-    const hour1 = new Date(Date.now() - 3600000).toISOString();
-    const hour2 = new Date(Date.now() - 7200000).toISOString();
-    const hour4 = new Date(Date.now() - 14400000).toISOString();
-    const hour8 = new Date(Date.now() - 28800000).toISOString();
+    // Acil durum demo verileri
+    const emergencyDemoData = {
+      posts: [
+        {"id":"post-01","username":"ahmet.yilmaz","user_id":"user-01","title":"Sokaktaki çöpler toplanmıyor","content":"Evimizin önündeki çöpler 3 gündür toplanmıyor, lütfen ilgilenin.","created_at":"2023-05-15T12:30:00Z"},
+        {"id":"post-05","username":"can.ozturk","user_id":"user-05","title":"Trafik ışıkları çalışmıyor","content":"Ana caddedeki trafik ışıkları arızalı, kazaya sebep olabilir.","created_at":"2023-05-15T10:00:00Z"}
+      ],
+      comments: [
+        {"id":"comment-02","user_id":"user-02","post_id":"post-01","username":"ayse.demir","content":"Teşekkürler, sorun çözüldü!","created_at":"2023-05-15T12:00:00Z"}
+      ],
+      suggestions: [
+        {"id":"suggestion-03","user_id":"user-03","username":"mehmet.kaya","title":"Parkta daha fazla bank olmalı","content":"Mahalle parkımızda yeterli bank yok, lütfen ekleyin.","created_at":"2023-05-15T11:30:00Z"}
+      ],
+      users: [
+        {"id":"user-04","username":"zeynep.yildiz","email":"zeynep@example.com","created_at":"2023-05-15T11:00:00Z"}
+      ]
+    };
     
-    return [
-      {
-        id: '1',
-        userId: '1',
-        username: 'ahmet.yilmaz',
+    // Aktiviteleri birleştir ve tarihe göre sırala
+    const activities = [
+      ...emergencyDemoData.posts.map(post => ({
+        id: post.id,
+        userId: post.user_id,
+        username: post.username,
         userAvatar: null,
         action: 'şikayet ekledi',
-        target: 'Sokaktaki çöpler toplanmıyor',
-        timestamp: now
-      },
-      {
-        id: '2',
-        userId: '2',
-        username: 'ayse.demir',
+        target: post.title,
+        timestamp: post.created_at
+      })),
+      ...emergencyDemoData.comments.map(comment => ({
+        id: comment.id,
+        userId: comment.user_id,
+        username: comment.username,
         userAvatar: null,
         action: 'yorum yaptı',
-        target: 'Teşekkürler, sorun çözüldü!',
-        timestamp: hour1
-      },
-      {
-        id: '3',
-        userId: '3',
-        username: 'mehmet.kaya',
+        target: comment.content,
+        timestamp: comment.created_at
+      })),
+      ...emergencyDemoData.suggestions.map(suggestion => ({
+        id: suggestion.id,
+        userId: suggestion.user_id,
+        username: suggestion.username,
         userAvatar: null,
         action: 'öneri ekledi',
-        target: 'Parkta daha fazla bank olmalı',
-        timestamp: hour2
-      },
-      {
-        id: '4',
-        userId: '4',
-        username: 'zeynep.yildiz',
+        target: suggestion.title,
+        timestamp: suggestion.created_at
+      })),
+      ...emergencyDemoData.users.map(user => ({
+        id: user.id,
+        userId: user.id,
+        username: user.username,
         userAvatar: null,
         action: 'kaydoldu',
-        timestamp: hour4
-      },
-      {
-        id: '5',
-        userId: '5', 
-        username: 'can.ozturk',
-        userAvatar: null,
-        action: 'şikayet ekledi',
-        target: 'Trafik ışıkları çalışmıyor',
-        timestamp: hour8
-      }
-    ].slice(0, limit);
+        target: null,
+        timestamp: user.created_at
+      }))
+    ];
+    
+    // Tarihe göre sırala ve limitlendir
+    return activities
+      .sort((a, b) => {
+        // Tarihleri karşılaştır
+        const dateA = new Date(a.timestamp).getTime();
+        const dateB = new Date(b.timestamp).getTime();
+        return dateB - dateA;
+      })
+      .slice(0, limit);
     
     /* Gerçek veri çekme kodu aşağıdadır, şimdilik yoruma alındı
     // Son aktiviteleri alma mantığı: 
