@@ -1,16 +1,31 @@
+import { useState, useEffect } from "react";
 import { useTranslation } from "@/lib/i18n";
 import { Button } from "@/components/ui/button";
 import { ChartCard } from "@/components/ui/chart-card";
 import { Skeleton } from "@/components/ui/skeleton";
-import { useQuery } from "@tanstack/react-query";
 import { formatMessage } from "@/lib/i18n";
+import { getPoliticalPartyDistribution } from "@/lib/supabaseDirectApi";
 
 export function PoliticalDistribution() {
   const { t } = useTranslation();
+  const [distribution, setDistribution] = useState<any[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
   
-  const { data: distribution, isLoading } = useQuery({
-    queryKey: ['/api/dashboard/party-distribution'],
-  });
+  useEffect(() => {
+    async function fetchDistribution() {
+      try {
+        setIsLoading(true);
+        const data = await getPoliticalPartyDistribution();
+        setDistribution(data);
+      } catch (error) {
+        console.error("Parti dağılımı alınırken hata oluştu:", error);
+      } finally {
+        setIsLoading(false);
+      }
+    }
+    
+    fetchDistribution();
+  }, []);
 
   const partyColors = ['bg-blue-600', 'bg-red-600', 'bg-yellow-500', 'bg-green-500', 'bg-purple-500', 'bg-orange-500'];
 
