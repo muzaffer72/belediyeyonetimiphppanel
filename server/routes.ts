@@ -18,6 +18,28 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Create HTTP server
   const httpServer = createServer(app);
 
+  // Test route for Supabase connection info
+  app.get("/api/test-connection", async (req, res) => {
+    try {
+      const supabaseUrl = process.env.SUPABASE_URL || '';
+      const keyPreview = process.env.SUPABASE_SERVICE_ROLE_KEY ? 
+        `${process.env.SUPABASE_SERVICE_ROLE_KEY.substring(0, 5)}...${process.env.SUPABASE_SERVICE_ROLE_KEY.substring(process.env.SUPABASE_SERVICE_ROLE_KEY.length - 5)}` : 
+        'not found';
+      
+      res.json({ 
+        success: true, 
+        message: 'Connection info retrieved',
+        supabase_url: supabaseUrl,
+        key_preview: keyPreview,
+        has_url: !!process.env.SUPABASE_URL,
+        has_key: !!process.env.SUPABASE_SERVICE_ROLE_KEY
+      });
+    } catch (error) {
+      console.error("Test connection error:", error);
+      res.status(500).json({ message: "Test connection failed", error: String(error) });
+    }
+  });
+
   // Dashboard routes
   app.get("/api/dashboard/stats", async (req, res) => {
     try {

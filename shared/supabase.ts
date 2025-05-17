@@ -4,12 +4,14 @@ import postgres from "postgres";
 import * as schema from "./schema";
 
 // Get Supabase URL and Service Role Key from environment variables
-const supabaseUrl = process.env.SUPABASE_URL;
-const supabaseServiceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+const supabaseUrl = process.env.SUPABASE_URL || "";
+const supabaseServiceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY || "";
 
 if (!supabaseUrl || !supabaseServiceRoleKey) {
-  throw new Error("Supabase URL ve Service Role Key değerleri eksik. Lütfen ortam değişkenlerini kontrol edin.");
+  console.error("Supabase URL ve Service Role Key değerleri eksik. Lütfen ortam değişkenlerini kontrol edin.");
 }
+
+console.log("Supabase bağlantısı kuruluyor:", { url: supabaseUrl });
 
 // Create Supabase client with service role key for admin access
 export const supabase = createClient(supabaseUrl, supabaseServiceRoleKey, {
