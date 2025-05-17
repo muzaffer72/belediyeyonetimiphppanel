@@ -181,6 +181,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+// Helper function to generate consistent colors based on string name
+const generateColor = (str: string): string => {
+  let hash = 0;
+  for (let i = 0; i < str.length; i++) {
+    hash = str.charCodeAt(i) + ((hash << 5) - hash);
+  }
+  const c = (hash & 0x00FFFFFF).toString(16).toUpperCase();
+  return "#" + "00000".substring(0, 6 - c.length) + c;
+};
+
   app.get("/api/dashboard/party-distribution", async (req, res) => {
     try {
       // Use Supabase client directly
@@ -189,7 +199,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Get political parties
       const { data: parties, error } = await supabase
         .from('political_parties')
-        .select('id, name, logo, color');
+        .select('id, name, logo_url, score, last_updated');
       
       if (error) throw error;
       
@@ -213,12 +223,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Format for frontend
       const distribution = parties.map(party => {
         const count = partyCounts[party.id] || 0;
+        // Generate color from party name for consistency
+        const color = generateColor(party.name);
+        
         return {
           id: party.id,
           name: party.name,
-          logo: party.logo,
-          color: party.color || '#6B7280',
-          percentage: totalCities > 0 ? Math.round((count / totalCities) * 100) : 0
+          logo: party.logo_url, // Using logo_url from database
+          color: color,
+          percentage: party.score ? parseFloat(party.score) * 20 : 0 // Convert 0-5 scale to 0-100%
         };
       });
       

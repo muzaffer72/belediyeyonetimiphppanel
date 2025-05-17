@@ -26,13 +26,15 @@ export function PostCategories() {
     };
     
     return categories.map((cat: any) => {
-      const categoryType = cat.category.toLowerCase();
+      // The API returns 'type' instead of 'category'
+      const categoryType = cat.type?.toLowerCase() || 'default';
       const mapping = categoryMapping[categoryType] || categoryMapping.default;
       
       return {
         ...cat,
         icon: mapping.icon,
         color: mapping.color,
+        category: cat.type, // Store the type as category for rendering
         translationKey: `dashboard.${categoryType}s` // Pluralize for translation key
       };
     });
