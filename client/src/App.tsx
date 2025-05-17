@@ -1,4 +1,4 @@
-import { Switch, Route } from "wouter";
+import { Switch, Route, useRoute, useLocation } from "wouter";
 import { queryClient } from "./lib/queryClient";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
@@ -15,26 +15,53 @@ import Parties from "@/pages/parties";
 import Settings from "@/pages/settings";
 import Login from "@/pages/login";
 import NotFound from "@/pages/not-found";
-import { useState } from "react";
+import { useEffect } from "react";
+
+// This component will handle route matching for paths in the layout
+const RouteInLayout = ({ path, component: Component }: { path: string, component: React.ComponentType<any> }) => {
+  const [match] = useRoute(path);
+  return match ? <Component /> : null;
+};
 
 function Router() {
+  const [location] = useLocation();
+  
+  // List of all routes that should be wrapped in the Layout
+  const layoutRoutes = [
+    "/", "/cities", "/districts", "/posts", "/comments", 
+    "/announcements", "/users", "/parties", "/settings"
+  ];
+  
+  // Check if current location should be wrapped in the Layout
+  const shouldUseLayout = layoutRoutes.some(route => 
+    location === route || location.startsWith(`${route}/`)
+  );
+  
+  // If we're at a route that should use the layout but it's not the exact match
+  // for any registered route, we'll show the NotFound component inside the layout
+  const isUnknownLayoutRoute = shouldUseLayout && 
+    !layoutRoutes.some(route => location === route);
+  
   return (
     <Switch>
       <Route path="/login" component={Login} />
-      <Route path="/">
+      
+      {shouldUseLayout && (
         <Layout>
-          <Route path="/" component={Dashboard} />
-          <Route path="/cities" component={Cities} />
-          <Route path="/districts" component={Districts} />
-          <Route path="/posts" component={Posts} />
-          <Route path="/comments" component={Comments} />
-          <Route path="/announcements" component={Announcements} />
-          <Route path="/users" component={Users} />
-          <Route path="/parties" component={Parties} />
-          <Route path="/settings" component={Settings} />
+          <RouteInLayout path="/" component={Dashboard} />
+          <RouteInLayout path="/cities" component={Cities} />
+          <RouteInLayout path="/districts" component={Districts} />
+          <RouteInLayout path="/posts" component={Posts} />
+          <RouteInLayout path="/comments" component={Comments} />
+          <RouteInLayout path="/announcements" component={Announcements} />
+          <RouteInLayout path="/users" component={Users} />
+          <RouteInLayout path="/parties" component={Parties} />
+          <RouteInLayout path="/settings" component={Settings} />
+          {isUnknownLayoutRoute && <NotFound />}
         </Layout>
-      </Route>
-      <Route component={NotFound} />
+      )}
+      
+      {!shouldUseLayout && location !== "/login" && <NotFound />}
     </Switch>
   );
 }
