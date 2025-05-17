@@ -16,8 +16,14 @@ const getConnectionString = () => {
   return databaseUrl;
 };
 
-// Create PostgreSQL client
-export const client = postgres(getConnectionString());
+// Create PostgreSQL client with additional connection options for Supabase
+export const client = postgres(getConnectionString(), {
+  ssl: true,
+  max: 10, // Limit the number of concurrent connections
+  idle_timeout: 20, // Close connections after 20 seconds of inactivity
+  connect_timeout: 10, // Timeout after 10 seconds when connecting
+  prepare: false, // Don't use prepared statements for Supabase
+});
 
 // Create Drizzle instance with our schema
 export const db = drizzle(client, { schema });
