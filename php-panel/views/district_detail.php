@@ -41,6 +41,10 @@ if (isset($district['city_id'])) {
     $city = getDataById('cities', $district['city_id']);
 }
 
+// Parti verilerini al
+$parties_result = getData('political_parties');
+$parties = $parties_result['data'];
+
 // İlçenin bağlı olduğu il adını al
 $city_name = '';
 if ($city) {
@@ -147,8 +151,18 @@ $district_stats = [
                         <tr>
                             <th>Parti:</th>
                             <td>
-                                <?php if(isset($district['mayor_party']) && !empty($district['mayor_party'])): ?>
-                                    <span class="badge bg-primary"><?php echo escape($district['mayor_party']); ?></span>
+                                <?php if(isset($district['political_party_id']) && !empty($district['political_party_id'])): ?>
+                                    <?php 
+                                    // Parti bilgilerini getir
+                                    $party_name = '-';
+                                    foreach($parties as $party) {
+                                        if($party['id'] == $district['political_party_id']) {
+                                            $party_name = $party['name'];
+                                            break;
+                                        }
+                                    }
+                                    ?>
+                                    <span class="badge bg-primary"><?php echo escape($party_name); ?></span>
                                 <?php else: ?>
                                     -
                                 <?php endif; ?>

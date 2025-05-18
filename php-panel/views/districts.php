@@ -21,7 +21,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['add_district'])) {
     $email = trim($_POST['email'] ?? '');
     $phone = trim($_POST['phone'] ?? '');
     $mayor_name = trim($_POST['mayor_name'] ?? '');
-    $mayor_party = trim($_POST['mayor_party'] ?? '');
+    $political_party_id = trim($_POST['political_party_id'] ?? '');
     $population = trim($_POST['population'] ?? '');
     $logo_url = trim($_POST['logo_url'] ?? '');
     $website = trim($_POST['website'] ?? '');
@@ -44,7 +44,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['add_district'])) {
             'email' => $email,
             'phone' => $phone,
             'mayor_name' => $mayor_name,
-            'mayor_party' => $mayor_party,
+            'political_party_id' => $political_party_id,
             'population' => $population,
             'logo_url' => $logo_url,
             'website' => $website,
@@ -247,10 +247,10 @@ endif;
                         </div>
                         <div class="col-md-6">
                             <label for="mayor_party" class="form-label">Parti</label>
-                            <select class="form-select" id="mayor_party" name="mayor_party">
+                            <select class="form-select" id="political_party_id" name="political_party_id">
                                 <option value="">Seçiniz</option>
                                 <?php foreach($parties as $party): ?>
-                                    <option value="<?php echo $party['name']; ?>"><?php echo $party['name']; ?></option>
+                                    <option value="<?php echo $party['id']; ?>"><?php echo $party['name']; ?></option>
                                 <?php endforeach; ?>
                             </select>
                         </div>

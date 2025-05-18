@@ -39,6 +39,10 @@ if (!$city) {
 $districts_result = getData('districts', ['city_id' => 'eq.' . $city_id]);
 $districts = $districts_result['data'];
 
+// Parti verilerini al
+$parties_result = getData('political_parties');
+$parties = $parties_result['data'];
+
 // Gönderi verilerini al
 $posts_result = getData('posts', ['city' => 'eq.' . $city['name']]);
 $posts = $posts_result['data'];
@@ -98,8 +102,18 @@ $announcements = $announcements_result['data'];
                         <tr>
                             <th>Parti:</th>
                             <td>
-                                <?php if(isset($city['mayor_party']) && !empty($city['mayor_party'])): ?>
-                                    <span class="badge bg-primary"><?php echo escape($city['mayor_party']); ?></span>
+                                <?php if(isset($city['political_party_id']) && !empty($city['political_party_id'])): ?>
+                                    <?php 
+                                    // Parti bilgilerini getir
+                                    $party_name = '-';
+                                    foreach($parties as $party) {
+                                        if($party['id'] == $city['political_party_id']) {
+                                            $party_name = $party['name'];
+                                            break;
+                                        }
+                                    }
+                                    ?>
+                                    <span class="badge bg-primary"><?php echo escape($party_name); ?></span>
                                 <?php else: ?>
                                     -
                                 <?php endif; ?>
