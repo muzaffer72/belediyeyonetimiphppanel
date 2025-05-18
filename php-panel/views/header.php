@@ -420,7 +420,8 @@
         
         <ul class="sidebar-menu">
             <?php 
-            $menu_items = getMainMenuItems($page);
+            require_once(__DIR__ . '/../includes/menu.php');
+            $menu_items = getMenuItems($page);
             foreach ($menu_items as $item): 
             ?>
             <li class="sidebar-item">
