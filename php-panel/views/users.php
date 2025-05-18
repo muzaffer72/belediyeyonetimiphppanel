@@ -82,7 +82,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ban_user'])) {
     // Ban verilerini oluştur
     $ban_data = [
         'user_id' => $user_id,
-        'ban_reason' => $ban_reason,
+        'reason' => $ban_reason, // 'ban_reason' yerine 'reason' olarak düzeltildi
         'ban_start' => $ban_start,
         'ban_end' => $ban_end,
         'is_active' => 'true',
