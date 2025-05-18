@@ -79,6 +79,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ban_user'])) {
     $ban_start = date('Y-m-d H:i:s');
     $ban_end = date('Y-m-d H:i:s', strtotime("+{$ban_duration} days"));
     
+    // Oturum bilgilerini kontrol et
+    // Eğer admin_id yoksa, session id kullan
+    $admin_id = isset($_SESSION['user_id']) ? $_SESSION['user_id'] : '00000000-0000-0000-0000-000000000000';
+    $banned_by = $admin_id;
+    
     // Ban verilerini oluştur
     $ban_data = [
         'user_id' => $user_id,
@@ -86,13 +91,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ban_user'])) {
         'ban_start' => $ban_start,
         'ban_end' => $ban_end,
         'is_active' => 'true',
+        'banned_by' => $banned_by, // Her zaman bir değer olacak
         'created_at' => date('Y-m-d H:i:s')
     ];
-    
-    // Admin ID varsa ekle (UUID tipinde olmalı)
-    if (isset($_SESSION['admin_id']) && !empty($_SESSION['admin_id'])) {
-        $ban_data['banned_by'] = $_SESSION['admin_id'];
-    }
     
     // Veritabanına ekle
     $insert_result = addData('user_bans', $ban_data);
