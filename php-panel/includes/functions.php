@@ -9,8 +9,6 @@
  * @return array Veri ve hata bilgisini içeren dizi
  */
 function getData($table, $params = []) {
-    global $demo_data;
-    
     // API URL oluştur
     $url = SUPABASE_REST_URL . '/' . $table;
     
@@ -40,28 +38,18 @@ function getData($table, $params = []) {
             $data = json_decode($response, true);
             return ['error' => false, 'data' => $data, 'message' => 'Veriler başarıyla alındı'];
         } else {
-            // API hatası, demo verileri kullan
-            $error_message = "API Hatası: HTTP $status_code - Demo veriler gösteriliyor.";
+            // API hatası, boş veri döndür
+            $error_message = "API Hatası: HTTP $status_code";
             error_log($error_message);
             
-            // Tablo varsa demo verileri döndür
-            if (isset($demo_data[$table])) {
-                return ['error' => false, 'data' => $demo_data[$table], 'message' => 'Demo veriler gösteriliyor', 'demo' => true];
-            } else {
-                return ['error' => true, 'data' => [], 'message' => 'Veri bulunamadı'];
-            }
+            return ['error' => true, 'data' => [], 'message' => 'Verilere erişilemedi: ' . $error_message];
         }
     } catch (Exception $e) {
-        // İstek hatası, demo verileri kullan
-        $error_message = "İstek Hatası: " . $e->getMessage() . " - Demo veriler gösteriliyor.";
+        // İstek hatası, boş veri döndür
+        $error_message = "İstek Hatası: " . $e->getMessage();
         error_log($error_message);
         
-        // Tablo varsa demo verileri döndür
-        if (isset($demo_data[$table])) {
-            return ['error' => false, 'data' => $demo_data[$table], 'message' => 'Demo veriler gösteriliyor', 'demo' => true];
-        } else {
-            return ['error' => true, 'data' => [], 'message' => 'Veri bulunamadı'];
-        }
+        return ['error' => true, 'data' => [], 'message' => 'Verilere erişilemedi: ' . $error_message];
     }
 }
 
@@ -341,12 +329,10 @@ function getRecentActivities($limit = 10) {
             
             // Gönderi başlığını bul
             $post_title = 'Bilinmeyen Gönderi';
-            if (isset($comment['post_id'])) {
-                foreach ($posts as $post) {
-                    if ($post['id'] === $comment['post_id']) {
-                        $post_title = $post['title'] ?? 'Başlıksız';
-                        break;
-                    }
+            foreach ($posts as $post) {
+                if ($post['id'] === $comment['post_id']) {
+                    $post_title = $post['title'] ?? 'Başlıksız';
+                    break;
                 }
             }
             
@@ -436,11 +422,15 @@ function getPoliticalPartyDistribution() {
                 foreach ($parties as $party) {
                     if ($party['name'] === $party_name) {
                         $logo = $party['logo_url'] ?? '';
-                        // Rastgele renk ata (gerçek durumda parti rengi olabilir)
-                        $colors = ['#0d6efd', '#6610f2', '#6f42c1', '#d63384', '#dc3545', '#fd7e14', '#ffc107', '#198754', '#20c997', '#0dcaf0'];
-                        $color = $colors[array_rand($colors)];
+                        $color = $party['color'] ?? '';
                         break;
                     }
+                }
+                
+                // Renk tanımlanmamışsa rastgele renk ata
+                if (empty($color)) {
+                    $colors = ['#0d6efd', '#6610f2', '#6f42c1', '#d63384', '#dc3545', '#fd7e14', '#ffc107', '#198754', '#20c997', '#0dcaf0'];
+                    $color = $colors[array_rand($colors)];
                 }
                 
                 $distribution[$party_name] = [
