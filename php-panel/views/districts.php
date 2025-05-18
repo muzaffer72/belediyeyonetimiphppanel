@@ -38,6 +38,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['add_district'])) {
     
     // Hata yoksa ilçeyi ekle
     if (empty($errors)) {
+        // Parti bilgilerini political_party_id'ye göre al
+        $party_info = getPartyInfoById($political_party_id);
+        $mayor_party = '';
+        $party_logo_url = '';
+        
+        if ($party_info) {
+            $mayor_party = $party_info['name'];
+            $party_logo_url = $party_info['logo_url'] ?? '';
+        }
+        
         $new_district = [
             'name' => $name,
             'city_id' => $city_id,
@@ -45,6 +55,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['add_district'])) {
             'phone' => $phone,
             'mayor_name' => $mayor_name,
             'political_party_id' => $political_party_id,
+            'mayor_party' => $mayor_party, // Parti adını otomatik doldur
+            'party_logo_url' => $party_logo_url, // Parti logo URL'sini otomatik doldur
             'population' => $population,
             'logo_url' => $logo_url,
             'website' => $website,

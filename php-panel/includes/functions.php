@@ -212,6 +212,21 @@ function filterDataByIds($data, $idField, $idList) {
 }
 
 /**
+ * Political party ID'sine göre parti bilgilerini al
+ * 
+ * @param int $political_party_id Parti ID'si
+ * @return array|null Parti bilgileri veya bulunamazsa null
+ */
+function getPartyInfoById($political_party_id) {
+    if (empty($political_party_id)) {
+        return null;
+    }
+    
+    $party_result = getDataById('political_parties', $political_party_id);
+    return $party_result;
+}
+
+/**
  * Dashboard için özet istatistikleri al
  * 
  * @return array İstatistikler
