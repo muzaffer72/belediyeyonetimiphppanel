@@ -117,7 +117,13 @@ if (isset($_GET['feature']) && !empty($_GET['feature'])) {
     }
     
     // Sayfayı yeniden yönlendir
-    safeRedirect('index.php?page=posts');
+    if (!headers_sent()) {
+        header('Location: index.php?page=posts');
+        exit;
+    } else {
+        echo '<script>window.location.href = "index.php?page=posts";</script>';
+        exit;
+    }
 }
 
 // Gönderiyi çözüldü/çözülmedi olarak işaretle
@@ -152,7 +158,13 @@ if (isset($_GET['resolve']) && !empty($_GET['resolve'])) {
     }
     
     // Sayfayı yeniden yönlendir
-    safeRedirect('index.php?page=posts');
+    if (!headers_sent()) {
+        header('Location: index.php?page=posts');
+        exit;
+    } else {
+        echo '<script>window.location.href = "index.php?page=posts";</script>';
+        exit;
+    }
 }
 
 // Gönderiyi gizle/göster
@@ -187,7 +199,13 @@ if (isset($_GET['visibility']) && !empty($_GET['visibility'])) {
     }
     
     // Sayfayı yeniden yönlendir
-    safeRedirect('index.php?page=posts');
+    if (!headers_sent()) {
+        header('Location: index.php?page=posts');
+        exit;
+    } else {
+        echo '<script>window.location.href = "index.php?page=posts";</script>';
+        exit;
+    }
 }
 
 // Gönderiyi sil
@@ -222,7 +240,13 @@ if (isset($_GET['delete']) && !empty($_GET['delete'])) {
     
     // Çıktı gönderilmeden önce yönlendirme
     if (!headers_sent()) {
-        safeRedirect('index.php?page=posts');
+        if (!headers_sent()) {
+        header('Location: index.php?page=posts');
+        exit;
+    } else {
+        echo '<script>window.location.href = "index.php?page=posts";</script>';
+        exit;
+    }
     } else {
         echo '<script>window.location.href = "index.php?page=posts";</script>';
         exit;

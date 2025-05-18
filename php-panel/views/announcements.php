@@ -49,7 +49,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['add_announcement'])) 
             $_SESSION['message_type'] = 'success';
             
             // Sayfayı yenile
-            safeRedirect('index.php?page=announcements');
+            if (!headers_sent()) {
+        header('Location: index.php?page=announcements');
+        exit;
+    } else {
+        echo '<script>window.location.href = "index.php?page=announcements";</script>';
+        exit;
+    }
         } else {
             $_SESSION['message'] = 'Duyuru eklenirken bir hata oluştu: ' . $response['message'];
             $_SESSION['message_type'] = 'danger';
@@ -99,7 +105,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['update_announcement']
             $_SESSION['message_type'] = 'success';
             
             // Sayfayı yenile
-            safeRedirect('index.php?page=announcements');
+            if (!headers_sent()) {
+        header('Location: index.php?page=announcements');
+        exit;
+    } else {
+        echo '<script>window.location.href = "index.php?page=announcements";</script>';
+        exit;
+    }
         } else {
             $_SESSION['message'] = 'Duyuru güncellenirken bir hata oluştu: ' . $response['message'];
             $_SESSION['message_type'] = 'danger';
@@ -124,7 +136,13 @@ if (isset($_GET['delete']) && !empty($_GET['delete'])) {
     }
     
     // Sayfayı yeniden yönlendir
-    safeRedirect('index.php?page=announcements');
+    if (!headers_sent()) {
+        header('Location: index.php?page=announcements');
+        exit;
+    } else {
+        echo '<script>window.location.href = "index.php?page=announcements";</script>';
+        exit;
+    }
 }
 
 // Duyuru durumunu değiştir (aktif/pasif)
@@ -157,7 +175,13 @@ if (isset($_GET['toggle']) && !empty($_GET['toggle'])) {
     }
     
     // Sayfayı yeniden yönlendir
-    safeRedirect('index.php?page=announcements');
+    if (!headers_sent()) {
+        header('Location: index.php?page=announcements');
+        exit;
+    } else {
+        echo '<script>window.location.href = "index.php?page=announcements";</script>';
+        exit;
+    }
 }
 
 // Duyuru detayları için ID kontrolü

@@ -1,4 +1,6 @@
 <?php
+// Fonksiyonları dahil et
+require_once(__DIR__ . '/includes/functions.php');
 // Yapılandırma dosyasını yükle
 require_once(__DIR__ . '/config/config.php');
 

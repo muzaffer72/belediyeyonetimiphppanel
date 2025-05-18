@@ -40,7 +40,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['add_party'])) {
             $_SESSION['message_type'] = 'success';
             
             // Sayfayı yenile (formun tekrar gönderilmesini önlemek için)
-            safeRedirect('index.php?page=parties');
+            if (!headers_sent()) {
+        header('Location: index.php?page=parties');
+        exit;
+    } else {
+        echo '<script>window.location.href = "index.php?page=parties";</script>';
+        exit;
+    }
         } else {
             $_SESSION['message'] = 'Parti eklenirken bir hata oluştu: ' . $response['message'];
             $_SESSION['message_type'] = 'danger';
@@ -85,7 +91,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['update_party'])) {
             $_SESSION['message_type'] = 'success';
             
             // Sayfayı yenile
-            safeRedirect('index.php?page=parties');
+            if (!headers_sent()) {
+        header('Location: index.php?page=parties');
+        exit;
+    } else {
+        echo '<script>window.location.href = "index.php?page=parties";</script>';
+        exit;
+    }
         } else {
             $_SESSION['message'] = 'Parti güncellenirken bir hata oluştu: ' . $response['message'];
             $_SESSION['message_type'] = 'danger';
@@ -110,7 +122,13 @@ if (isset($_GET['delete']) && !empty($_GET['delete'])) {
     }
     
     // Sayfayı yeniden yönlendir
-    safeRedirect('index.php?page=parties');
+    if (!headers_sent()) {
+        header('Location: index.php?page=parties');
+        exit;
+    } else {
+        echo '<script>window.location.href = "index.php?page=parties";</script>';
+        exit;
+    }
 }
 
 // Parti detayları için ID kontrolü

@@ -102,6 +102,6 @@ function truncateText($text, $length = 100) {
     return rtrim(mb_substr($text, 0, $length, 'UTF-8')) . '...';
 }
 
-// functions.php dosyasını dahil et
-include_once(__DIR__ . '/../includes/functions.php');
+// functions.php dahil et - tüm sayfalardan erişilebilir olması için global scope'da dahil ediyoruz
+require_once(__DIR__ . '/../includes/functions.php');
 ?>

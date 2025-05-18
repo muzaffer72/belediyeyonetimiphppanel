@@ -43,7 +43,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['add_city'])) {
             $_SESSION['message_type'] = 'success';
             
             // Sayfayı yenile (formun tekrar gönderilmesini önlemek için)
-            safeRedirect('index.php?page=cities');
+            if (!headers_sent()) {
+        header('Location: index.php?page=cities');
+        exit;
+    } else {
+        echo '<script>window.location.href = "index.php?page=cities";</script>';
+        exit;
+    }
         } else {
             $_SESSION['message'] = 'Şehir eklenirken bir hata oluştu: ' . $response['message'];
             $_SESSION['message_type'] = 'danger';
@@ -68,7 +74,13 @@ if (isset($_GET['delete']) && !empty($_GET['delete'])) {
     }
     
     // Sayfayı yeniden yönlendir
-    safeRedirect('index.php?page=cities');
+    if (!headers_sent()) {
+        header('Location: index.php?page=cities');
+        exit;
+    } else {
+        echo '<script>window.location.href = "index.php?page=cities";</script>';
+        exit;
+    }
 }
 ?>
 

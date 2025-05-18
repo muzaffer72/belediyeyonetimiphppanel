@@ -54,7 +54,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['add_user'])) {
             $_SESSION['message_type'] = 'success';
             
             // Sayfayı yenile (formun tekrar gönderilmesini önlemek için)
-            safeRedirect('index.php?page=users');
+            if (!headers_sent()) {
+        header('Location: index.php?page=users');
+        exit;
+    } else {
+        echo '<script>window.location.href = "index.php?page=users";</script>';
+        exit;
+    }
         } else {
             $_SESSION['message'] = 'Kullanıcı eklenirken bir hata oluştu: ' . $response['message'];
             $_SESSION['message_type'] = 'danger';
@@ -79,7 +85,13 @@ if (isset($_GET['delete']) && !empty($_GET['delete'])) {
     }
     
     // Sayfayı yeniden yönlendir
-    safeRedirect('index.php?page=users');
+    if (!headers_sent()) {
+        header('Location: index.php?page=users');
+        exit;
+    } else {
+        echo '<script>window.location.href = "index.php?page=users";</script>';
+        exit;
+    }
 }
 
 // Kullanıcı banla
@@ -111,7 +123,13 @@ if (isset($_GET['ban']) && !empty($_GET['ban'])) {
             $_SESSION['message_type'] = 'success';
             
             // Sayfayı yenile
-            safeRedirect('index.php?page=users');
+            if (!headers_sent()) {
+        header('Location: index.php?page=users');
+        exit;
+    } else {
+        echo '<script>window.location.href = "index.php?page=users";</script>';
+        exit;
+    }
         } else {
             $_SESSION['message'] = 'Kullanıcı yasaklanırken bir hata oluştu: ' . $response['message'];
             $_SESSION['message_type'] = 'danger';

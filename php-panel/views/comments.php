@@ -42,7 +42,13 @@ if (isset($_GET['toggle']) && !empty($_GET['toggle'])) {
     }
     
     // Sayfayı yeniden yönlendir
-    safeRedirect('index.php?page=comments');
+    if (!headers_sent()) {
+        header('Location: index.php?page=comments');
+        exit;
+    } else {
+        echo '<script>window.location.href = "index.php?page=comments";</script>';
+        exit;
+    }
 }
 
 // Yorumu sil
@@ -90,7 +96,13 @@ if (isset($_GET['delete']) && !empty($_GET['delete'])) {
     }
     
     // Sayfayı yeniden yönlendir
-    safeRedirect('index.php?page=comments');
+    if (!headers_sent()) {
+        header('Location: index.php?page=comments');
+        exit;
+    } else {
+        echo '<script>window.location.href = "index.php?page=comments";</script>';
+        exit;
+    }
 }
 
 // Yorum düzenleme formu gönderildi mi kontrol et
@@ -120,7 +132,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['update_comment'])) {
             $_SESSION['message_type'] = 'success';
             
             // Sayfayı yenile
-            safeRedirect('index.php?page=comments');
+            if (!headers_sent()) {
+        header('Location: index.php?page=comments');
+        exit;
+    } else {
+        echo '<script>window.location.href = "index.php?page=comments";</script>';
+        exit;
+    }
         } else {
             $_SESSION['message'] = 'Yorum güncellenirken bir hata oluştu: ' . $response['message'];
             $_SESSION['message_type'] = 'danger';
