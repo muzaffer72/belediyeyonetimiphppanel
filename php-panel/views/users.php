@@ -1,4 +1,6 @@
 <?php
+// Fonksiyonları dahil et
+require_once(__DIR__ . '/../includes/functions.php');
 // Kullanıcı verilerini al
 $users_result = getData('users');
 $users = $users_result['data'];
@@ -52,8 +54,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['add_user'])) {
             $_SESSION['message_type'] = 'success';
             
             // Sayfayı yenile (formun tekrar gönderilmesini önlemek için)
-            header('Location: index.php?page=users');
-            exit;
+            safeRedirect('index.php?page=users');
         } else {
             $_SESSION['message'] = 'Kullanıcı eklenirken bir hata oluştu: ' . $response['message'];
             $_SESSION['message_type'] = 'danger';
@@ -78,8 +79,7 @@ if (isset($_GET['delete']) && !empty($_GET['delete'])) {
     }
     
     // Sayfayı yeniden yönlendir
-    header('Location: index.php?page=users');
-    exit;
+    safeRedirect('index.php?page=users');
 }
 
 // Kullanıcı banla
@@ -111,8 +111,7 @@ if (isset($_GET['ban']) && !empty($_GET['ban'])) {
             $_SESSION['message_type'] = 'success';
             
             // Sayfayı yenile
-            header('Location: index.php?page=users');
-            exit;
+            safeRedirect('index.php?page=users');
         } else {
             $_SESSION['message'] = 'Kullanıcı yasaklanırken bir hata oluştu: ' . $response['message'];
             $_SESSION['message_type'] = 'danger';

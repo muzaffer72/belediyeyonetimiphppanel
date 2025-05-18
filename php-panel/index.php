@@ -2,10 +2,11 @@
 // Yapılandırma dosyasını yükle
 require_once(__DIR__ . '/config/config.php');
 
+// Fonksiyonlar config.php içinden dahil ediliyor
+
 // Oturum kontrolü
 if (!isLoggedIn() && basename($_SERVER['PHP_SELF']) !== 'login.php') {
-    redirect('login.php');
-    exit;
+    safeRedirect('login.php');
 }
 
 // Sayfa parametresi

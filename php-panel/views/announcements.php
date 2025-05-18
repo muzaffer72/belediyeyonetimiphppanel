@@ -1,4 +1,6 @@
 <?php
+// Fonksiyonları dahil et
+require_once(__DIR__ . '/../includes/functions.php');
 // Belediye duyurularını al
 $announcements_result = getData('municipality_announcements');
 $announcements = $announcements_result['data'];
@@ -47,8 +49,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['add_announcement'])) 
             $_SESSION['message_type'] = 'success';
             
             // Sayfayı yenile
-            header('Location: index.php?page=announcements');
-            exit;
+            safeRedirect('index.php?page=announcements');
         } else {
             $_SESSION['message'] = 'Duyuru eklenirken bir hata oluştu: ' . $response['message'];
             $_SESSION['message_type'] = 'danger';
@@ -98,8 +99,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['update_announcement']
             $_SESSION['message_type'] = 'success';
             
             // Sayfayı yenile
-            header('Location: index.php?page=announcements');
-            exit;
+            safeRedirect('index.php?page=announcements');
         } else {
             $_SESSION['message'] = 'Duyuru güncellenirken bir hata oluştu: ' . $response['message'];
             $_SESSION['message_type'] = 'danger';
@@ -124,8 +124,7 @@ if (isset($_GET['delete']) && !empty($_GET['delete'])) {
     }
     
     // Sayfayı yeniden yönlendir
-    header('Location: index.php?page=announcements');
-    exit;
+    safeRedirect('index.php?page=announcements');
 }
 
 // Duyuru durumunu değiştir (aktif/pasif)
@@ -158,8 +157,7 @@ if (isset($_GET['toggle']) && !empty($_GET['toggle'])) {
     }
     
     // Sayfayı yeniden yönlendir
-    header('Location: index.php?page=announcements');
-    exit;
+    safeRedirect('index.php?page=announcements');
 }
 
 // Duyuru detayları için ID kontrolü

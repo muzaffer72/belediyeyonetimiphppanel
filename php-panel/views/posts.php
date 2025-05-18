@@ -1,4 +1,6 @@
 <?php
+// Fonksiyonları dahil et
+require_once(__DIR__ . '/../includes/functions.php');
 // Gönderi verilerini al
 $posts_result = getData('posts');
 $posts = $posts_result['data'];
@@ -115,8 +117,7 @@ if (isset($_GET['feature']) && !empty($_GET['feature'])) {
     }
     
     // Sayfayı yeniden yönlendir
-    header('Location: index.php?page=posts');
-    exit;
+    safeRedirect('index.php?page=posts');
 }
 
 // Gönderiyi çözüldü/çözülmedi olarak işaretle
@@ -151,8 +152,7 @@ if (isset($_GET['resolve']) && !empty($_GET['resolve'])) {
     }
     
     // Sayfayı yeniden yönlendir
-    header('Location: index.php?page=posts');
-    exit;
+    safeRedirect('index.php?page=posts');
 }
 
 // Gönderiyi gizle/göster
@@ -187,8 +187,7 @@ if (isset($_GET['visibility']) && !empty($_GET['visibility'])) {
     }
     
     // Sayfayı yeniden yönlendir
-    header('Location: index.php?page=posts');
-    exit;
+    safeRedirect('index.php?page=posts');
 }
 
 // Gönderiyi sil
@@ -223,8 +222,7 @@ if (isset($_GET['delete']) && !empty($_GET['delete'])) {
     
     // Çıktı gönderilmeden önce yönlendirme
     if (!headers_sent()) {
-        header('Location: index.php?page=posts');
-        exit;
+        safeRedirect('index.php?page=posts');
     } else {
         echo '<script>window.location.href = "index.php?page=posts";</script>';
         exit;

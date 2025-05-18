@@ -1,4 +1,6 @@
 <?php
+// Fonksiyonları dahil et
+require_once(__DIR__ . '/../includes/functions.php');
 // Siyasi partiler verilerini al
 $parties_result = getData('political_parties');
 $parties = $parties_result['data'];
@@ -38,8 +40,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['add_party'])) {
             $_SESSION['message_type'] = 'success';
             
             // Sayfayı yenile (formun tekrar gönderilmesini önlemek için)
-            header('Location: index.php?page=parties');
-            exit;
+            safeRedirect('index.php?page=parties');
         } else {
             $_SESSION['message'] = 'Parti eklenirken bir hata oluştu: ' . $response['message'];
             $_SESSION['message_type'] = 'danger';
@@ -84,8 +85,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['update_party'])) {
             $_SESSION['message_type'] = 'success';
             
             // Sayfayı yenile
-            header('Location: index.php?page=parties');
-            exit;
+            safeRedirect('index.php?page=parties');
         } else {
             $_SESSION['message'] = 'Parti güncellenirken bir hata oluştu: ' . $response['message'];
             $_SESSION['message_type'] = 'danger';
@@ -110,8 +110,7 @@ if (isset($_GET['delete']) && !empty($_GET['delete'])) {
     }
     
     // Sayfayı yeniden yönlendir
-    header('Location: index.php?page=parties');
-    exit;
+    safeRedirect('index.php?page=parties');
 }
 
 // Parti detayları için ID kontrolü

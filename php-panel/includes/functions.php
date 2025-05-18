@@ -591,4 +591,20 @@ function generateUUID() {
         mt_rand(0, 0xffff), mt_rand(0, 0xffff), mt_rand(0, 0xffff)
     );
 }
+
+/**
+ * Güvenli yönlendirme yapar, headers already sent hatası olmadan
+ * 
+ * @param string $url Yönlendirilecek URL
+ * @return void
+ */
+function safeRedirect($url) {
+    if (!headers_sent()) {
+        header('Location: ' . $url);
+        exit;
+    } else {
+        echo '<script>window.location.href = "' . $url . '";</script>';
+        exit;
+    }
+}
 ?>

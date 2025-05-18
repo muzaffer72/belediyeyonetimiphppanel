@@ -1,4 +1,6 @@
 <?php
+// Fonksiyonları dahil et
+require_once(__DIR__ . '/../includes/functions.php');
 // Yorumları al
 $comments_result = getData('comments');
 $comments = $comments_result['data'];
@@ -40,8 +42,7 @@ if (isset($_GET['toggle']) && !empty($_GET['toggle'])) {
     }
     
     // Sayfayı yeniden yönlendir
-    header('Location: index.php?page=comments');
-    exit;
+    safeRedirect('index.php?page=comments');
 }
 
 // Yorumu sil
@@ -89,8 +90,7 @@ if (isset($_GET['delete']) && !empty($_GET['delete'])) {
     }
     
     // Sayfayı yeniden yönlendir
-    header('Location: index.php?page=comments');
-    exit;
+    safeRedirect('index.php?page=comments');
 }
 
 // Yorum düzenleme formu gönderildi mi kontrol et
@@ -120,8 +120,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['update_comment'])) {
             $_SESSION['message_type'] = 'success';
             
             // Sayfayı yenile
-            header('Location: index.php?page=comments');
-            exit;
+            safeRedirect('index.php?page=comments');
         } else {
             $_SESSION['message'] = 'Yorum güncellenirken bir hata oluştu: ' . $response['message'];
             $_SESSION['message_type'] = 'danger';

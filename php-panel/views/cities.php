@@ -1,4 +1,6 @@
 <?php
+// Fonksiyonları dahil et
+require_once(__DIR__ . '/../includes/functions.php');
 // Şehirler verilerini al
 $cities_result = getData('cities');
 $cities = $cities_result['data'];
@@ -41,8 +43,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['add_city'])) {
             $_SESSION['message_type'] = 'success';
             
             // Sayfayı yenile (formun tekrar gönderilmesini önlemek için)
-            header('Location: index.php?page=cities');
-            exit;
+            safeRedirect('index.php?page=cities');
         } else {
             $_SESSION['message'] = 'Şehir eklenirken bir hata oluştu: ' . $response['message'];
             $_SESSION['message_type'] = 'danger';
@@ -67,8 +68,7 @@ if (isset($_GET['delete']) && !empty($_GET['delete'])) {
     }
     
     // Sayfayı yeniden yönlendir
-    header('Location: index.php?page=cities');
-    exit;
+    safeRedirect('index.php?page=cities');
 }
 ?>
 
