@@ -83,30 +83,23 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ban_user'])) {
     $ban_start = date('Y-m-d H:i:s');
     $ban_end = date('Y-m-d H:i:s', strtotime("+{$ban_duration} days"));
     
-    // Oturum bilgilerini kontrol et
-    // Eğer admin_id yoksa, session id kullan
-    $admin_id = isset($_SESSION['user_id']) ? $_SESSION['user_id'] : '00000000-0000-0000-0000-000000000000';
-    $banned_by = $admin_id;
+    // Foreign key sorunu nedeniyle doğrudan SQL sorgusu kullanacağız
+    // Mevcut tüm aktif banları önce deaktif edelim
+    $deactivate_query = "UPDATE user_bans SET is_active = false WHERE user_id = '$user_id' AND is_active = true";
+    $deactivate_result = executeRawSql($deactivate_query);
     
-    // Ban verilerini oluştur
-    $ban_data = [
-        'user_id' => $user_id,
-        'reason' => $ban_reason,
-        'ban_start' => $ban_start,
-        'ban_end' => $ban_end,
-        'is_active' => 'true',
-        'banned_by' => $banned_by, // Her zaman bir değer olacak
-        'created_at' => date('Y-m-d H:i:s')
-    ];
+    // Şimdi yeni ban kaydını ekleyelim, banned_by alanını atlayarak (veritabanı default değeri kullanacak)
+    $ban_reason_escaped = str_replace("'", "''", $ban_reason); // SQL injection önlemek
+    $insert_query = "INSERT INTO user_bans (user_id, reason, ban_start, ban_end, is_active, created_at) 
+                     VALUES ('$user_id', '$ban_reason_escaped', '$ban_start', '$ban_end', true, '$ban_start')";
+    $sql_result = executeRawSql($insert_query);
     
-    // Veritabanına ekle
-    $insert_result = addData('user_bans', $ban_data);
-    
-    if (!$insert_result['error']) {
+    // Sonucu kontrol et
+    if (!$sql_result['error']) {
         $_SESSION['message'] = 'Kullanıcı başarıyla banlandı.';
         $_SESSION['message_type'] = 'success';
     } else {
-        $_SESSION['message'] = 'Kullanıcı banlanırken bir hata oluştu: ' . $insert_result['message'];
+        $_SESSION['message'] = 'Kullanıcı banlanırken bir hata oluştu: ' . ($sql_result['error_message'] ?? 'Bilinmeyen hata');
         $_SESSION['message_type'] = 'danger';
     }
     
