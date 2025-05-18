@@ -227,6 +227,69 @@ function getPartyInfoById($political_party_id) {
 }
 
 /**
+ * Ham SQL sorgusu çalıştır
+ * 
+ * @param string $sql_query SQL sorgusu
+ * @return array Sonuç ve hata bilgisini içeren dizi
+ */
+function executeRawSql($sql_query) {
+    // API URL oluştur
+    $url = SUPABASE_REST_URL . '/rpc/execute_sql';
+    
+    // Sorgu parametreleri
+    $data = [
+        'query' => $sql_query
+    ];
+    
+    try {
+        // API isteği yap
+        $ch = curl_init();
+        curl_setopt($ch, CURLOPT_URL, $url);
+        curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+        curl_setopt($ch, CURLOPT_POST, true);
+        curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($data));
+        curl_setopt($ch, CURLOPT_HTTPHEADER, [
+            'apikey: ' . SUPABASE_API_KEY,
+            'Authorization: ' . SUPABASE_AUTH_HEADER,
+            'Content-Type: application/json',
+            'Prefer: return=representation'
+        ]);
+        
+        $response = curl_exec($ch);
+        $status_code = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        $curl_error = curl_error($ch);
+        curl_close($ch);
+        
+        // Cevabı değerlendir
+        if ($curl_error) {
+            return [
+                'error' => true,
+                'error_message' => 'CURL Hatası: ' . $curl_error
+            ];
+        }
+        
+        if ($status_code >= 400) {
+            return [
+                'error' => true,
+                'error_message' => 'API Hatası (' . $status_code . '): ' . $response
+            ];
+        }
+        
+        // Başarılı sonuç
+        return [
+            'error' => false,
+            'data' => json_decode($response, true)
+        ];
+        
+    } catch (Exception $e) {
+        return [
+            'error' => true,
+            'error_message' => 'Hata: ' . $e->getMessage()
+        ];
+    }
+}
+
+/**
  * Dashboard için özet istatistikleri al
  * 
  * @return array İstatistikler

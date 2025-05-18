@@ -1,0 +1,17 @@
+Tamam Şimdi  political_parties deki skorları cron ile günclleyecek bir  kod geliştirelim. Cron ile url yi çalıştırdığımda  İlgili ve şehir ve ilçelerin Şikayet / Çözüm oranları  Hesaplanıp ilgili belediyenin hanesine yazılacak. Şehir ve ilçe için cozumorani tablosu oluşturalım ve Her gün bu oran güncellensin. Bu oran şöyle hesaplanacak Paylaşılan şikayet sayısı ( Öneri dahil edilmeyecek Teşkkür paylaşımları Çözülmüş şikayet olarak sayımlara dahil edilecek dahil edilecek.)
+ Örneğin
+100 Şikayet Paylaşıl, 15 Teşekkür gönderisi paylaşıldı  20 Şikayet Çözüldü
+Şöyle hesaplanacak Toplam sayı / Çözülmüş şikayet+Teşekkür sayısı yani  Yüzdelik oran gösterilecek.
+
+115/35= % 30,43
+
+
+Post tablosunda bu şekilde değerler tutuluyor 
+
+INSERT INTO "public"."posts" ("id", "user_id", "title", "description", "media_url", "is_video", "type", "city", "district", "like_count", "comment_count", "created_at", "updated_at", "media_urls", "is_video_list", "category", "is_resolved", "is_hidden", "monthly_featured_count", "is_featured", "featured_count") VALUES ('2d3d8c0b-6465-4461-95ea-ab5daf7daf97', '83190944-98d5-41be-ac3a-178676faf017', 'Harikaa', 'bu super ebd dsd', null, 'false', 'thanks', 'Adana', 'Seyhan', '0', '0', '2025-05-18 15:55:00.990642+00', '2025-05-18 15:55:00.990688+00', null, null, 'road', 'false', 'false', '0', 'false', '0'), ('7913d822-02dc-4435-8b89-092f555a840e', '83190944-98d5-41be-ac3a-178676faf017', 'batmanin bitmeyen sorunu', 'bu çöpler ne zaman toplanack', 'https://bimer.onvao.net:8443/storage/v1/object/public/gonderidosyalari/83190944-98d5-41be-ac3a-178676faf017/7913d822-02dc-4435-8b89-092f555a840e-6f5ee023-70f0-42f7-96ad-180a4793c087.jpg', 'false', 'complaint', 'Batman', 'Merkez', '0', '0', '2025-05-17 09:37:29.673724+00', '2025-05-18 11:42:56+00', '["https://bimer.onvao.net:8443/storage/v1/object/public/gonderidosyalari/83190944-98d5-41be-ac3a-178676faf017/7913d822-02dc-4435-8b89-092f555a840e-1-1a4f42d7-3a5b-43ce-968d-45d437b30269.jpg"]', null, 'cleaning', 'false', 'false', '0', 'true', '0'), ('9ac049a6-44ce-4a86-a0d9-86ee059fa8b6', '83190944-98d5-41be-ac3a-178676faf017', 'merbjs sbsbsbsbs', 'bshsjs snsns s snssnsbs', 'https://bimer.onvao.net:8443/storage/v1/object/public/gonderidosyalari/83190944-98d5-41be-ac3a-178676faf017/9ac049a6-44ce-4a86-a0d9-86ee059fa8b6-467bafe6-28e4-47c2-8732-141d5308c10b.mp4', 'true', 'complaint', 'Batman', 'Merkez', '0', '0', '2025-05-17 20:56:39.653535+00', '2025-05-18 13:47:05+00', '["https://bimer.onvao.net:8443/storage/v1/object/public/gonderidosyalari/83190944-98d5-41be-ac3a-178676faf017/9ac049a6-44ce-4a86-a0d9-86ee059fa8b6-1-120c5e8f-ded1-4e65-bc7c-2ae1ed12999a.mp4"]', null, 'cleaning', 'false', 'false', '0', 'false', '1');
+type  sütünündaki complaint değeri Şikayetleri ifade eder thanks değeri ise Teşekkürleri ifade eder.
+is_resolved  TRUE değeri Çözülmüş Şikayet FALSE ise Çözülmemiş şikayet olarak değerlendiriliyor. 
+city ve Districts ise Hangi il için paylaşım yapıldığını ifade eder ama  Ben cities tablosunda id ve districts teki id değerleriyle eşleştirip hesaplama yapman en doğrusu olur. 
+
+
+Hesaplanan yüzdelik puan cozumorani
