@@ -334,21 +334,58 @@ endif;
                     'user_id' => 'eq.' . $user_id,
                     'select' => 'count'
                 ]);
-                $posts_count = $posts_count_result['data'] ?? 0;
+                
+                // count istatistikleri bir dizi içinde döndürüldüğünden doğru işleme
+                $posts_count = 0;
+                if (!$posts_count_result['error'] && isset($posts_count_result['data'])) {
+                    if (is_array($posts_count_result['data'])) {
+                        // Eğer count alanı varsa değeri al
+                        if (isset($posts_count_result['data']['count'])) {
+                            $posts_count = (int)$posts_count_result['data']['count'];
+                        }
+                    } else {
+                        // Sayısal değer doğrudan geldiyse
+                        $posts_count = (int)$posts_count_result['data'];
+                    }
+                }
                 
                 // Kullanıcının yorumlarını say
                 $comments_count_result = getData('comments', [
                     'user_id' => 'eq.' . $user_id,
                     'select' => 'count'
                 ]);
-                $comments_count = $comments_count_result['data'] ?? 0;
+                
+                $comments_count = 0;
+                if (!$comments_count_result['error'] && isset($comments_count_result['data'])) {
+                    if (is_array($comments_count_result['data'])) {
+                        // Eğer count alanı varsa değeri al
+                        if (isset($comments_count_result['data']['count'])) {
+                            $comments_count = (int)$comments_count_result['data']['count'];
+                        }
+                    } else {
+                        // Sayısal değer doğrudan geldiyse
+                        $comments_count = (int)$comments_count_result['data'];
+                    }
+                }
                 
                 // Kullanıcının beğenilerini say
                 $likes_count_result = getData('likes', [
                     'user_id' => 'eq.' . $user_id,
                     'select' => 'count'
                 ]);
-                $likes_count = $likes_count_result['data'] ?? 0;
+                
+                $likes_count = 0;
+                if (!$likes_count_result['error'] && isset($likes_count_result['data'])) {
+                    if (is_array($likes_count_result['data'])) {
+                        // Eğer count alanı varsa değeri al
+                        if (isset($likes_count_result['data']['count'])) {
+                            $likes_count = (int)$likes_count_result['data']['count'];
+                        }
+                    } else {
+                        // Sayısal değer doğrudan geldiyse
+                        $likes_count = (int)$likes_count_result['data'];
+                    }
+                }
                 ?>
                 
                 <div class="d-flex justify-content-between">
