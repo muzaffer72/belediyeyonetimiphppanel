@@ -50,14 +50,18 @@ $filter_conditions['order'] = 'created_at.desc';
 $users_result = getData('users', $filter_conditions);
 $users = $users_result['data'] ?? [];
 
-// Tüm aktif banları al
-$active_bans_result = getData('user_bans', ['is_active' => 'eq.true']);
+// Tüm aktif banları al (is_active true olanları ve süresi geçmemiş olanları)
+$current_time = date('Y-m-d H:i:s');
+$active_bans_result = getData('user_bans', [
+    'is_active' => 'eq.true',
+    'order' => 'created_at.desc' // En son ban kaydı en üstte olsun
+]);
 $active_bans = $active_bans_result['data'] ?? [];
 
 // Ban bilgilerini kullanıcı ID'lerine göre düzenle
 $ban_info_by_user_id = [];
 foreach ($active_bans as $ban) {
-    if (isset($ban['user_id'])) {
+    if (isset($ban['user_id']) && isset($ban['ban_end']) && strtotime($ban['ban_end']) > time()) {
         $ban_info_by_user_id[$ban['user_id']] = $ban;
     }
 }
@@ -298,12 +302,11 @@ endif;
                             $is_banned = false;
                             $active_ban = null;
                             
+                            // Eğer kullanıcı ID'si ban listesinde varsa
                             if (isset($ban_info_by_user_id[$user['id']])) {
                                 $active_ban = $ban_info_by_user_id[$user['id']];
-                                // Ban aktif mi ve süresi dolmamış mı kontrol et
-                                if ($active_ban['is_active'] === 'true' && strtotime($active_ban['ban_end']) > time()) {
-                                    $is_banned = true;
-                                }
+                                // Doğrudan banlı olarak işaretle (zaten filtrelemiştik)
+                                $is_banned = true;
                             }
                             
                             // Kullanıcı rolüne göre renk sınıfını belirle
