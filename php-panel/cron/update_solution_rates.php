@@ -79,8 +79,8 @@ while ($processed_count < $total_cities) {
             $solution_rate = (($solved_complaints + $thanks_count) / ($total_complaints + $thanks_count)) * 100;
         }
         
-        // Veritabanında kaydı güncelle veya oluştur
-        updateSolutionRate($city['id'], 'city', $city_name, $total_complaints, $solved_complaints, $thanks_count, $solution_rate);
+        // Şehir verisini doğrudan güncelle
+        updateCitySolutionRate($city['id'], $total_complaints, $solved_complaints, $thanks_count, $solution_rate);
         
         $log .= "Şehir: {$city_name}, Toplam Şikayet: {$total_complaints}, Çözülen: {$solved_complaints}, Teşekkür: {$thanks_count}, Oran: %".number_format($solution_rate, 2)."\n";
         $processed_count++;
@@ -158,8 +158,8 @@ while ($processed_count < $total_districts) {
             $solution_rate = (($solved_complaints + $thanks_count) / ($total_complaints + $thanks_count)) * 100;
         }
         
-        // Veritabanında kaydı güncelle veya oluştur
-        updateSolutionRate($district['id'], 'district', $district_name, $total_complaints, $solved_complaints, $thanks_count, $solution_rate);
+        // İlçe verisini doğrudan güncelle
+        updateDistrictSolutionRate($district['id'], $total_complaints, $solved_complaints, $thanks_count, $solution_rate);
         
         $log .= "İlçe: {$district_name}" . ($city_name ? " ({$city_name})" : "") . ", Toplam Şikayet: {$total_complaints}, Çözülen: {$solved_complaints}, Teşekkür: {$thanks_count}, Oran: %".number_format($solution_rate, 2)."\n";
         $processed_count++;
@@ -183,41 +183,47 @@ file_put_contents(__DIR__ . '/solution_rate_log.txt', $log, FILE_APPEND);
 echo $log;
 
 /**
- * Çözüm oranını veritabanında günceller veya yeni kayıt oluşturur
+ * Şehir için çözüm oranını doğrudan şehir tablosunda günceller
  * 
- * @param string $entity_id Şehir veya ilçe ID'si
- * @param string $entity_type Şehir mi ilçe mi ('city' veya 'district')
- * @param string $name Şehir veya ilçe adı
+ * @param string $city_id Şehir ID'si
  * @param int $total_complaints Toplam şikayet sayısı
  * @param int $solved_complaints Çözülmüş şikayet sayısı
  * @param int $thanks_count Teşekkür sayısı
  * @param float $solution_rate Çözüm oranı (yüzde)
  * @return array İşlem sonucu
  */
-function updateSolutionRate($entity_id, $entity_type, $name, $total_complaints, $solved_complaints, $thanks_count, $solution_rate) {
-    // Önce kaydın var olup olmadığını kontrol et
-    $check_result = getData('cozumorani', [
-        'entity_id' => 'eq.' . $entity_id,
-        'entity_type' => 'eq.' . $entity_type
-    ]);
-    
+function updateCitySolutionRate($city_id, $total_complaints, $solved_complaints, $thanks_count, $solution_rate) {
     $data = [
-        'entity_id' => $entity_id,
-        'entity_type' => $entity_type,
-        'name' => $name,
         'total_complaints' => $total_complaints,
         'solved_complaints' => $solved_complaints,
         'thanks_count' => $thanks_count,
         'solution_rate' => $solution_rate,
-        'last_updated' => date('Y-m-d H:i:s')
+        'solution_last_updated' => date('Y-m-d H:i:s')
     ];
     
-    // Kayıt yoksa yeni oluştur, varsa güncelle
-    if (empty($check_result['data'])) {
-        return addData('cozumorani', $data);
-    } else {
-        return updateData('cozumorani', $check_result['data'][0]['id'], $data);
-    }
+    return updateData('cities', $city_id, $data);
+}
+
+/**
+ * İlçe için çözüm oranını doğrudan ilçe tablosunda günceller
+ * 
+ * @param string $district_id İlçe ID'si
+ * @param int $total_complaints Toplam şikayet sayısı
+ * @param int $solved_complaints Çözülmüş şikayet sayısı
+ * @param int $thanks_count Teşekkür sayısı
+ * @param float $solution_rate Çözüm oranı (yüzde)
+ * @return array İşlem sonucu
+ */
+function updateDistrictSolutionRate($district_id, $total_complaints, $solved_complaints, $thanks_count, $solution_rate) {
+    $data = [
+        'total_complaints' => $total_complaints,
+        'solved_complaints' => $solved_complaints,
+        'thanks_count' => $thanks_count,
+        'solution_rate' => $solution_rate,
+        'solution_last_updated' => date('Y-m-d H:i:s')
+    ];
+    
+    return updateData('districts', $district_id, $data);
 }
 
 /**
@@ -240,18 +246,7 @@ function updatePartyScores() {
     
     $log .= "Toplamda {$total_parties} parti için puanlar hesaplanacak.\n";
     
-    // Tüm şehir ve ilçelerin çözüm oranlarını al
-    $solution_rates_result = getData('cozumorani');
-    $solution_rates = $solution_rates_result['data'] ?? [];
-    
-    // Çözüm oranlarını entity_id ve entity_type'a göre indeksle (hızlı erişim için)
-    $indexed_rates = [];
-    foreach ($solution_rates as $rate) {
-        $key = $rate['entity_type'] . '-' . $rate['entity_id'];
-        $indexed_rates[$key] = $rate;
-    }
-    
-    // Tüm şehir ve ilçeleri al
+    // Şehir ve ilçelerin çözüm oranlarını tablolardan al
     $cities_result = getData('cities');
     $cities = $cities_result['data'] ?? [];
     
@@ -305,19 +300,25 @@ function updatePartyScores() {
             if (isset($party_entities[$party_id])) {
                 // Şehirleri kontrol et
                 foreach ($party_entities[$party_id]['cities'] as $city_id) {
-                    $rate_key = 'city-' . $city_id;
-                    if (isset($indexed_rates[$rate_key])) {
-                        $total_solution_rate += $indexed_rates[$rate_key]['solution_rate'];
-                        $entity_count++;
+                    // Şehri bul ve çözüm oranını kontrol et
+                    foreach ($cities as $city) {
+                        if ($city['id'] === $city_id && isset($city['solution_rate']) && $city['solution_rate'] > 0) {
+                            $total_solution_rate += $city['solution_rate'];
+                            $entity_count++;
+                            break;
+                        }
                     }
                 }
                 
                 // İlçeleri kontrol et
                 foreach ($party_entities[$party_id]['districts'] as $district_id) {
-                    $rate_key = 'district-' . $district_id;
-                    if (isset($indexed_rates[$rate_key])) {
-                        $total_solution_rate += $indexed_rates[$rate_key]['solution_rate'];
-                        $entity_count++;
+                    // İlçeyi bul ve çözüm oranını kontrol et
+                    foreach ($districts as $district) {
+                        if ($district['id'] === $district_id && isset($district['solution_rate']) && $district['solution_rate'] > 0) {
+                            $total_solution_rate += $district['solution_rate'];
+                            $entity_count++;
+                            break;
+                        }
                     }
                 }
             }
