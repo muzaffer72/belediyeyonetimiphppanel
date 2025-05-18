@@ -1,49 +1,33 @@
 <?php
-// Konfigürasyon dosyası
-require_once 'config/config.php';
+// Yapılandırma dosyasını yükle
+require_once(__DIR__ . '/config/config.php');
 
-// Fonksiyonlar
-require_once 'includes/functions.php';
-
-// Kullanıcı zaten giriş yapmışsa dashboard'a yönlendir
+// Kullanıcı zaten giriş yapmışsa ana sayfaya yönlendir
 if (isLoggedIn()) {
-    header('Location: index.php?page=dashboard');
+    redirect('index.php');
     exit;
 }
 
-// Giriş işlemi
-$error = '';
+// Hata ve bildirim mesajları
+$error_message = '';
+$success_message = '';
+
+// Giriş formu gönderildi mi kontrol et
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    $username = trim($_POST['username'] ?? '');
-    $password = trim($_POST['password'] ?? '');
+    $username = isset($_POST['username']) ? trim($_POST['username']) : '';
+    $password = isset($_POST['password']) ? trim($_POST['password']) : '';
     
-    // Basit doğrulama
-    if (empty($username) || empty($password)) {
-        $error = 'Kullanıcı adı ve şifre gereklidir';
-    } else {
-        // Admin kullanıcılarında ara
-        $authenticated = false;
-        foreach ($admin_users as $user) {
-            if ($user['username'] === $username && $user['password'] === $password) {
-                // Giriş başarılı, oturum bilgilerini ayarla
-                $_SESSION['user_id'] = 'admin-01'; // Sabit bir ID
-                $_SESSION['username'] = $username;
-                $_SESSION['display_name'] = $user['display_name'];
-                $_SESSION['email'] = $user['email'];
-                $_SESSION['user_role'] = $user['role'];
-                
-                $authenticated = true;
-                break;
-            }
-        }
+    // Basit kimlik doğrulama (gerçek uygulamada veritabanı kullanılmalı)
+    if ($username === ADMIN_USERNAME && $password === ADMIN_PASSWORD) {
+        // Oturum başlat
+        $_SESSION['admin_logged_in'] = true;
+        $_SESSION['admin_username'] = $username;
         
-        if ($authenticated) {
-            // Dashboard'a yönlendir
-            header('Location: index.php?page=dashboard');
-            exit;
-        } else {
-            $error = 'Geçersiz kullanıcı adı veya şifre';
-        }
+        // Kullanıcıyı ana sayfaya yönlendir
+        redirect('index.php');
+        exit;
+    } else {
+        $error_message = 'Geçersiz kullanıcı adı veya şifre. Lütfen tekrar deneyin.';
     }
 }
 
@@ -57,129 +41,96 @@ $page_title = getPageTitle('login');
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title><?php echo $page_title; ?></title>
     
-    <!-- Favicon -->
-    <link rel="shortcut icon" href="assets/img/favicon.ico" type="image/x-icon">
-    
-    <!-- Bootstrap 5 CSS -->
+    <!-- Bootstrap CSS -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.2.3/dist/css/bootstrap.min.css" rel="stylesheet">
     
     <!-- Font Awesome -->
-    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.2.1/css/all.min.css">
     
-    <!-- Google Fonts -->
-    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&display=swap" rel="stylesheet">
-    
-    <!-- Custom CSS -->
     <style>
         body {
-            font-family: 'Roboto', sans-serif;
-            background-color: #f5f5f5;
-            height: 100vh;
-            display: flex;
-            align-items: center;
-            justify-content: center;
+            background-color: #f8f9fa;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
         }
-        
         .login-container {
             max-width: 400px;
-            width: 100%;
-            padding: 20px;
-        }
-        
-        .login-card {
-            border-radius: 10px;
-            border: none;
-            box-shadow: 0 0 20px rgba(0, 0, 0, 0.1);
-            overflow: hidden;
-        }
-        
-        .card-header {
-            background-color: #0d6efd;
-            color: white;
-            text-align: center;
-            padding: 20px;
-            border-bottom: none;
-        }
-        
-        .card-header .logo {
-            font-size: 2rem;
-            margin-bottom: 10px;
-        }
-        
-        .card-body {
+            margin: 100px auto;
             padding: 30px;
+            background-color: #fff;
+            border-radius: 10px;
+            box-shadow: 0 0 20px rgba(0, 0, 0, 0.1);
         }
-        
-        .form-control {
-            padding: 12px;
-            border-radius: 5px;
+        .login-header {
+            text-align: center;
+            margin-bottom: 30px;
         }
-        
-        .btn-primary {
-            padding: 12px;
-            border-radius: 5px;
-            width: 100%;
-            font-weight: 500;
+        .login-header h1 {
+            color: #3c4b64;
+            font-size: 24px;
+            font-weight: 600;
         }
-        
-        .form-group {
+        .login-logo {
+            width: 80px;
+            height: 80px;
             margin-bottom: 20px;
         }
-        
-        .form-label {
+        .btn-login {
+            background-color: #3c4b64;
+            border-color: #3c4b64;
+            width: 100%;
+            padding: 10px;
             font-weight: 500;
         }
-        
-        .input-group-text {
-            background-color: transparent;
+        .btn-login:hover {
+            background-color: #2d3a4f;
+            border-color: #2d3a4f;
+        }
+        .form-control:focus {
+            border-color: #3c4b64;
+            box-shadow: 0 0 0 0.25rem rgba(60, 75, 100, 0.25);
         }
     </style>
 </head>
 <body>
-    <div class="login-container">
-        <div class="card login-card">
-            <div class="card-header">
-                <div class="logo">
-                    <i class="fas fa-city"></i>
-                </div>
-                <h4 class="mb-0">Bimer Yönetim Paneli</h4>
-                <small>Belediye Yönetim Sistemi</small>
+    <div class="container">
+        <div class="login-container">
+            <div class="login-header">
+                <i class="fas fa-city login-logo"></i>
+                <h1><?php echo SITE_TITLE; ?></h1>
+                <p class="text-muted">Yönetim paneline giriş yapın</p>
             </div>
-            <div class="card-body">
-                <?php if (!empty($error)): ?>
-                    <div class="alert alert-danger" role="alert">
-                        <?php echo $error; ?>
-                    </div>
-                <?php endif; ?>
-                
-                <form method="post" action="login.php">
-                    <div class="form-group">
-                        <label for="username" class="form-label">Kullanıcı Adı</label>
-                        <div class="input-group">
-                            <span class="input-group-text"><i class="fas fa-user"></i></span>
-                            <input type="text" class="form-control" id="username" name="username" placeholder="Kullanıcı adınızı girin" required>
-                        </div>
-                    </div>
-                    
-                    <div class="form-group">
-                        <label for="password" class="form-label">Şifre</label>
-                        <div class="input-group">
-                            <span class="input-group-text"><i class="fas fa-lock"></i></span>
-                            <input type="password" class="form-control" id="password" name="password" placeholder="Şifrenizi girin" required>
-                        </div>
-                    </div>
-                    
-                    <div class="form-group mt-4">
-                        <button type="submit" class="btn btn-primary">
-                            <i class="fas fa-sign-in-alt me-2"></i> Giriş Yap
-                        </button>
-                    </div>
-                </form>
-                
-                <div class="text-center mt-3">
-                    <small class="text-muted">Demo hesabı: admin / admin123</small>
+            
+            <?php if (!empty($error_message)): ?>
+                <div class="alert alert-danger" role="alert">
+                    <?php echo $error_message; ?>
                 </div>
-            </div>
+            <?php endif; ?>
+            
+            <?php if (!empty($success_message)): ?>
+                <div class="alert alert-success" role="alert">
+                    <?php echo $success_message; ?>
+                </div>
+            <?php endif; ?>
+            
+            <form method="post" action="">
+                <div class="mb-3">
+                    <label for="username" class="form-label">Kullanıcı Adı</label>
+                    <div class="input-group">
+                        <span class="input-group-text"><i class="fas fa-user"></i></span>
+                        <input type="text" class="form-control" id="username" name="username" required>
+                    </div>
+                </div>
+                <div class="mb-4">
+                    <label for="password" class="form-label">Şifre</label>
+                    <div class="input-group">
+                        <span class="input-group-text"><i class="fas fa-lock"></i></span>
+                        <input type="password" class="form-control" id="password" name="password" required>
+                    </div>
+                </div>
+                <div class="d-grid">
+                    <button type="submit" class="btn btn-primary btn-login">Giriş Yap</button>
+                </div>
+            </form>
         </div>
     </div>
     

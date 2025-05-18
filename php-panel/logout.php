@@ -1,14 +1,11 @@
 <?php
-// Konfigürasyon dosyası
-require_once 'config/config.php';
-
-// Oturum değişkenlerini temizle
-session_unset();
+// Yapılandırma dosyasını yükle
+require_once(__DIR__ . '/config/config.php');
 
 // Oturumu sonlandır
+session_start();
 session_destroy();
 
 // Giriş sayfasına yönlendir
-header('Location: login.php');
-exit;
+redirect('login.php');
 ?>

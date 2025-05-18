@@ -1,278 +1,213 @@
 <?php
 // İstatistikleri al
-$cities_result = getData('cities');
-$cities = $cities_result['data'];
-$cities_count = count($cities);
+$stats = getDashboardStats();
 
-$users_result = getData('users');
-$users = $users_result['data'];
-$users_count = count($users);
+// Son aktiviteleri al
+$activities = getRecentActivities(10);
 
-$posts_result = getData('posts');
-$posts = $posts_result['data'];
-$posts_count = count($posts);
+// Gönderi kategorilerinin dağılımını al
+$post_categories = getPostCategoriesDistribution();
 
-// Çözülmemiş şikayetler
-$pending_complaints = 0;
-foreach ($posts as $post) {
-    if (isset($post['type']) && $post['type'] === 'complaint' && isset($post['is_resolved']) && !$post['is_resolved']) {
-        $pending_complaints++;
-    }
-}
-
-// Parti dağılımını hesapla
-$party_distribution = [];
-foreach ($cities as $city) {
-    if (isset($city['mayor_party'])) {
-        $party = $city['mayor_party'];
-        if (!isset($party_distribution[$party])) {
-            $party_distribution[$party] = [
-                'count' => 0,
-                'name' => $party,
-                'logo' => isset($city['party_logo_url']) ? $city['party_logo_url'] : ''
-            ];
-        }
-        $party_distribution[$party]['count']++;
-    }
-}
-
-// Son aktiviteler
-$activities = [];
-if (!empty($posts)) {
-    // En son gönderilerden aktiviteler oluştur
-    for ($i = 0; $i < min(5, count($posts)); $i++) {
-        $post = $posts[$i];
-        $activities[] = [
-            'id' => $post['id'],
-            'user' => isset($post['username']) ? $post['username'] : 'Anonim',
-            'action' => isset($post['type']) ? ($post['type'] === 'complaint' ? 'şikayet' : ($post['type'] === 'suggestion' ? 'öneri' : 'gönderi')) . ' ekledi' : 'gönderi ekledi',
-            'target' => isset($post['title']) ? $post['title'] : '',
-            'time' => isset($post['created_at']) ? formatDate($post['created_at']) : '-'
-        ];
-    }
-}
+// Siyasi parti dağılımını al
+$party_distribution = getPoliticalPartyDistribution();
 ?>
 
 <!-- İstatistik Kartları -->
-<div class="row mb-4">
-    <div class="col-md-3">
-        <div class="card bg-primary text-white h-100">
-            <div class="card-body py-5">
-                <div class="d-flex justify-content-between align-items-center">
-                    <div>
-                        <h6 class="text-uppercase">Toplam Şehir</h6>
-                        <h1 class="display-4"><?php echo $cities_count; ?></h1>
-                    </div>
-                    <i class="fas fa-city fa-3x opacity-50"></i>
-                </div>
+<div class="row">
+    <!-- Toplam Şehir Sayısı -->
+    <div class="col-md-6 col-lg-3">
+        <div class="stat-card primary">
+            <div class="stat-card-icon">
+                <i class="fas fa-city"></i>
             </div>
-            <div class="card-footer d-flex">
-                <a href="index.php?page=cities" class="text-white text-decoration-none">
-                    Detayları Görüntüle
-                    <i class="fas fa-arrow-circle-right ms-2"></i>
-                </a>
+            <div class="stat-card-info">
+                <div class="stat-card-value"><?php echo number_format($stats['total_cities']); ?></div>
+                <div class="stat-card-label">Toplam Şehir</div>
             </div>
         </div>
     </div>
     
-    <div class="col-md-3">
-        <div class="card bg-success text-white h-100">
-            <div class="card-body py-5">
-                <div class="d-flex justify-content-between align-items-center">
-                    <div>
-                        <h6 class="text-uppercase">Aktif Kullanıcılar</h6>
-                        <h1 class="display-4"><?php echo $users_count; ?></h1>
-                    </div>
-                    <i class="fas fa-users fa-3x opacity-50"></i>
-                </div>
+    <!-- Aktif Kullanıcı Sayısı -->
+    <div class="col-md-6 col-lg-3">
+        <div class="stat-card info">
+            <div class="stat-card-icon">
+                <i class="fas fa-users"></i>
             </div>
-            <div class="card-footer d-flex">
-                <a href="index.php?page=users" class="text-white text-decoration-none">
-                    Detayları Görüntüle
-                    <i class="fas fa-arrow-circle-right ms-2"></i>
-                </a>
+            <div class="stat-card-info">
+                <div class="stat-card-value"><?php echo number_format($stats['active_users']); ?></div>
+                <div class="stat-card-label">Aktif Kullanıcı</div>
             </div>
         </div>
     </div>
     
-    <div class="col-md-3">
-        <div class="card bg-info text-white h-100">
-            <div class="card-body py-5">
-                <div class="d-flex justify-content-between align-items-center">
-                    <div>
-                        <h6 class="text-uppercase">Toplam Gönderiler</h6>
-                        <h1 class="display-4"><?php echo $posts_count; ?></h1>
-                    </div>
-                    <i class="fas fa-clipboard-list fa-3x opacity-50"></i>
-                </div>
+    <!-- Toplam Gönderi Sayısı -->
+    <div class="col-md-6 col-lg-3">
+        <div class="stat-card success">
+            <div class="stat-card-icon">
+                <i class="fas fa-newspaper"></i>
             </div>
-            <div class="card-footer d-flex">
-                <a href="index.php?page=posts" class="text-white text-decoration-none">
-                    Detayları Görüntüle
-                    <i class="fas fa-arrow-circle-right ms-2"></i>
-                </a>
+            <div class="stat-card-info">
+                <div class="stat-card-value"><?php echo number_format($stats['total_posts']); ?></div>
+                <div class="stat-card-label">Toplam Gönderi</div>
             </div>
         </div>
     </div>
     
-    <div class="col-md-3">
-        <div class="card bg-warning text-white h-100">
-            <div class="card-body py-5">
-                <div class="d-flex justify-content-between align-items-center">
-                    <div>
-                        <h6 class="text-uppercase">Bekleyen Şikayetler</h6>
-                        <h1 class="display-4"><?php echo $pending_complaints; ?></h1>
-                    </div>
-                    <i class="fas fa-exclamation-triangle fa-3x opacity-50"></i>
-                </div>
+    <!-- Bekleyen Şikayet Sayısı -->
+    <div class="col-md-6 col-lg-3">
+        <div class="stat-card warning">
+            <div class="stat-card-icon">
+                <i class="fas fa-exclamation-circle"></i>
             </div>
-            <div class="card-footer d-flex">
-                <a href="index.php?page=posts" class="text-white text-decoration-none">
-                    Detayları Görüntüle
-                    <i class="fas fa-arrow-circle-right ms-2"></i>
-                </a>
+            <div class="stat-card-info">
+                <div class="stat-card-value"><?php echo number_format($stats['pending_complaints']); ?></div>
+                <div class="stat-card-label">Bekleyen Şikayet</div>
             </div>
         </div>
     </div>
 </div>
 
+<!-- Ana Kartlar -->
 <div class="row">
     <!-- Son Aktiviteler -->
     <div class="col-md-6">
-        <div class="card mb-4">
+        <div class="card">
             <div class="card-header">
-                <i class="fas fa-history me-1"></i>
-                Son Aktiviteler
+                <span><i class="fas fa-history me-2"></i> Son Aktiviteler</span>
             </div>
-            <div class="card-body">
-                <div class="table-responsive">
-                    <table class="table table-hover">
-                        <thead>
-                            <tr>
-                                <th>Kullanıcı</th>
-                                <th>İşlem</th>
-                                <th>Hedef</th>
-                                <th>Tarih</th>
-                                <th></th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            <?php if (empty($activities)): ?>
-                                <tr>
-                                    <td colspan="5" class="text-center">Henüz aktivite bulunmuyor.</td>
-                                </tr>
+            <div class="card-body p-0">
+                <ul class="timeline">
+                    <?php if (empty($activities)): ?>
+                    <li class="p-3 text-center">Henüz aktivite bulunmuyor.</li>
+                    <?php else: ?>
+                    <?php foreach ($activities as $activity): ?>
+                    <li class="timeline-item">
+                        <div class="timeline-badge">
+                            <?php if ($activity['type'] === 'post'): ?>
+                            <i class="fas fa-newspaper"></i>
                             <?php else: ?>
-                                <?php foreach ($activities as $activity): ?>
-                                    <tr>
-                                        <td><?php echo escape($activity['user']); ?></td>
-                                        <td><?php echo escape($activity['action']); ?></td>
-                                        <td><?php echo escape($activity['target']); ?></td>
-                                        <td><?php echo $activity['time']; ?></td>
-                                        <td>
-                                            <?php if (strpos($activity['action'], 'şikayet') !== false): ?>
-                                                <span class="badge bg-danger">Şikayet</span>
-                                            <?php elseif (strpos($activity['action'], 'öneri') !== false): ?>
-                                                <span class="badge bg-success">Öneri</span>
-                                            <?php else: ?>
-                                                <span class="badge bg-info">Gönderi</span>
-                                            <?php endif; ?>
-                                        </td>
-                                    </tr>
-                                <?php endforeach; ?>
+                            <i class="fas fa-comment"></i>
                             <?php endif; ?>
-                        </tbody>
-                    </table>
-                </div>
+                        </div>
+                        <div class="timeline-content">
+                            <div class="d-flex justify-content-between">
+                                <h6 class="fw-bold mb-1"><?php echo escape($activity['username']); ?></h6>
+                                <span class="timeline-date">
+                                    <i class="fas fa-clock me-1"></i>
+                                    <?php echo formatDate($activity['timestamp']); ?>
+                                </span>
+                            </div>
+                            <p class="mb-0">
+                                <strong><?php echo escape($activity['action']); ?>:</strong> 
+                                <?php echo escape($activity['target']); ?>
+                            </p>
+                        </div>
+                    </li>
+                    <?php endforeach; ?>
+                    <?php endif; ?>
+                </ul>
             </div>
         </div>
     </div>
     
-    <!-- Parti Dağılımı -->
+    <!-- Gönderi Kategorileri -->
     <div class="col-md-6">
-        <div class="card mb-4">
+        <div class="card">
             <div class="card-header">
-                <i class="fas fa-chart-pie me-1"></i>
-                Şehirlerde Parti Dağılımı
+                <span><i class="fas fa-chart-pie me-2"></i> Gönderi Kategorileri</span>
             </div>
             <div class="card-body">
-                <?php if (empty($party_distribution)): ?>
-                    <p class="text-center">Parti dağılımı verisi bulunamadı.</p>
+                <?php if (empty($post_categories)): ?>
+                <p class="text-center">Henüz veri bulunmuyor.</p>
                 <?php else: ?>
-                    <div class="row">
-                        <?php foreach ($party_distribution as $party): ?>
-                            <div class="col-md-4 mb-3 text-center">
-                                <div class="card">
-                                    <div class="card-body">
-                                        <?php if (!empty($party['logo'])): ?>
-                                            <img src="<?php echo $party['logo']; ?>" alt="<?php echo $party['name']; ?> Logo" class="img-fluid mb-2" style="max-height: 50px;">
-                                        <?php endif; ?>
-                                        <h5 class="card-title"><?php echo $party['name']; ?></h5>
-                                        <p class="card-text"><?php echo $party['count']; ?> Şehir</p>
-                                    </div>
-                                </div>
-                            </div>
-                        <?php endforeach; ?>
-                    </div>
+                <div style="height: 250px; position: relative;">
+                    <canvas id="postCategoriesChart"></canvas>
+                </div>
+                
+                <div class="table-responsive mt-3">
+                    <table class="table table-sm">
+                        <thead>
+                            <tr>
+                                <th>Kategori</th>
+                                <th>Sayı</th>
+                                <th>Yüzde</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <?php foreach ($post_categories as $category): ?>
+                            <tr>
+                                <td>
+                                    <i class="fas <?php echo $category['icon']; ?>" style="color: <?php echo $category['color']; ?>"></i>
+                                    <?php echo escape($category['name']); ?>
+                                </td>
+                                <td><?php echo $category['count']; ?></td>
+                                <td><?php echo $category['percentage']; ?>%</td>
+                            </tr>
+                            <?php endforeach; ?>
+                        </tbody>
+                    </table>
+                </div>
+                
+                <script>
+                    const postCategoriesData = <?php echo json_encode($post_categories); ?>;
+                </script>
                 <?php endif; ?>
             </div>
         </div>
     </div>
 </div>
 
-<!-- Şehirler Listesi -->
-<div class="card mb-4">
-    <div class="card-header">
-        <i class="fas fa-city me-1"></i>
-        Belediyeler Listesi
-    </div>
-    <div class="card-body">
-        <div class="table-responsive">
-            <table class="table table-hover">
-                <thead>
-                    <tr>
-                        <th>Logo</th>
-                        <th>Şehir</th>
-                        <th>Belediye Başkanı</th>
-                        <th>Parti</th>
-                        <th>Nüfus</th>
-                        <th>Email</th>
-                        <th></th>
-                    </tr>
-                </thead>
-                <tbody>
-                    <?php if (empty($cities)): ?>
-                        <tr>
-                            <td colspan="7" class="text-center">Henüz şehir kaydı bulunmuyor.</td>
-                        </tr>
-                    <?php else: ?>
-                        <?php foreach ($cities as $city): ?>
+<!-- Ek Kartlar -->
+<div class="row">
+    <!-- Siyasi Parti Dağılımı -->
+    <div class="col-md-12">
+        <div class="card">
+            <div class="card-header">
+                <span><i class="fas fa-flag me-2"></i> Siyasi Parti Dağılımı</span>
+            </div>
+            <div class="card-body">
+                <?php if (empty($party_distribution)): ?>
+                <p class="text-center">Henüz veri bulunmuyor.</p>
+                <?php else: ?>
+                <div style="height: 250px; position: relative;">
+                    <canvas id="partyDistributionChart"></canvas>
+                </div>
+                
+                <div class="table-responsive mt-3">
+                    <table class="table table-sm">
+                        <thead>
+                            <tr>
+                                <th>Parti</th>
+                                <th>Şehir Sayısı</th>
+                                <th>Yüzde</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <?php foreach ($party_distribution as $party): ?>
                             <tr>
                                 <td>
-                                    <?php if (isset($city['logo_url']) && !empty($city['logo_url'])): ?>
-                                        <img src="<?php echo $city['logo_url']; ?>" alt="<?php echo isset($city['name']) ? $city['name'] : ''; ?> Logo" width="50">
-                                    <?php else: ?>
-                                        <i class="fas fa-city fa-2x text-muted"></i>
-                                    <?php endif; ?>
+                                    <div class="d-flex align-items-center">
+                                        <?php if (!empty($party['logo'])): ?>
+                                        <img src="<?php echo escape($party['logo']); ?>" alt="<?php echo escape($party['name']); ?>" class="me-2" style="width: 24px; height: 24px;">
+                                        <?php else: ?>
+                                        <span class="me-2" style="width: 24px; height: 24px; background-color: <?php echo $party['color']; ?>; display: inline-block; border-radius: 50%;"></span>
+                                        <?php endif; ?>
+                                        <?php echo escape($party['name']); ?>
+                                    </div>
                                 </td>
-                                <td><?php echo isset($city['name']) ? escape($city['name']) : ''; ?></td>
-                                <td><?php echo isset($city['mayor_name']) ? escape($city['mayor_name']) : ''; ?></td>
-                                <td>
-                                    <?php if (isset($city['mayor_party']) && !empty($city['mayor_party'])): ?>
-                                        <span class="badge bg-primary"><?php echo escape($city['mayor_party']); ?></span>
-                                    <?php endif; ?>
-                                </td>
-                                <td><?php echo isset($city['population']) ? escape($city['population']) : ''; ?></td>
-                                <td><?php echo isset($city['email']) ? escape($city['email']) : ''; ?></td>
-                                <td>
-                                    <a href="index.php?page=city_detail&id=<?php echo $city['id']; ?>" class="btn btn-sm btn-info">
-                                        <i class="fas fa-eye"></i>
-                                    </a>
-                                </td>
+                                <td><?php echo $party['count']; ?></td>
+                                <td><?php echo $party['percentage']; ?>%</td>
                             </tr>
-                        <?php endforeach; ?>
-                    <?php endif; ?>
-                </tbody>
-            </table>
+                            <?php endforeach; ?>
+                        </tbody>
+                    </table>
+                </div>
+                
+                <script>
+                    const partyDistributionData = <?php echo json_encode($party_distribution); ?>;
+                </script>
+                <?php endif; ?>
+            </div>
         </div>
     </div>
 </div>

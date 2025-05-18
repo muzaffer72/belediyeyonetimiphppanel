@@ -1,0 +1,10 @@
+{
+  "commands": {
+    "start": "php -S 0.0.0.0:8080 -t php-panel"
+  },
+  "tasks": {
+    "start": {
+      "command": "start"
+    }
+  }
+}
