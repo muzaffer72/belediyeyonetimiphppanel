@@ -66,9 +66,10 @@ if (isset($_POST['ban_user']) && isset($_POST['user_id'])) {
     $ban_start = date('Y-m-d H:i:s');
     $ban_end = date('Y-m-d H:i:s', strtotime("+{$ban_duration} days"));
     
+    // Burada banned_by için varsayılan bir değer atadık (not null constraint için)
     $ban_data = [
         'user_id' => $user_id,
-        'banned_by' => $_SESSION['admin_id'] ?? null,
+        'banned_by' => $_SESSION['admin_id'] ?? 'b5008bcd-3119-4789-8568-9da762fa4341', // Default admin ID
         'reason' => $ban_reason,
         'ban_start' => $ban_start,
         'ban_end' => $ban_end,
@@ -252,12 +253,17 @@ endif;
                                         </button>
                                         <ul class="dropdown-menu" aria-labelledby="dropdownMenuButton1">
                                             <li>
-                                                <a class="dropdown-item" href="javascript:void(0)" onclick="viewUserPosts('<?php echo $user['id']; ?>')">
+                                                <a class="dropdown-item" href="index.php?page=user_edit&id=<?php echo $user['id']; ?>">
+                                                    <i class="fas fa-user-edit me-1"></i> Düzenle
+                                                </a>
+                                            </li>
+                                            <li>
+                                                <a class="dropdown-item" href="index.php?page=posts&user_id=<?php echo $user['id']; ?>">
                                                     <i class="fas fa-clipboard-list me-1"></i> Gönderilerini Görüntüle
                                                 </a>
                                             </li>
                                             <li>
-                                                <a class="dropdown-item" href="javascript:void(0)" onclick="viewUserComments('<?php echo $user['id']; ?>')">
+                                                <a class="dropdown-item" href="index.php?page=comments&user_id=<?php echo $user['id']; ?>">
                                                     <i class="fas fa-comments me-1"></i> Yorumlarını Görüntüle
                                                 </a>
                                             </li>
@@ -468,15 +474,7 @@ document.getElementById('deleteModal').addEventListener('show.bs.modal', functio
     document.getElementById('deleteUsername').textContent = username;
 });
 
-// Kullanıcı gönderilerini görüntüle
-function viewUserPosts(userId) {
-    window.location.href = 'index.php?page=posts&user_id=' + userId;
-}
-
-// Kullanıcı yorumlarını görüntüle
-function viewUserComments(userId) {
-    window.location.href = 'index.php?page=comments&user_id=' + userId;
-}
+// Bu JavaScript fonksiyonları artık kullanılmıyor çünkü bunların yerine doğrudan linkler kullandık
 
 // DataTables eklentisini etkinleştir
 document.addEventListener('DOMContentLoaded', function() {

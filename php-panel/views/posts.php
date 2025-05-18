@@ -25,6 +25,7 @@ $post_types = [
 $filter_city = isset($_GET['city']) ? $_GET['city'] : '';
 $filter_type = isset($_GET['type']) ? $_GET['type'] : '';
 $filter_user = isset($_GET['user']) ? $_GET['user'] : '';
+$filter_user_id = isset($_GET['user_id']) ? $_GET['user_id'] : ''; // Kullanıcı ID ile filtreleme için
 $filter_resolved = isset($_GET['resolved']) ? $_GET['resolved'] : '';
 
 // Filtreleri uygula
@@ -42,6 +43,12 @@ if (!empty($filter_type)) {
 if (!empty($filter_user)) {
     $filtered_posts = array_filter($filtered_posts, function($post) use ($filter_user) {
         return isset($post['user_id']) && $post['user_id'] === $filter_user;
+    });
+}
+// Kullanıcı ID'ye göre filtreleme (users.php sayfasından yönlendirilen filtreleme için)
+if (!empty($filter_user_id)) {
+    $filtered_posts = array_filter($filtered_posts, function($post) use ($filter_user_id) {
+        return isset($post['user_id']) && $post['user_id'] === $filter_user_id;
     });
 }
 if ($filter_resolved !== '') {
