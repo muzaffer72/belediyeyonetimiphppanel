@@ -83,23 +83,43 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ban_user'])) {
     $ban_start = date('Y-m-d H:i:s');
     $ban_end = date('Y-m-d H:i:s', strtotime("+{$ban_duration} days"));
     
-    // Foreign key sorunu nedeniyle doğrudan SQL sorgusu kullanacağız
-    // Mevcut tüm aktif banları önce deaktif edelim
-    $deactivate_query = "UPDATE user_bans SET is_active = false WHERE user_id = '$user_id' AND is_active = true";
-    $deactivate_result = executeRawSql($deactivate_query);
+    // Önce mevcut aktif banları bulalım
+    $active_bans_result = getData('user_bans', [
+        'user_id' => 'eq.' . $user_id,
+        'is_active' => 'eq.true'
+    ]);
     
-    // Şimdi yeni ban kaydını ekleyelim, banned_by alanını atlayarak (veritabanı default değeri kullanacak)
-    $ban_reason_escaped = str_replace("'", "''", $ban_reason); // SQL injection önlemek
-    $insert_query = "INSERT INTO user_bans (user_id, reason, ban_start, ban_end, is_active, created_at) 
-                     VALUES ('$user_id', '$ban_reason_escaped', '$ban_start', '$ban_end', true, '$ban_start')";
-    $sql_result = executeRawSql($insert_query);
+    // Aktif banlar varsa, onları deaktif yapalım
+    if (!$active_bans_result['error'] && !empty($active_bans_result['data'])) {
+        foreach ($active_bans_result['data'] as $ban) {
+            updateData('user_bans', $ban['id'], [
+                'is_active' => 'false'
+            ]);
+        }
+    }
+    
+    // Şimdi yeni ban kaydı ekleyelim (banned_by olmadan)
+    $ban_data = [
+        'user_id' => $user_id,
+        'reason' => $ban_reason,
+        'ban_start' => $ban_start,
+        'ban_end' => $ban_end,
+        'is_active' => 'true',
+        'created_at' => date('Y-m-d H:i:s')
+    ];
+    
+    // Bu kullanıcıyı banlayan kullanıcının kim olduğunu bilmiyoruz, o yüzden kullanıcı ID'yi kullanıyoruz
+    // Veritabanında null izin verilmiyorsa, kendisini banlayan kullanıcı olarak işleyelim
+    $ban_data['banned_by'] = $user_id;
+    
+    $insert_result = addData('user_bans', $ban_data);
     
     // Sonucu kontrol et
-    if (!$sql_result['error']) {
+    if (!$insert_result['error']) {
         $_SESSION['message'] = 'Kullanıcı başarıyla banlandı.';
         $_SESSION['message_type'] = 'success';
     } else {
-        $_SESSION['message'] = 'Kullanıcı banlanırken bir hata oluştu: ' . ($sql_result['error_message'] ?? 'Bilinmeyen hata');
+        $_SESSION['message'] = 'Kullanıcı banlanırken bir hata oluştu: ' . ($insert_result['message'] ?? 'Bilinmeyen hata');
         $_SESSION['message_type'] = 'danger';
     }
     
