@@ -1,6 +1,7 @@
 <?php
-// Yapılandırma dosyasını yükle
+// Yapılandırma dosyasını ve gerekli fonksiyonları yükle
 require_once(__DIR__ . '/../config/config.php');
+require_once(__DIR__ . '/../includes/functions.php');
 
 // URL parametrelerini al
 $current_page = isset($_GET['p']) ? intval($_GET['p']) : 1;
@@ -37,7 +38,7 @@ if (!empty($search_query)) {
 $count_filter = $filter_conditions;
 $count_filter['select'] = 'count';
 $total_users_result = getData('users', $count_filter);
-$total_users = $total_users_result['data'] ?? 0;
+$total_users = is_numeric($total_users_result['data']) ? intval($total_users_result['data']) : 0;
 $total_pages = ceil($total_users / $items_per_page);
 
 // Sayfalama parametrelerini ekle
@@ -90,7 +91,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ban_user'])) {
     ];
     
     // Veritabanına ekle
-    $insert_result = insertData('user_bans', $ban_data);
+    $insert_result = addData('user_bans', $ban_data);
     
     if (!$insert_result['error']) {
         $_SESSION['message'] = 'Kullanıcı başarıyla banlandı.';
@@ -294,7 +295,8 @@ endif;
                             
                             if (isset($ban_info_by_user_id[$user['id']])) {
                                 $active_ban = $ban_info_by_user_id[$user['id']];
-                                if (strtotime($active_ban['ban_end']) > time()) {
+                                // Ban aktif mi ve süresi dolmamış mı kontrol et
+                                if ($active_ban['is_active'] === 'true' && strtotime($active_ban['ban_end']) > time()) {
                                     $is_banned = true;
                                 }
                             }

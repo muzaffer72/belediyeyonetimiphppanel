@@ -1,6 +1,7 @@
 <?php
-// Yapılandırma dosyasını yükle
+// Yapılandırma dosyasını ve gerekli fonksiyonları yükle
 require_once(__DIR__ . '/../config/config.php');
+require_once(__DIR__ . '/../includes/functions.php');
 
 // ID parametresi kontrolü
 if (!isset($_GET['id'])) {
@@ -87,7 +88,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['update_user'])) {
     $city = isset($_POST['city']) ? trim($_POST['city']) : '';
     $district = isset($_POST['district']) ? trim($_POST['district']) : '';
     $role = isset($_POST['role']) ? trim($_POST['role']) : 'user';
-    $phone_number = isset($_POST['phone_number']) ? trim($_POST['phone_number']) : null;
+    
+    // Telefon numarası boş ise null olarak ayarla, aksi halde değeri al
+    $phone_number = isset($_POST['phone_number']) && trim($_POST['phone_number']) !== '' ? 
+        trim($_POST['phone_number']) : null;
 
     // Profil resmi değiştirildi mi?
     $profile_image_url = $user['profile_image_url'] ?? null;
@@ -118,11 +122,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['update_user'])) {
     $update_data = [
         'username' => $username,
         'email' => $email,
-        'city' => $city,
-        'district' => $district,
         'role' => $role,
         'updated_at' => date('Y-m-d H:i:s')
     ];
+    
+    // Boş olabilecek alanları kontrol et ve ekle
+    if (!empty($city)) {
+        $update_data['city'] = $city;
+    }
+    
+    if (!empty($district)) {
+        $update_data['district'] = $district;
+    }
     
     // Null olmayan alanları ekle
     if ($profile_image_url !== null) {
@@ -131,6 +142,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['update_user'])) {
     
     if ($phone_number !== null) {
         $update_data['phone_number'] = $phone_number;
+    } else {
+        // Telefon numarası boş ise null olarak ayarlıyoruz (veritabanında numeric hatası önlemek için)
+        $update_data['phone_number'] = null;
     }
     
     // Veritabanını güncelle

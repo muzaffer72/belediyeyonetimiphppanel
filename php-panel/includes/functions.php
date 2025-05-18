@@ -185,16 +185,27 @@ function deleteData($table, $id) {
  * 
  * @param string $table Tablo adı
  * @param string $id Veri ID'si
- * @return array|null Veri veya null
+ * @return array Veri ve hata bilgisini içeren dizi
  */
 function getDataById($table, $id) {
     $result = getData($table, ['id' => 'eq.' . $id]);
     
     if (!$result['error'] && !empty($result['data'])) {
-        return $result['data'][0];
+        return ['error' => false, 'data' => $result['data'][0], 'message' => 'Veri başarıyla alındı'];
     }
     
-    return null;
+    return ['error' => true, 'data' => null, 'message' => 'Veri bulunamadı'];
+}
+
+/**
+ * Supabase'e veri ekle (insertData) - addData ile aynı, alias olarak tanımlandı
+ * 
+ * @param string $table Tablo adı
+ * @param array $data Eklenecek veri
+ * @return array Sonuç ve hata bilgisini içeren dizi
+ */
+function insertData($table, $data) {
+    return addData($table, $data);
 }
 
 /**
