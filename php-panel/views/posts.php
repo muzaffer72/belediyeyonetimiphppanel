@@ -221,9 +221,14 @@ if (isset($_GET['delete']) && !empty($_GET['delete'])) {
         $_SESSION['message_type'] = 'danger';
     }
     
-    // Sayfayı yeniden yönlendir
-    header('Location: index.php?page=posts');
-    exit;
+    // Çıktı gönderilmeden önce yönlendirme
+    if (!headers_sent()) {
+        header('Location: index.php?page=posts');
+        exit;
+    } else {
+        echo '<script>window.location.href = "index.php?page=posts";</script>';
+        exit;
+    }
 }
 ?>
 
