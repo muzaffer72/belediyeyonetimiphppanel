@@ -427,7 +427,7 @@
             <li class="sidebar-item">
                 <a href="<?php echo $item['url']; ?>" class="sidebar-link <?php echo $item['active'] ? 'active' : ''; ?>">
                     <span class="sidebar-icon"><i class="<?php echo $item['icon']; ?>"></i></span>
-                    <span class="sidebar-title"><?php echo $item['title']; ?></span>
+                    <span class="sidebar-title"><?php echo $item['text']; ?></span>
                 </a>
             </li>
             <?php endforeach; ?>
