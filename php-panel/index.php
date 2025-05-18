@@ -18,7 +18,7 @@ $action = isset($_GET['action']) ? $_GET['action'] : '';
 // Geçerli sayfalar
 $valid_pages = [
     'dashboard', 'cities', 'districts', 'parties', 'posts', 'comments', 'announcements', 'users', 'not_found',
-    'city_edit', 'city_detail', 'district_edit', 'district_detail'
+    'city_edit', 'city_detail', 'district_edit', 'district_detail', 'post_edit', 'post_detail'
 ];
 
 // Sayfa geçerli mi kontrol et

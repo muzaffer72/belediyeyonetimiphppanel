@@ -41,13 +41,48 @@ if (isset($district['city_id'])) {
     $city = getDataById('cities', $district['city_id']);
 }
 
-// Gönderi verilerini al
-$posts_result = getData('posts', ['district' => 'eq.' . $district['name']]);
+// İlçenin bağlı olduğu il adını al
+$city_name = '';
+if ($city) {
+    $city_name = $city['name'];
+}
+
+// Sadece bu ilçeye ve şehre ait gönderileri al (ilçe adı ve il adı filtrelemesi)
+if (!empty($city_name)) {
+    // Hem ilçe hem de şehir bilgisiyle filtreleme yap
+    $posts_result = getData('posts', [
+        'district' => 'eq.' . $district['name'],
+        'city' => 'eq.' . $city_name
+    ]);
+} else {
+    // Sadece ilçe adıyla filtreleme yap (şehir bilgisi yoksa)
+    $posts_result = getData('posts', ['district' => 'eq.' . $district['name']]);
+}
 $posts = $posts_result['data'];
 
-// Belediye duyurularını al
+// Sadece bu ilçeye ait belediye duyurularını al (municipality_id ile tam eşleşme)
 $announcements_result = getData('municipality_announcements', ['municipality_id' => 'eq.' . $district_id]);
 $announcements = $announcements_result['data'];
+
+// Sadece bu ilçeye ve şehre ait kullanıcıları al
+if (!empty($city_name)) {
+    // Hem ilçe hem de şehir bilgisiyle filtreleme yap
+    $district_users_result = getData('users', [
+        'district' => 'eq.' . $district['name'],
+        'city' => 'eq.' . $city_name
+    ]);
+} else {
+    // Sadece ilçe adıyla filtreleme yap (şehir bilgisi yoksa)
+    $district_users_result = getData('users', ['district' => 'eq.' . $district['name']]);
+}
+$district_users = $district_users_result['data'];
+
+// İlçeye ait istatistikleri topla
+$district_stats = [
+    'total_posts' => count($posts),
+    'total_announcements' => count($announcements),
+    'total_users' => count($district_users)
+];
 ?>
 
 <!-- Üst Başlık ve Butonlar -->
@@ -166,17 +201,17 @@ $announcements = $announcements_result['data'];
     <div class="col-md-6">
         <div class="card mb-4">
             <div class="card-header">
-                <h5 class="mb-0"><i class="fas fa-chart-bar me-2"></i> İstatistikler</h5>
+                <h5 class="mb-0"><i class="fas fa-chart-bar me-2"></i> <?php echo escape($district['name']); ?> İlçesi İstatistikleri</h5>
             </div>
             <div class="card-body">
                 <div class="row">
-                    <div class="col-md-6 mb-3">
+                    <div class="col-md-4 mb-3">
                         <div class="card bg-info text-white">
                             <div class="card-body">
                                 <div class="d-flex justify-content-between align-items-center">
                                     <div>
                                         <h6 class="mb-0">Gönderiler</h6>
-                                        <h2 class="mb-0"><?php echo count($posts); ?></h2>
+                                        <h2 class="mb-0"><?php echo $district_stats['total_posts']; ?></h2>
                                     </div>
                                     <div>
                                         <i class="fas fa-newspaper fa-2x"></i>
@@ -186,13 +221,13 @@ $announcements = $announcements_result['data'];
                         </div>
                     </div>
                     
-                    <div class="col-md-6 mb-3">
+                    <div class="col-md-4 mb-3">
                         <div class="card bg-success text-white">
                             <div class="card-body">
                                 <div class="d-flex justify-content-between align-items-center">
                                     <div>
                                         <h6 class="mb-0">Duyurular</h6>
-                                        <h2 class="mb-0"><?php echo count($announcements); ?></h2>
+                                        <h2 class="mb-0"><?php echo $district_stats['total_announcements']; ?></h2>
                                     </div>
                                     <div>
                                         <i class="fas fa-bullhorn fa-2x"></i>
@@ -201,10 +236,26 @@ $announcements = $announcements_result['data'];
                             </div>
                         </div>
                     </div>
+                    
+                    <div class="col-md-4 mb-3">
+                        <div class="card bg-primary text-white">
+                            <div class="card-body">
+                                <div class="d-flex justify-content-between align-items-center">
+                                    <div>
+                                        <h6 class="mb-0">Kullanıcılar</h6>
+                                        <h2 class="mb-0"><?php echo $district_stats['total_users']; ?></h2>
+                                    </div>
+                                    <div>
+                                        <i class="fas fa-users fa-2x"></i>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
                 </div>
                 
                 <?php
-                // Gönderi tipleri istatistikleri
+                // İlçeye özel gönderi tipleri istatistikleri
                 $post_types = [
                     'complaint' => ['count' => 0, 'name' => 'Şikayet', 'color' => 'danger'],
                     'suggestion' => ['count' => 0, 'name' => 'Öneri', 'color' => 'primary'],
@@ -212,15 +263,30 @@ $announcements = $announcements_result['data'];
                     'thanks' => ['count' => 0, 'name' => 'Teşekkür', 'color' => 'success'],
                 ];
                 
+                // İlçeye ait gönderileri sayıyoruz
                 foreach ($posts as $post) {
                     if (isset($post['type']) && isset($post_types[$post['type']])) {
                         $post_types[$post['type']]['count']++;
                     }
                 }
+                
+                // İlçeye ait çözülmüş/çözülmemiş şikayet sayıları
+                $resolved_complaints = 0;
+                $unresolved_complaints = 0;
+                
+                foreach ($posts as $post) {
+                    if (isset($post['type']) && $post['type'] === 'complaint') {
+                        if (isset($post['is_resolved']) && $post['is_resolved'] === 'true') {
+                            $resolved_complaints++;
+                        } else {
+                            $unresolved_complaints++;
+                        }
+                    }
+                }
                 ?>
                 
                 <?php if (!empty($posts)): ?>
-                <h6 class="mt-4 mb-3">Gönderi Tipleri</h6>
+                <h6 class="mt-4 mb-3"><?php echo escape($district['name']); ?> İlçesi Gönderi Dağılımı</h6>
                 <?php foreach ($post_types as $type => $data): ?>
                     <div class="mb-2">
                         <div class="d-flex justify-content-between mb-1">
@@ -235,18 +301,32 @@ $announcements = $announcements_result['data'];
                     </div>
                 <?php endforeach; ?>
                 <?php endif; ?>
+                
+                <?php if ($resolved_complaints > 0 || $unresolved_complaints > 0): ?>
+                <h6 class="mt-4 mb-3">Şikayet Durumu</h6>
+                <div class="d-flex">
+                    <div class="me-4">
+                        <span class="badge bg-success">Çözülen:</span> 
+                        <strong><?php echo $resolved_complaints; ?></strong>
+                    </div>
+                    <div>
+                        <span class="badge bg-warning text-dark">Bekleyen:</span> 
+                        <strong><?php echo $unresolved_complaints; ?></strong>
+                    </div>
+                </div>
+                <?php endif; ?>
             </div>
         </div>
     </div>
 </div>
 
 <div class="row">
-    <!-- Son Gönderiler Kartı -->
+    <!-- İlçeye Özel Gönderiler Kartı -->
     <div class="col-md-6">
         <div class="card mb-4">
             <div class="card-header">
                 <div class="d-flex align-items-center justify-content-between">
-                    <h5 class="mb-0"><i class="fas fa-newspaper me-2"></i> Son Gönderiler</h5>
+                    <h5 class="mb-0"><i class="fas fa-newspaper me-2"></i> <?php echo escape($district['name']); ?> İlçesi Gönderileri</h5>
                     <span class="badge bg-primary"><?php echo count($posts); ?> Gönderi</span>
                 </div>
             </div>
@@ -265,8 +345,11 @@ $announcements = $announcements_result['data'];
                                 'thanks' => 'text-success'
                             ];
                             $type_class = isset($post['type']) && isset($type_classes[$post['type']]) ? $type_classes[$post['type']] : 'text-secondary';
+                            
+                            // Gönderi detay sayfasını kullan
+                            $detail_url = "index.php?page=post_detail&id=" . $post['id'];
                         ?>
-                            <a href="index.php?page=posts&id=<?php echo $post['id']; ?>" class="list-group-item list-group-item-action">
+                            <a href="<?php echo $detail_url; ?>" class="list-group-item list-group-item-action">
                                 <div class="d-flex w-100 justify-content-between">
                                     <h6 class="mb-1"><?php echo escape(truncateText($post['title'] ?? '', 50)); ?></h6>
                                     <small class="<?php echo $type_class; ?>">
@@ -283,9 +366,14 @@ $announcements = $announcements_result['data'];
                                         ?>
                                     </small>
                                 </div>
-                                <small class="text-muted">
-                                    <?php echo isset($post['created_at']) ? formatDate($post['created_at']) : ''; ?>
-                                </small>
+                                <div class="d-flex justify-content-between">
+                                    <small class="text-muted">
+                                        <?php echo isset($post['created_at']) ? formatDate($post['created_at']) : ''; ?>
+                                    </small>
+                                    <?php if (isset($post['is_resolved']) && $post['is_resolved'] === 'true'): ?>
+                                        <span class="badge bg-success">Çözüldü</span>
+                                    <?php endif; ?>
+                                </div>
                             </a>
                         <?php endforeach; ?>
                     </div>
@@ -293,7 +381,7 @@ $announcements = $announcements_result['data'];
                     <?php if(count($posts) > 5): ?>
                         <div class="text-center mt-3">
                             <a href="index.php?page=posts&district=<?php echo urlencode($district['name']); ?>" class="btn btn-sm btn-outline-primary">
-                                Tüm Gönderileri Görüntüle (<?php echo count($posts); ?>)
+                                Tüm <?php echo escape($district['name']); ?> İlçesi Gönderilerini Görüntüle (<?php echo count($posts); ?>)
                             </a>
                         </div>
                     <?php endif; ?>
@@ -302,12 +390,12 @@ $announcements = $announcements_result['data'];
         </div>
     </div>
     
-    <!-- Belediye Duyuruları Kartı -->
+    <!-- İlçeye Özel Belediye Duyuruları Kartı -->
     <div class="col-md-6">
         <div class="card mb-4">
             <div class="card-header">
                 <div class="d-flex align-items-center justify-content-between">
-                    <h5 class="mb-0"><i class="fas fa-bullhorn me-2"></i> Belediye Duyuruları</h5>
+                    <h5 class="mb-0"><i class="fas fa-bullhorn me-2"></i> <?php echo escape($district['name']); ?> İlçesi Duyuruları</h5>
                     <span class="badge bg-primary"><?php echo count($announcements); ?> Duyuru</span>
                 </div>
             </div>
@@ -327,10 +415,22 @@ $announcements = $announcements_result['data'];
                             $type_class = isset($announcement['announcement_type']) && isset($type_classes[$announcement['announcement_type']]) 
                                 ? $type_classes[$announcement['announcement_type']] 
                                 : 'border-secondary';
+                                
+                            $announcement_icon = 'fa-bullhorn';
+                            if (isset($announcement['announcement_type'])) {
+                                switch($announcement['announcement_type']) {
+                                    case 'warning': $announcement_icon = 'fa-exclamation-triangle'; break;
+                                    case 'info': $announcement_icon = 'fa-info-circle'; break;
+                                    case 'event': $announcement_icon = 'fa-calendar-alt'; break;
+                                }
+                            }
                         ?>
                             <div class="card mb-2 <?php echo $type_class; ?>">
                                 <div class="card-body p-3">
-                                    <h6 class="card-title"><?php echo escape(truncateText($announcement['title'] ?? '', 50)); ?></h6>
+                                    <div class="d-flex align-items-center mb-2">
+                                        <i class="fas <?php echo $announcement_icon; ?> me-2"></i>
+                                        <h6 class="card-title mb-0"><?php echo escape(truncateText($announcement['title'] ?? '', 50)); ?></h6>
+                                    </div>
                                     <p class="card-text small"><?php echo escape(truncateText($announcement['content'] ?? '', 100)); ?></p>
                                     <div class="d-flex justify-content-between">
                                         <small class="text-muted">
@@ -348,7 +448,7 @@ $announcements = $announcements_result['data'];
                     <?php if(count($announcements) > 5): ?>
                         <div class="text-center mt-3">
                             <a href="index.php?page=announcements&municipality_id=<?php echo $district_id; ?>" class="btn btn-sm btn-outline-primary">
-                                Tüm Duyuruları Görüntüle (<?php echo count($announcements); ?>)
+                                Tüm <?php echo escape($district['name']); ?> İlçesi Duyurularını Görüntüle (<?php echo count($announcements); ?>)
                             </a>
                         </div>
                     <?php endif; ?>
