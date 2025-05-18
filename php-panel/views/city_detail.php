@@ -105,15 +105,28 @@ $announcements = $announcements_result['data'];
                                 <?php if(isset($city['political_party_id']) && !empty($city['political_party_id'])): ?>
                                     <?php 
                                     // Parti bilgilerini getir
-                                    $party_name = '-';
+                                    $party_info = null;
                                     foreach($parties as $party) {
                                         if($party['id'] == $city['political_party_id']) {
-                                            $party_name = $party['name'];
+                                            $party_info = $party;
                                             break;
                                         }
                                     }
+                                    
+                                    if($party_info): 
                                     ?>
-                                    <span class="badge bg-primary"><?php echo escape($party_name); ?></span>
+                                    <div class="d-flex align-items-center">
+                                        <?php if(!empty($party_info['logo_url'])): ?>
+                                            <img src="<?php echo escape($party_info['logo_url']); ?>" alt="<?php echo escape($party_info['name']); ?>" class="me-2" style="height: 24px; width: auto;">
+                                        <?php endif; ?>
+                                        <span class="badge bg-primary"><?php echo escape($party_info['name']); ?></span>
+                                        <?php if(isset($party_info['score'])): ?>
+                                            <span class="ms-2 badge bg-info"><?php echo number_format($party_info['score'], 1); ?> / 10</span>
+                                        <?php endif; ?>
+                                    </div>
+                                    <?php else: ?>
+                                        <span class="badge bg-primary">ID: <?php echo escape($city['political_party_id']); ?></span>
+                                    <?php endif; ?>
                                 <?php else: ?>
                                     -
                                 <?php endif; ?>

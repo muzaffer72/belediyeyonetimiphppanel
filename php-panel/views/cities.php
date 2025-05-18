@@ -143,8 +143,28 @@ endif;
                                 <td><?php echo isset($city['name']) ? escape($city['name']) : ''; ?></td>
                                 <td><?php echo isset($city['mayor_name']) ? escape($city['mayor_name']) : ''; ?></td>
                                 <td>
-                                    <?php if(isset($city['mayor_party']) && !empty($city['mayor_party'])): ?>
-                                        <span class="badge bg-primary"><?php echo escape($city['mayor_party']); ?></span>
+                                    <?php if(isset($city['political_party_id']) && !empty($city['political_party_id'])): ?>
+                                        <?php 
+                                        // Parti bilgilerini getir
+                                        $party_info = null;
+                                        foreach($parties as $party) {
+                                            if($party['id'] == $city['political_party_id']) {
+                                                $party_info = $party;
+                                                break;
+                                            }
+                                        }
+                                        
+                                        if($party_info): 
+                                        ?>
+                                        <div class="d-flex align-items-center">
+                                            <?php if(!empty($party_info['logo_url'])): ?>
+                                                <img src="<?php echo escape($party_info['logo_url']); ?>" alt="<?php echo escape($party_info['name']); ?>" class="me-2" style="height: 20px; width: auto;">
+                                            <?php endif; ?>
+                                            <span class="badge bg-primary"><?php echo escape($party_info['name']); ?></span>
+                                        </div>
+                                        <?php else: ?>
+                                            <small class="text-muted">ID: <?php echo escape($city['political_party_id']); ?></small>
+                                        <?php endif; ?>
                                     <?php endif; ?>
                                 </td>
                                 <td><?php echo isset($city['population']) ? escape($city['population']) : ''; ?></td>

@@ -174,8 +174,28 @@ endif;
                                 </td>
                                 <td><?php echo isset($district['mayor_name']) ? escape($district['mayor_name']) : ''; ?></td>
                                 <td>
-                                    <?php if(isset($district['mayor_party']) && !empty($district['mayor_party'])): ?>
-                                        <span class="badge bg-primary"><?php echo escape($district['mayor_party']); ?></span>
+                                    <?php if(isset($district['political_party_id']) && !empty($district['political_party_id'])): ?>
+                                        <?php 
+                                        // Parti bilgilerini getir
+                                        $party_info = null;
+                                        foreach($parties as $party) {
+                                            if($party['id'] == $district['political_party_id']) {
+                                                $party_info = $party;
+                                                break;
+                                            }
+                                        }
+                                        
+                                        if($party_info): 
+                                        ?>
+                                        <div class="d-flex align-items-center">
+                                            <?php if(!empty($party_info['logo_url'])): ?>
+                                                <img src="<?php echo escape($party_info['logo_url']); ?>" alt="<?php echo escape($party_info['name']); ?>" class="me-2" style="height: 20px; width: auto;">
+                                            <?php endif; ?>
+                                            <span class="badge bg-primary"><?php echo escape($party_info['name']); ?></span>
+                                        </div>
+                                        <?php else: ?>
+                                            <small class="text-muted">ID: <?php echo escape($district['political_party_id']); ?></small>
+                                        <?php endif; ?>
                                     <?php endif; ?>
                                 </td>
                                 <td><?php echo isset($district['population']) ? escape($district['population']) : ''; ?></td>
