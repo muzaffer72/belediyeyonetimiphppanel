@@ -607,4 +607,111 @@ function safeRedirect($url) {
         exit;
     }
 }
+
+/**
+ * Dosya yükle
+ * 
+ * @param array $file $_FILES dizisi içindeki dosya
+ * @param string $target_dir Hedef dizin
+ * @param array $allowed_types İzin verilen dosya tipleri
+ * @param int $max_size Maksimum dosya boyutu (byte)
+ * @return array Başarı durumu ve mesaj içeren dizi
+ */
+function uploadImage($file, $target_dir, $allowed_types = ['image/jpeg', 'image/png', 'image/gif', 'video/mp4', 'video/webm'], $max_size = 5242880) {
+    // Dosya kontrolü
+    if (!isset($file['tmp_name']) || empty($file['tmp_name'])) {
+        return ['success' => false, 'message' => 'Dosya yüklenemedi'];
+    }
+    
+    // Hata kontrolü
+    if ($file['error'] !== UPLOAD_ERR_OK) {
+        $error_messages = [
+            UPLOAD_ERR_INI_SIZE => 'Dosya boyutu PHP ayarlarında izin verilen maksimum boyutu aşıyor',
+            UPLOAD_ERR_FORM_SIZE => 'Dosya boyutu formda belirtilen maksimum boyutu aşıyor',
+            UPLOAD_ERR_PARTIAL => 'Dosya sadece kısmen yüklendi',
+            UPLOAD_ERR_NO_FILE => 'Dosya yüklenmedi',
+            UPLOAD_ERR_NO_TMP_DIR => 'Geçici klasör bulunamadı',
+            UPLOAD_ERR_CANT_WRITE => 'Dosya diske yazılamadı',
+            UPLOAD_ERR_EXTENSION => 'Bir PHP uzantısı dosya yüklemesini durdurdu'
+        ];
+        
+        $error_message = isset($error_messages[$file['error']]) 
+            ? $error_messages[$file['error']] 
+            : 'Bilinmeyen hata: ' . $file['error'];
+        
+        return ['success' => false, 'message' => $error_message];
+    }
+    
+    // Dosya boyutu kontrolü
+    if ($file['size'] > $max_size) {
+        return ['success' => false, 'message' => 'Dosya boyutu çok büyük (maksimum 5MB)'];
+    }
+    
+    // Dosya tipi kontrolü
+    $file_type = $file['type'];
+    if (!in_array($file_type, $allowed_types)) {
+        return ['success' => false, 'message' => 'Geçersiz dosya tipi. İzin verilen tipler: İzin verilen formatlar: JPG, PNG, GIF'];
+    }
+    
+    // Dosya uzantısını belirle
+    $extension = '';
+    switch ($file_type) {
+        case 'image/jpeg':
+            $extension = 'jpg';
+            break;
+        case 'image/png':
+            $extension = 'png';
+            break;
+        case 'image/gif':
+            $extension = 'gif';
+            break;
+        case 'video/mp4':
+            $extension = 'mp4';
+            break;
+        case 'video/webm':
+            $extension = 'webm';
+            break;
+        default:
+            // Bilinmeyen dosya tipi için dosya adından uzantıyı al
+            $file_info = pathinfo($file['name']);
+            $extension = strtolower($file_info['extension'] ?? '');
+            
+            // Uzantı yoksa veya boşsa hata döndür
+            if (empty($extension)) {
+                return ['success' => false, 'message' => 'Dosya türü tanımlanamadı'];
+            }
+            break;
+    }
+    
+    // Hedef dizini kontrol et ve oluştur
+    if (!is_dir($target_dir) && !mkdir($target_dir, 0777, true)) {
+        return ['success' => false, 'message' => 'Yükleme dizini oluşturulamadı'];
+    }
+    
+    // Benzersiz dosya adı oluştur
+    $file_name = uniqid() . '_' . time() . '.' . $extension;
+    $target_path = $target_dir . '/' . $file_name;
+    
+    // Dosyayı yükle
+    if (!move_uploaded_file($file['tmp_name'], $target_path)) {
+        return ['success' => false, 'message' => 'Dosya yüklenirken bir hata oluştu'];
+    }
+    
+    // Hedef dizin adını çıkar (son klasör adı)
+    $dir_parts = explode('/', $target_dir);
+    $last_dir = end($dir_parts);
+    
+    // Tam bağlantı URL'i oluştur
+    $base_url = 'https://onvao.net/adminpanel';
+    $full_url = $base_url . '/uploads/' . $last_dir . '/' . $file_name;
+    
+    // Başarılı sonucu döndür
+    return [
+        'success' => true,
+        'message' => 'Dosya başarıyla yüklendi',
+        'file_name' => $file_name,
+        'file_path' => $target_path,
+        'file_url' => $full_url
+    ];
+}
 ?>

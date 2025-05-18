@@ -58,6 +58,30 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['update_city'])) {
         $errors[] = 'Şehir adı gereklidir';
     }
     
+    // Logo resmi yüklendiyse işle
+    if (isset($_FILES['logo_image']) && !empty($_FILES['logo_image']['name'])) {
+        $target_dir = __DIR__ . '/../uploads/cities';
+        $upload_result = uploadImage($_FILES['logo_image'], $target_dir);
+        
+        if ($upload_result['success']) {
+            $logo_url = $upload_result['file_url'];
+        } else {
+            $errors[] = 'Logo yüklenirken bir hata oluştu: ' . $upload_result['message'];
+        }
+    }
+    
+    // Kapak resmi yüklendiyse işle
+    if (isset($_FILES['cover_image']) && !empty($_FILES['cover_image']['name'])) {
+        $target_dir = __DIR__ . '/../uploads/cities';
+        $upload_result = uploadImage($_FILES['cover_image'], $target_dir);
+        
+        if ($upload_result['success']) {
+            $cover_image_url = $upload_result['file_url'];
+        } else {
+            $errors[] = 'Kapak görseli yüklenirken bir hata oluştu: ' . $upload_result['message'];
+        }
+    }
+    
     // Hata yoksa şehri güncelle
     if (empty($errors)) {
         $update_data = [
@@ -121,7 +145,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['update_city'])) {
         Şehir Bilgileri
     </div>
     <div class="card-body">
-        <form method="post" action="index.php?page=city_edit&id=<?php echo $city_id; ?>">
+        <form method="post" action="index.php?page=city_edit&id=<?php echo $city_id; ?>" enctype="multipart/form-data">
             <div class="row mb-3">
                 <div class="col-md-6">
                     <label for="name" class="form-label">Şehir Adı <span class="text-danger">*</span></label>
@@ -168,8 +192,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['update_city'])) {
                     <input type="url" class="form-control" id="website" name="website" value="<?php echo escape($city['website'] ?? ''); ?>">
                 </div>
                 <div class="col-md-6">
-                    <label for="logo_url" class="form-label">Logo URL</label>
-                    <input type="url" class="form-control" id="logo_url" name="logo_url" value="<?php echo escape($city['logo_url'] ?? ''); ?>">
+                    <label class="form-label">Logo</label>
+                    <div class="input-group">
+                        <input type="url" class="form-control" id="logo_url" name="logo_url" value="<?php echo escape($city['logo_url'] ?? ''); ?>" placeholder="Logo URL">
+                        <button class="btn btn-outline-secondary" type="button" id="toggleLogoUpload">Resim Yükle</button>
+                    </div>
+                    <div id="logoFileUpload" class="mt-2" style="display:none;">
+                        <input type="file" class="form-control" id="logo_image" name="logo_image" accept="image/*">
+                        <div class="form-text">PNG, JPG veya GIF. Maks 5MB.</div>
+                    </div>
+                    <?php if(isset($city['logo_url']) && !empty($city['logo_url'])): ?>
+                    <div class="mt-2">
+                        <img src="<?php echo escape($city['logo_url']); ?>" alt="Mevcut Logo" class="img-thumbnail" style="max-height: 100px;">
+                    </div>
+                    <?php endif; ?>
                 </div>
             </div>
             
@@ -182,8 +218,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['update_city'])) {
             
             <div class="row mb-3">
                 <div class="col-md-12">
-                    <label for="cover_image_url" class="form-label">Kapak Görseli URL</label>
-                    <input type="url" class="form-control" id="cover_image_url" name="cover_image_url" value="<?php echo escape($city['cover_image_url'] ?? ''); ?>">
+                    <label class="form-label">Kapak Görseli</label>
+                    <div class="input-group">
+                        <input type="url" class="form-control" id="cover_image_url" name="cover_image_url" value="<?php echo escape($city['cover_image_url'] ?? ''); ?>" placeholder="Kapak Görseli URL">
+                        <button class="btn btn-outline-secondary" type="button" id="toggleCoverUpload">Resim Yükle</button>
+                    </div>
+                    <div id="coverFileUpload" class="mt-2" style="display:none;">
+                        <input type="file" class="form-control" id="cover_image" name="cover_image" accept="image/*">
+                        <div class="form-text">PNG, JPG veya GIF. Maks 5MB.</div>
+                    </div>
+                    <?php if(isset($city['cover_image_url']) && !empty($city['cover_image_url'])): ?>
+                    <div class="mt-2">
+                        <img src="<?php echo escape($city['cover_image_url']); ?>" alt="Mevcut Kapak" class="img-thumbnail" style="max-height: 100px;">
+                    </div>
+                    <?php endif; ?>
                 </div>
             </div>
             
@@ -200,6 +248,35 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['update_city'])) {
         </form>
     </div>
 </div>
+
+<script>
+// Resim yükleme alanlarını gösterme/gizleme
+document.addEventListener('DOMContentLoaded', function() {
+    // Logo resmi için
+    document.getElementById('toggleLogoUpload').addEventListener('click', function() {
+        const logoUpload = document.getElementById('logoFileUpload');
+        if (logoUpload.style.display === 'none') {
+            logoUpload.style.display = 'block';
+            this.textContent = 'URL Kullan';
+        } else {
+            logoUpload.style.display = 'none';
+            this.textContent = 'Resim Yükle';
+        }
+    });
+    
+    // Kapak resmi için
+    document.getElementById('toggleCoverUpload').addEventListener('click', function() {
+        const coverUpload = document.getElementById('coverFileUpload');
+        if (coverUpload.style.display === 'none') {
+            coverUpload.style.display = 'block';
+            this.textContent = 'URL Kullan';
+        } else {
+            coverUpload.style.display = 'none';
+            this.textContent = 'Resim Yükle';
+        }
+    });
+});
+</script>
 
 <?php if (isset($city['logo_url']) && !empty($city['logo_url'])): ?>
 <div class="card mb-4">

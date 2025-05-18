@@ -23,6 +23,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['add_party'])) {
         $errors[] = 'Skor 0 ile 10 arasında bir sayı olmalıdır';
     }
     
+    // Logo resmi yüklendiyse işle
+    if (isset($_FILES['logo_image']) && !empty($_FILES['logo_image']['name'])) {
+        $target_dir = __DIR__ . '/../uploads/parties';
+        $upload_result = uploadImage($_FILES['logo_image'], $target_dir);
+        
+        if ($upload_result['success']) {
+            $logo_url = $upload_result['file_url'];
+        } else {
+            $errors[] = 'Logo yüklenirken bir hata oluştu: ' . $upload_result['message'];
+        }
+    }
+    
     // Hata yoksa partiyi ekle
     if (empty($errors)) {
         $new_party = [
@@ -307,15 +319,22 @@ endif;
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
             <div class="modal-body">
-                <form method="post" action="index.php?page=parties">
+                <form method="post" action="index.php?page=parties" enctype="multipart/form-data">
                     <div class="mb-3">
                         <label for="name" class="form-label">Parti Adı <span class="text-danger">*</span></label>
                         <input type="text" class="form-control" id="name" name="name" required>
                     </div>
                     
                     <div class="mb-3">
-                        <label for="logo_url" class="form-label">Logo URL</label>
-                        <input type="url" class="form-control" id="logo_url" name="logo_url">
+                        <label class="form-label">Logo</label>
+                        <div class="input-group">
+                            <input type="url" class="form-control" id="logo_url" name="logo_url" placeholder="Logo URL">
+                            <button class="btn btn-outline-secondary" type="button" id="toggleLogoUpload">Resim Yükle</button>
+                        </div>
+                        <div id="logoFileUpload" class="mt-2" style="display:none;">
+                            <input type="file" class="form-control" id="logo_image" name="logo_image" accept="image/*">
+                            <div class="form-text">PNG, JPG veya GIF. Maks 5MB.</div>
+                        </div>
                     </div>
                     
                     <div class="mb-3">
@@ -332,3 +351,23 @@ endif;
         </div>
     </div>
 </div>
+
+<script>
+// Resim yükleme alanını gösterme/gizleme
+document.addEventListener('DOMContentLoaded', function() {
+    // Logo resmi için toggle butonu
+    const toggleLogoBtn = document.getElementById('toggleLogoUpload');
+    if (toggleLogoBtn) {
+        toggleLogoBtn.addEventListener('click', function() {
+            const logoUpload = document.getElementById('logoFileUpload');
+            if (logoUpload.style.display === 'none') {
+                logoUpload.style.display = 'block';
+                this.textContent = 'URL Kullan';
+            } else {
+                logoUpload.style.display = 'none';
+                this.textContent = 'Resim Yükle';
+            }
+        });
+    }
+});
+</script>

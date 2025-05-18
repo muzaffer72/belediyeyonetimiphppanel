@@ -64,6 +64,21 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['update_post'])) {
         $errors[] = 'Başlık gereklidir';
     }
     
+    // Medya resmi yüklendiyse işle
+    if (isset($_FILES['media_image']) && !empty($_FILES['media_image']['name'])) {
+        $target_dir = __DIR__ . '/../uploads/posts';
+        $upload_result = uploadImage($_FILES['media_image'], $target_dir);
+        
+        if ($upload_result['success']) {
+            $media_url = $upload_result['file_url'];
+            // Video mu yoksa resim mi kontrol et
+            $file_type = $_FILES['media_image']['type'];
+            $is_video = (strpos($file_type, 'video/') !== false) ? 'true' : 'false';
+        } else {
+            $errors[] = 'Medya yüklenirken bir hata oluştu: ' . $upload_result['message'];
+        }
+    }
+    
     // Hata yoksa gönderiyi güncelle
     if (empty($errors)) {
         $update_data = [
@@ -111,6 +126,9 @@ $post_types = [
     'question' => 'Soru',
     'thanks' => 'Teşekkür'
 ];
+
+// Form enctype'ını ayarla
+$form_enctype = 'enctype="multipart/form-data"';
 
 // Kategori seçenekleri
 $categories = [
@@ -176,7 +194,7 @@ if (!empty($post_city)) {
         Gönderi Bilgileri
     </div>
     <div class="card-body">
-        <form method="post" action="index.php?page=post_edit&id=<?php echo $post_id; ?>">
+        <form method="post" action="index.php?page=post_edit&id=<?php echo $post_id; ?>" enctype="multipart/form-data">
             <div class="row mb-3">
                 <div class="col-md-8">
                     <label for="title" class="form-label">Başlık <span class="text-danger">*</span></label>
@@ -251,8 +269,26 @@ if (!empty($post_city)) {
             </div>
             
             <div class="mb-3">
-                <label for="media_url" class="form-label">Medya URL</label>
-                <input type="url" class="form-control" id="media_url" name="media_url" value="<?php echo escape($post['media_url'] ?? ''); ?>">
+                <label class="form-label">Medya</label>
+                <div class="input-group">
+                    <input type="url" class="form-control" id="media_url" name="media_url" value="<?php echo escape($post['media_url'] ?? ''); ?>" placeholder="Medya URL">
+                    <button class="btn btn-outline-secondary" type="button" id="toggleMediaUpload">Resim Yükle</button>
+                </div>
+                <div id="mediaFileUpload" class="mt-2" style="display:none;">
+                    <input type="file" class="form-control" id="media_image" name="media_image" accept="image/*,video/*">
+                    <div class="form-text">PNG, JPG, GIF veya video. Maks 5MB.</div>
+                </div>
+                <?php if(isset($post['media_url']) && !empty($post['media_url'])): ?>
+                <div class="mt-2">
+                    <?php if (isset($post['is_video']) && $post['is_video'] === 'true'): ?>
+                        <div class="ratio ratio-16x9" style="max-height: 200px;">
+                            <video src="<?php echo escape($post['media_url']); ?>" controls class="img-thumbnail"></video>
+                        </div>
+                    <?php else: ?>
+                        <img src="<?php echo escape($post['media_url']); ?>" alt="Mevcut Medya" class="img-thumbnail" style="max-height: 150px;">
+                    <?php endif; ?>
+                </div>
+                <?php endif; ?>
             </div>
             
             <div class="row mb-4">
@@ -331,35 +367,53 @@ if (!empty($post_city)) {
 </div>
 
 <script>
-// Şehir değiştiğinde ilçeleri güncelle
+// Sayfa yüklendiğinde çalışacak fonksiyonlar
 document.addEventListener('DOMContentLoaded', function() {
+    // Şehir değiştiğinde ilçeleri güncelle
     const citySelect = document.getElementById('city');
     const districtSelect = document.getElementById('district');
     
-    citySelect.addEventListener('change', function() {
-        const selectedCity = this.value;
-        
-        // İlçe seçeneğini sıfırla
-        districtSelect.innerHTML = '<option value="">Seçiniz</option>';
-        
-        if (selectedCity) {
-            // AJAX ile seçilen şehre ait ilçeleri getir
-            fetch(`index.php?page=get_districts&city=${encodeURIComponent(selectedCity)}`)
-                .then(response => response.json())
-                .then(data => {
-                    if (data && data.length > 0) {
-                        data.forEach(district => {
-                            const option = document.createElement('option');
-                            option.value = district.name;
-                            option.textContent = district.name;
-                            districtSelect.appendChild(option);
-                        });
-                    }
-                })
-                .catch(error => {
-                    console.error('İlçeler alınırken hata oluştu:', error);
-                });
-        }
-    });
+    if (citySelect && districtSelect) {
+        citySelect.addEventListener('change', function() {
+            const selectedCity = this.value;
+            
+            // İlçe seçeneğini sıfırla
+            districtSelect.innerHTML = '<option value="">Seçiniz</option>';
+            
+            if (selectedCity) {
+                // AJAX ile seçilen şehre ait ilçeleri getir
+                fetch(`index.php?page=get_districts&city=${encodeURIComponent(selectedCity)}`)
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data && data.length > 0) {
+                            data.forEach(district => {
+                                const option = document.createElement('option');
+                                option.value = district.name;
+                                option.textContent = district.name;
+                                districtSelect.appendChild(option);
+                            });
+                        }
+                    })
+                    .catch(error => {
+                        console.error('İlçeler alınırken hata oluştu:', error);
+                    });
+            }
+        });
+    }
+    
+    // Medya yükleme butonu için
+    const toggleMediaBtn = document.getElementById('toggleMediaUpload');
+    if (toggleMediaBtn) {
+        toggleMediaBtn.addEventListener('click', function() {
+            const mediaUpload = document.getElementById('mediaFileUpload');
+            if (mediaUpload.style.display === 'none') {
+                mediaUpload.style.display = 'block';
+                this.textContent = 'URL Kullan';
+            } else {
+                mediaUpload.style.display = 'none';
+                this.textContent = 'Resim Yükle';
+            }
+        });
+    }
 });
 </script>
