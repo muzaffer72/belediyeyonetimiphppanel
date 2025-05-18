@@ -19,11 +19,13 @@ if (!isset($_GET['id'])) {
 
 $user_id = $_GET['id'];
 
-// Kullanıcı verisini al
-$user_result = getDataById('users', $user_id);
+// Kullanıcı verisini doğrudan al (filter kullanarak)
+$users_result = getData('users', [
+    'id' => 'eq.' . $user_id
+]);
 
 // Kullanıcı bulunamadıysa hata ver
-if ($user_result['error'] || empty($user_result['data'])) {
+if ($users_result['error'] || empty($users_result['data'])) {
     $_SESSION['message'] = 'Kullanıcı bulunamadı!';
     $_SESSION['message_type'] = 'danger';
     
@@ -37,7 +39,7 @@ if ($user_result['error'] || empty($user_result['data'])) {
     }
 }
 
-$user = $user_result['data'];
+$user = $users_result['data'][0];
 
 // Rol listesi
 $roles = [
@@ -50,7 +52,7 @@ $roles = [
 $cities_result = getData('cities');
 $cities = $cities_result['data'] ?? [];
 
-// İlçe listesi (şehir seçildiğinde AJAX ile güncellenecek)
+// İlçe listesi
 $districts_result = getData('districts');
 $all_districts = $districts_result['data'] ?? [];
 
@@ -58,16 +60,21 @@ $all_districts = $districts_result['data'] ?? [];
 $selected_city_districts = [];
 if (isset($user['city']) && !empty($user['city'])) {
     foreach ($all_districts as $district) {
-        // İlçe verileri arasında city_name veya şehir adı kontrolü yaparak eşleştirme yap
-        if ((isset($district['city_name']) && $district['city_name'] === $user['city']) || 
-            (isset($district['city_id']) && isset($cities))) {
-            // Şehir ID'ye göre eşleşme kontrol et
+        $district_city_name = '';
+        
+        // İlçenin şehir adını bul
+        if (isset($district['city_id'])) {
             foreach ($cities as $city) {
-                if ($city['id'] === $district['city_id'] && $city['name'] === $user['city']) {
-                    $selected_city_districts[] = $district;
+                if (isset($city['id']) && $city['id'] === $district['city_id']) {
+                    $district_city_name = $city['name'];
                     break;
                 }
             }
+        }
+        
+        // Bu ilçe, kullanıcının şehrine aitse ekle
+        if ($district_city_name === $user['city']) {
+            $selected_city_districts[] = $district;
         }
     }
 }
@@ -368,8 +375,8 @@ document.getElementById('city').addEventListener('change', function() {
     districtSelect.innerHTML = '<option value="">İlçe Seçin...</option>';
     
     if (cityName) {
-        // AJAX ile şehre ait ilçeleri al
-        fetch('index.php?page=districts&action=get_districts_by_city&city_name=' + encodeURIComponent(cityName))
+        // İlgili şehrin ilçelerini al
+        fetch('index.php?page=api&action=get_districts_by_city&city=' + encodeURIComponent(cityName))
             .then(response => response.json())
             .then(data => {
                 if (data && data.length > 0) {
@@ -382,7 +389,13 @@ document.getElementById('city').addEventListener('change', function() {
                     });
                 }
             })
-            .catch(error => console.error('İlçeler alınırken bir hata oluştu:', error));
+            .catch(error => {
+                console.error('İlçeler alınırken bir hata oluştu:', error);
+                // Manuel olarak da devam edebiliriz - sayfayı yenilemekle:
+                if (cityName) {
+                    window.location.href = 'index.php?page=user_edit&id=<?php echo $user_id; ?>&city=' + encodeURIComponent(cityName);
+                }
+            });
     }
 });
 </script>

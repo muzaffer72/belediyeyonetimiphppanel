@@ -2,88 +2,101 @@
 // Yapılandırma dosyasını yükle
 require_once(__DIR__ . '/../config/config.php');
 
-// Kullanıcı verileri
-$users_result = getData('users');
+// URL parametrelerini al
+$current_page = isset($_GET['p']) ? intval($_GET['p']) : 1;
+$items_per_page = 10;
+$offset = ($current_page - 1) * $items_per_page;
+
+// Filtre parametrelerini al
+$filter_role = isset($_GET['role']) ? $_GET['role'] : '';
+$filter_ban_status = isset($_GET['ban_status']) ? $_GET['ban_status'] : '';
+$filter_city = isset($_GET['city']) ? $_GET['city'] : '';
+$filter_district = isset($_GET['district']) ? $_GET['district'] : '';
+$search_query = isset($_GET['q']) ? $_GET['q'] : '';
+
+// Filtre koşullarını oluştur
+$filter_conditions = [];
+
+if (!empty($filter_role)) {
+    $filter_conditions['role'] = 'eq.' . $filter_role;
+}
+
+if (!empty($filter_city)) {
+    $filter_conditions['city'] = 'eq.' . $filter_city;
+}
+
+if (!empty($filter_district)) {
+    $filter_conditions['district'] = 'eq.' . $filter_district;
+}
+
+if (!empty($search_query)) {
+    $filter_conditions['or'] = '(username.ilike.*' . $search_query . '*,email.ilike.*' . $search_query . '*)';
+}
+
+// Sayfalama için toplam kullanıcı sayısını al
+$count_filter = $filter_conditions;
+$count_filter['select'] = 'count';
+$total_users_result = getData('users', $count_filter);
+$total_users = $total_users_result['data'] ?? 0;
+$total_pages = ceil($total_users / $items_per_page);
+
+// Sayfalama parametrelerini ekle
+$filter_conditions['limit'] = $items_per_page;
+$filter_conditions['offset'] = $offset;
+$filter_conditions['order'] = 'created_at.desc';
+
+// Kullanıcıları al
+$users_result = getData('users', $filter_conditions);
 $users = $users_result['data'] ?? [];
 
-// Filtreleme parametreleri
-$filter_username = isset($_GET['username']) ? $_GET['username'] : '';
-$filter_city = isset($_GET['city']) ? $_GET['city'] : '';
-$filter_role = isset($_GET['role']) ? $_GET['role'] : '';
+// Tüm aktif banları al
+$active_bans_result = getData('user_bans', ['is_active' => 'eq.true']);
+$active_bans = $active_bans_result['data'] ?? [];
 
-// Filtreleme uygula
-$filtered_users = $users;
-if (!empty($filter_username) || !empty($filter_city) || !empty($filter_role)) {
-    $filtered_users = array_filter($users, function($user) use ($filter_username, $filter_city, $filter_role) {
-        $username_match = empty($filter_username) || (isset($user['username']) && stripos($user['username'], $filter_username) !== false);
-        $city_match = empty($filter_city) || (isset($user['city']) && stripos($user['city'], $filter_city) !== false);
-        $role_match = empty($filter_role) || (isset($user['role']) && $user['role'] === $filter_role);
-        return $username_match && $city_match && $role_match;
-    });
-}
-
-// Ban verileri
-$bans_result = getData('user_bans');
-$bans = $bans_result['data'] ?? [];
-
-// Kullanıcı ID'lerine göre ban verileri
-$user_bans = [];
-foreach ($bans as $ban) {
+// Ban bilgilerini kullanıcı ID'lerine göre düzenle
+$ban_info_by_user_id = [];
+foreach ($active_bans as $ban) {
     if (isset($ban['user_id'])) {
-        $user_bans[$ban['user_id']] = $ban;
+        $ban_info_by_user_id[$ban['user_id']] = $ban;
     }
 }
 
-// Kullanıcı silme
-if (isset($_POST['delete_user']) && isset($_POST['user_id'])) {
-    $user_id = $_POST['user_id'];
-    $delete_result = deleteData('users', $user_id);
-    
-    if (!$delete_result['error']) {
-        $_SESSION['message'] = 'Kullanıcı başarıyla silindi.';
-        $_SESSION['message_type'] = 'success';
-    } else {
-        $_SESSION['message'] = 'Kullanıcı silinirken bir hata oluştu: ' . $delete_result['message'];
-        $_SESSION['message_type'] = 'danger';
-    }
-    
-    // Sayfayı yenile
-    if (!headers_sent()) {
-        header('Location: index.php?page=users');
-        exit;
-    } else {
-        echo '<script>window.location.href = "index.php?page=users";</script>';
-        exit;
-    }
-}
+// Şehirleri ve ilçeleri al (filtre için)
+$cities_result = getData('cities', ['order' => 'name.asc']);
+$cities = $cities_result['data'] ?? [];
 
-// Kullanıcı banlama
-if (isset($_POST['ban_user']) && isset($_POST['user_id'])) {
+$districts_result = getData('districts', ['order' => 'name.asc']);
+$districts = $districts_result['data'] ?? [];
+
+// Kullanıcı banlama işlemi
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ban_user'])) {
     $user_id = $_POST['user_id'];
-    $ban_reason = isset($_POST['ban_reason']) ? $_POST['ban_reason'] : '';
-    $ban_duration = isset($_POST['ban_duration']) ? intval($_POST['ban_duration']) : 7; // Varsayılan 7 gün
+    $ban_reason = $_POST['ban_reason'];
+    $ban_duration = intval($_POST['ban_duration']);
     
+    // Ban süresi hesapla
     $ban_start = date('Y-m-d H:i:s');
     $ban_end = date('Y-m-d H:i:s', strtotime("+{$ban_duration} days"));
     
-    // Burada banned_by için varsayılan bir değer atadık (not null constraint için)
+    // Ban verilerini oluştur
     $ban_data = [
         'user_id' => $user_id,
-        'banned_by' => $_SESSION['admin_id'] ?? 'b5008bcd-3119-4789-8568-9da762fa4341', // Default admin ID
-        'reason' => $ban_reason,
+        'ban_reason' => $ban_reason,
         'ban_start' => $ban_start,
         'ban_end' => $ban_end,
-        'content_action' => 'none', // Kullanıcının içeriklerine ne yapılacağı (none, hide, delete)
-        'is_active' => 'true'
+        'is_active' => 'true',
+        'banned_by' => $_SESSION['admin_id'] ?? 'system',
+        'created_at' => date('Y-m-d H:i:s')
     ];
     
-    $ban_result = addData('user_bans', $ban_data);
+    // Veritabanına ekle
+    $insert_result = insertData('user_bans', $ban_data);
     
-    if (!$ban_result['error']) {
+    if (!$insert_result['error']) {
         $_SESSION['message'] = 'Kullanıcı başarıyla banlandı.';
         $_SESSION['message_type'] = 'success';
     } else {
-        $_SESSION['message'] = 'Kullanıcı banlanırken bir hata oluştu: ' . $ban_result['message'];
+        $_SESSION['message'] = 'Kullanıcı banlanırken bir hata oluştu: ' . $insert_result['message'];
         $_SESSION['message_type'] = 'danger';
     }
     
@@ -97,15 +110,12 @@ if (isset($_POST['ban_user']) && isset($_POST['user_id'])) {
     }
 }
 
-// Ban kaldırma
-if (isset($_POST['unban_user']) && isset($_POST['ban_id'])) {
+// Ban kaldırma işlemi
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['unban_user']) && isset($_POST['ban_id'])) {
     $ban_id = $_POST['ban_id'];
     
-    $ban_data = [
-        'is_active' => 'false'
-    ];
-    
-    $update_result = updateData('user_bans', $ban_id, $ban_data);
+    // Ban durumunu güncelle
+    $update_result = updateData('user_bans', $ban_id, ['is_active' => 'false']);
     
     if (!$update_result['error']) {
         $_SESSION['message'] = 'Kullanıcının banı başarıyla kaldırıldı.';
@@ -125,7 +135,31 @@ if (isset($_POST['unban_user']) && isset($_POST['ban_id'])) {
     }
 }
 
-// Filtreleme ve arama formu
+// Kullanıcı silme işlemi
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['delete_user'])) {
+    $user_id = $_POST['user_id'];
+    
+    // İlişkili verileri silmek için cascading delete kullanılmalı
+    // Ancak şimdilik sadece kullanıcıyı siliyoruz
+    $delete_result = deleteData('users', $user_id);
+    
+    if (!$delete_result['error']) {
+        $_SESSION['message'] = 'Kullanıcı başarıyla silindi.';
+        $_SESSION['message_type'] = 'success';
+    } else {
+        $_SESSION['message'] = 'Kullanıcı silinirken bir hata oluştu: ' . $delete_result['message'];
+        $_SESSION['message_type'] = 'danger';
+    }
+    
+    // Sayfayı yenile
+    if (!headers_sent()) {
+        header('Location: index.php?page=users');
+        exit;
+    } else {
+        echo '<script>window.location.href = "index.php?page=users";</script>';
+        exit;
+    }
+}
 ?>
 
 <!-- Üst Başlık ve Butonlar -->
@@ -133,13 +167,7 @@ if (isset($_POST['unban_user']) && isset($_POST['ban_id'])) {
     <h1 class="h3">Kullanıcı Yönetimi</h1>
     
     <div>
-        <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#filterModal">
-            <i class="fas fa-filter me-1"></i> Filtrele
-        </button>
-        
-        <a href="index.php?page=dashboard" class="btn btn-secondary ms-2">
-            <i class="fas fa-arrow-left me-1"></i> Panele Dön
-        </a>
+        <!-- İleride kullanıcı ekleme butonu eklenebilir -->
     </div>
 </div>
 
@@ -155,95 +183,179 @@ if (isset($_POST['unban_user']) && isset($_POST['ban_id'])) {
 endif; 
 ?>
 
-<!-- Kullanıcı Tablosu -->
+<!-- Filtreleme Kartı -->
 <div class="card mb-4">
     <div class="card-header">
-        <i class="fas fa-users me-1"></i> Tüm Kullanıcılar
-        <?php if (!empty($filter_username) || !empty($filter_city) || !empty($filter_role)): ?>
-            <span class="badge bg-info ms-2">Filtrelendi</span>
-        <?php endif; ?>
+        <i class="fas fa-filter me-1"></i> Kullanıcıları Filtrele
     </div>
     <div class="card-body">
-        <div class="table-responsive">
-            <table class="table table-bordered table-hover" id="usersTable">
-                <thead class="table-light">
-                    <tr>
-                        <th>ID</th>
-                        <th>Profil</th>
-                        <th>E-posta / Kullanıcı Adı</th>
-                        <th>Şehir / İlçe</th>
-                        <th>Rol</th>
-                        <th>Kayıt Tarihi</th>
-                        <th>Durum</th>
-                        <th>İşlemler</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    <?php if (empty($filtered_users)): ?>
+        <form method="get" action="">
+            <input type="hidden" name="page" value="users">
+            
+            <div class="row g-3">
+                <div class="col-md-3">
+                    <div class="form-floating">
+                        <input type="text" class="form-control" id="searchQuery" name="q" value="<?php echo escape($search_query); ?>" placeholder="Kullanıcı adı veya e-posta">
+                        <label for="searchQuery">Kullanıcı Adı veya E-posta</label>
+                    </div>
+                </div>
+                
+                <div class="col-md-2">
+                    <div class="form-floating">
+                        <select class="form-select" id="filterRole" name="role">
+                            <option value="">Tümü</option>
+                            <option value="user" <?php echo $filter_role === 'user' ? 'selected' : ''; ?>>Normal Kullanıcı</option>
+                            <option value="moderator" <?php echo $filter_role === 'moderator' ? 'selected' : ''; ?>>Moderatör</option>
+                            <option value="admin" <?php echo $filter_role === 'admin' ? 'selected' : ''; ?>>Yönetici</option>
+                        </select>
+                        <label for="filterRole">Kullanıcı Rolü</label>
+                    </div>
+                </div>
+                
+                <div class="col-md-2">
+                    <div class="form-floating">
+                        <select class="form-select" id="filterBanStatus" name="ban_status">
+                            <option value="">Tümü</option>
+                            <option value="banned" <?php echo $filter_ban_status === 'banned' ? 'selected' : ''; ?>>Banlı</option>
+                            <option value="active" <?php echo $filter_ban_status === 'active' ? 'selected' : ''; ?>>Aktif</option>
+                        </select>
+                        <label for="filterBanStatus">Ban Durumu</label>
+                    </div>
+                </div>
+                
+                <div class="col-md-2">
+                    <div class="form-floating">
+                        <select class="form-select" id="filterCity" name="city">
+                            <option value="">Tümü</option>
+                            <?php foreach ($cities as $city): ?>
+                                <option value="<?php echo escape($city['name']); ?>" <?php echo $filter_city === $city['name'] ? 'selected' : ''; ?>>
+                                    <?php echo escape($city['name']); ?>
+                                </option>
+                            <?php endforeach; ?>
+                        </select>
+                        <label for="filterCity">Şehir</label>
+                    </div>
+                </div>
+                
+                <div class="col-md-2">
+                    <div class="form-floating">
+                        <select class="form-select" id="filterDistrict" name="district">
+                            <option value="">Tümü</option>
+                            <?php foreach ($districts as $district): ?>
+                                <option value="<?php echo escape($district['name']); ?>" <?php echo $filter_district === $district['name'] ? 'selected' : ''; ?>>
+                                    <?php echo escape($district['name']); ?>
+                                </option>
+                            <?php endforeach; ?>
+                        </select>
+                        <label for="filterDistrict">İlçe</label>
+                    </div>
+                </div>
+                
+                <div class="col-md-1 d-flex align-items-center">
+                    <button type="submit" class="btn btn-primary w-100">Filtrele</button>
+                </div>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Kullanıcılar Tablosu -->
+<div class="card mb-4">
+    <div class="card-header">
+        <i class="fas fa-users me-1"></i> Kullanıcılar
+        <span class="badge bg-secondary ms-2"><?php echo $total_users; ?> kullanıcı</span>
+    </div>
+    <div class="card-body">
+        <?php if (empty($users)): ?>
+            <div class="alert alert-info">
+                <i class="fas fa-info-circle me-1"></i> Herhangi bir kullanıcı bulunamadı.
+            </div>
+        <?php else: ?>
+            <div class="table-responsive">
+                <table class="table table-bordered table-striped table-hover" id="usersTable">
+                    <thead>
                         <tr>
-                            <td colspan="8" class="text-center">Kayıtlı kullanıcı bulunamadı.</td>
+                            <th>ID</th>
+                            <th>Kullanıcı Adı</th>
+                            <th>E-posta</th>
+                            <th>Rol</th>
+                            <th>Şehir/İlçe</th>
+                            <th>Kayıt Tarihi</th>
+                            <th>Durum</th>
+                            <th>İşlemler</th>
                         </tr>
-                    <?php else: ?>
-                        <?php foreach ($filtered_users as $user): ?>
+                    </thead>
+                    <tbody>
+                        <?php foreach ($users as $user): ?>
+                            <?php
+                            // Kullanıcının ban durumunu kontrol et
+                            $is_banned = false;
+                            $active_ban = null;
+                            
+                            if (isset($ban_info_by_user_id[$user['id']])) {
+                                $active_ban = $ban_info_by_user_id[$user['id']];
+                                if (strtotime($active_ban['ban_end']) > time()) {
+                                    $is_banned = true;
+                                }
+                            }
+                            
+                            // Kullanıcı rolüne göre renk sınıfını belirle
+                            $role_badge_class = 'bg-secondary';
+                            if ($user['role'] === 'admin') {
+                                $role_badge_class = 'bg-danger';
+                            } else if ($user['role'] === 'moderator') {
+                                $role_badge_class = 'bg-warning text-dark';
+                            }
+                            
+                            // Rol adını belirle
+                            $role_name = 'Normal Kullanıcı';
+                            if ($user['role'] === 'admin') {
+                                $role_name = 'Yönetici';
+                            } else if ($user['role'] === 'moderator') {
+                                $role_name = 'Moderatör';
+                            }
+                            ?>
                             <tr>
-                                <td><?php echo substr($user['id'], 0, 8) . '...'; ?></td>
+                                <td class="text-truncate" style="max-width: 100px;"><?php echo substr($user['id'], 0, 8) . '...'; ?></td>
                                 <td>
-                                    <?php if (isset($user['profile_image_url']) && !empty($user['profile_image_url'])): ?>
-                                        <img src="<?php echo escape($user['profile_image_url']); ?>" alt="<?php echo escape($user['username']); ?>" class="avatar rounded-circle" style="width: 40px; height: 40px;">
-                                    <?php else: ?>
-                                        <div class="avatar rounded-circle bg-secondary text-white d-flex align-items-center justify-content-center" style="width: 40px; height: 40px;">
-                                            <i class="fas fa-user"></i>
-                                        </div>
-                                    <?php endif; ?>
-                                </td>
-                                <td>
-                                    <strong><?php echo escape($user['username'] ?? 'Belirsiz'); ?></strong><br>
-                                    <small class="text-muted"><?php echo escape($user['email'] ?? ''); ?></small>
-                                </td>
-                                <td>
-                                    <?php if (isset($user['city']) && !empty($user['city'])): ?>
-                                        <?php echo escape($user['city']); ?>
-                                        <?php if (isset($user['district']) && !empty($user['district'])): ?>
-                                            / <?php echo escape($user['district']); ?>
-                                        <?php endif; ?>
-                                    <?php else: ?>
-                                        -
-                                    <?php endif; ?>
-                                </td>
-                                <td>
-                                    <?php if (isset($user['role'])): ?>
-                                        <?php if ($user['role'] === 'admin'): ?>
-                                            <span class="badge bg-danger">Yönetici</span>
-                                        <?php elseif ($user['role'] === 'moderator'): ?>
-                                            <span class="badge bg-warning">Moderatör</span>
+                                    <div class="d-flex align-items-center">
+                                        <?php if (isset($user['profile_image_url']) && !empty($user['profile_image_url'])): ?>
+                                            <img src="<?php echo escape($user['profile_image_url']); ?>" alt="<?php echo escape($user['username']); ?>" class="rounded-circle me-2" style="width: 32px; height: 32px;">
                                         <?php else: ?>
-                                            <span class="badge bg-secondary">Kullanıcı</span>
+                                            <div class="avatar bg-secondary text-white rounded-circle d-flex align-items-center justify-content-center me-2" style="width: 32px; height: 32px;">
+                                                <i class="fas fa-user"></i>
+                                            </div>
                                         <?php endif; ?>
-                                    <?php else: ?>
-                                        <span class="badge bg-secondary">Kullanıcı</span>
-                                    <?php endif; ?>
+                                        <?php echo escape($user['username']); ?>
+                                    </div>
                                 </td>
-                                <td><?php echo isset($user['created_at']) ? date('d.m.Y H:i', strtotime($user['created_at'])) : '-'; ?></td>
+                                <td><?php echo escape($user['email'] ?? '-'); ?></td>
+                                <td><span class="badge <?php echo $role_badge_class; ?>"><?php echo $role_name; ?></span></td>
                                 <td>
                                     <?php
-                                    // Kullanıcının ban durumunu kontrol et
-                                    $is_banned = false;
-                                    $active_ban = null;
-                                    
-                                    if (isset($user_bans[$user['id']])) {
-                                        $ban = $user_bans[$user['id']];
-                                        if ($ban['is_active'] === 'true' && strtotime($ban['ban_end']) > time()) {
-                                            $is_banned = true;
-                                            $active_ban = $ban;
-                                        }
+                                    $location = [];
+                                    if (!empty($user['city'])) {
+                                        $location[] = $user['city'];
                                     }
-                                    
-                                    if ($is_banned):
+                                    if (!empty($user['district'])) {
+                                        $location[] = $user['district'];
+                                    }
+                                    echo empty($location) ? '-' : escape(implode('/', $location));
                                     ?>
-                                        <span class="badge bg-danger">Banlı</span>
-                                        <small class="d-block text-muted"><?php echo date('d.m.Y', strtotime($active_ban['ban_end'])); ?>'e kadar</small>
+                                </td>
+                                <td><?php echo isset($user['created_at']) ? date('d.m.Y', strtotime($user['created_at'])) : '-'; ?></td>
+                                <td>
+                                    <?php if ($is_banned): ?>
+                                        <span class="badge bg-danger">
+                                            <i class="fas fa-ban me-1"></i> Banlı
+                                            <span class="d-none d-md-inline">
+                                                (<?php echo date('d.m.Y', strtotime($active_ban['ban_end'])); ?>)
+                                            </span>
+                                        </span>
                                     <?php else: ?>
-                                        <span class="badge bg-success">Aktif</span>
+                                        <span class="badge bg-success">
+                                            <i class="fas fa-check-circle me-1"></i> Aktif
+                                        </span>
                                     <?php endif; ?>
                                 </td>
                                 <td>
@@ -281,7 +393,7 @@ endif;
                                                     <button class="dropdown-item" type="button" data-bs-toggle="modal" data-bs-target="#banModal" 
                                                             data-user-id="<?php echo $user['id']; ?>" 
                                                             data-username="<?php echo escape($user['username']); ?>">
-                                                        <i class="fas fa-ban me-1"></i> Banla
+                                                        <i class="fas fa-ban me-1"></i> Kullanıcıyı Banla
                                                     </button>
                                                 </li>
                                             <?php endif; ?>
@@ -289,7 +401,7 @@ endif;
                                                 <button class="dropdown-item text-danger" type="button" data-bs-toggle="modal" data-bs-target="#deleteModal" 
                                                         data-user-id="<?php echo $user['id']; ?>" 
                                                         data-username="<?php echo escape($user['username']); ?>">
-                                                    <i class="fas fa-trash me-1"></i> Sil
+                                                    <i class="fas fa-trash-alt me-1"></i> Kullanıcıyı Sil
                                                 </button>
                                             </li>
                                         </ul>
@@ -297,49 +409,58 @@ endif;
                                 </td>
                             </tr>
                         <?php endforeach; ?>
-                    <?php endif; ?>
-                </tbody>
-            </table>
-        </div>
-    </div>
-</div>
-
-<!-- Filtre Modal -->
-<div class="modal fade" id="filterModal" tabindex="-1" aria-labelledby="filterModalLabel" aria-hidden="true">
-    <div class="modal-dialog">
-        <div class="modal-content">
-            <form action="index.php" method="get">
-                <input type="hidden" name="page" value="users">
-                
-                <div class="modal-header">
-                    <h5 class="modal-title" id="filterModalLabel">Kullanıcıları Filtrele</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Kapat"></button>
-                </div>
-                <div class="modal-body">
-                    <div class="mb-3">
-                        <label for="username" class="form-label">Kullanıcı Adı</label>
-                        <input type="text" class="form-control" id="username" name="username" value="<?php echo escape($filter_username); ?>" placeholder="Kullanıcı adı ara...">
-                    </div>
-                    <div class="mb-3">
-                        <label for="city" class="form-label">Şehir</label>
-                        <input type="text" class="form-control" id="city" name="city" value="<?php echo escape($filter_city); ?>" placeholder="Şehir ara...">
-                    </div>
-                    <div class="mb-3">
-                        <label for="role" class="form-label">Rol</label>
-                        <select class="form-select" id="role" name="role">
-                            <option value="">Tümü</option>
-                            <option value="admin" <?php echo $filter_role === 'admin' ? 'selected' : ''; ?>>Yönetici</option>
-                            <option value="moderator" <?php echo $filter_role === 'moderator' ? 'selected' : ''; ?>>Moderatör</option>
-                            <option value="user" <?php echo $filter_role === 'user' ? 'selected' : ''; ?>>Kullanıcı</option>
-                        </select>
-                    </div>
-                </div>
-                <div class="modal-footer">
-                    <a href="index.php?page=users" class="btn btn-secondary">Filtreleri Temizle</a>
-                    <button type="submit" class="btn btn-primary">Filtrele</button>
-                </div>
-            </form>
-        </div>
+                    </tbody>
+                </table>
+            </div>
+            
+            <!-- Sayfalama -->
+            <?php if ($total_pages > 1): ?>
+                <nav aria-label="Page navigation" class="mt-4">
+                    <ul class="pagination justify-content-center">
+                        <?php if ($current_page > 1): ?>
+                            <li class="page-item">
+                                <a class="page-link" href="index.php?page=users&p=<?php echo ($current_page - 1); ?>&role=<?php echo $filter_role; ?>&ban_status=<?php echo $filter_ban_status; ?>&city=<?php echo urlencode($filter_city); ?>&district=<?php echo urlencode($filter_district); ?>&q=<?php echo urlencode($search_query); ?>">
+                                    <i class="fas fa-chevron-left"></i>
+                                </a>
+                            </li>
+                        <?php else: ?>
+                            <li class="page-item disabled">
+                                <span class="page-link"><i class="fas fa-chevron-left"></i></span>
+                            </li>
+                        <?php endif; ?>
+                        
+                        <?php for ($i = 1; $i <= $total_pages; $i++): ?>
+                            <?php if (abs($i - $current_page) <= 2 || $i == 1 || $i == $total_pages): ?>
+                                <?php if (abs($i - $current_page) == 3 && ($i == 1 || $i == $total_pages)): ?>
+                                    <li class="page-item disabled">
+                                        <span class="page-link">...</span>
+                                    </li>
+                                <?php else: ?>
+                                    <li class="page-item <?php echo ($i == $current_page) ? 'active' : ''; ?>">
+                                        <a class="page-link" href="index.php?page=users&p=<?php echo $i; ?>&role=<?php echo $filter_role; ?>&ban_status=<?php echo $filter_ban_status; ?>&city=<?php echo urlencode($filter_city); ?>&district=<?php echo urlencode($filter_district); ?>&q=<?php echo urlencode($search_query); ?>">
+                                            <?php echo $i; ?>
+                                        </a>
+                                    </li>
+                                <?php endif; ?>
+                            <?php endif; ?>
+                        <?php endfor; ?>
+                        
+                        <?php if ($current_page < $total_pages): ?>
+                            <li class="page-item">
+                                <a class="page-link" href="index.php?page=users&p=<?php echo ($current_page + 1); ?>&role=<?php echo $filter_role; ?>&ban_status=<?php echo $filter_ban_status; ?>&city=<?php echo urlencode($filter_city); ?>&district=<?php echo urlencode($filter_district); ?>&q=<?php echo urlencode($search_query); ?>">
+                                    <i class="fas fa-chevron-right"></i>
+                                </a>
+                            </li>
+                        <?php else: ?>
+                            <li class="page-item disabled">
+                                <span class="page-link"><i class="fas fa-chevron-right"></i></span>
+                            </li>
+                        <?php endif; ?>
+                    </ul>
+                </nav>
+            <?php endif; ?>
+            
+        <?php endif; ?>
     </div>
 </div>
 
@@ -347,29 +468,32 @@ endif;
 <div class="modal fade" id="banModal" tabindex="-1" aria-labelledby="banModalLabel" aria-hidden="true">
     <div class="modal-dialog">
         <div class="modal-content">
-            <form action="" method="post">
-                <input type="hidden" name="user_id" id="banUserId">
-                <input type="hidden" name="ban_user" value="1">
-                
-                <div class="modal-header">
-                    <h5 class="modal-title" id="banModalLabel">Kullanıcıyı Banla</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Kapat"></button>
-                </div>
+            <div class="modal-header">
+                <h5 class="modal-title" id="banModalLabel">Kullanıcıyı Banla</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <form method="post" action="">
                 <div class="modal-body">
+                    <input type="hidden" name="ban_user" value="1">
+                    <input type="hidden" name="user_id" id="banUserId">
+                    
                     <p>
-                        <span id="banUsername"></span> kullanıcısını banlamak istediğinize emin misiniz?
+                        <i class="fas fa-exclamation-triangle text-warning me-1"></i>
+                        <span id="banUsername">Kullanıcı</span> adlı kullanıcıyı banlamak üzeresiniz.
                     </p>
+                    
                     <div class="mb-3">
-                        <label for="ban_reason" class="form-label">Ban Nedeni</label>
-                        <textarea class="form-control" id="ban_reason" name="ban_reason" rows="3" placeholder="Ban nedeni..."></textarea>
+                        <label for="banReason" class="form-label">Ban Nedeni</label>
+                        <textarea class="form-control" id="banReason" name="ban_reason" rows="3" required></textarea>
                     </div>
+                    
                     <div class="mb-3">
-                        <label for="ban_duration" class="form-label">Ban Süresi (Gün)</label>
-                        <select class="form-select" id="ban_duration" name="ban_duration">
+                        <label for="banDuration" class="form-label">Ban Süresi (Gün)</label>
+                        <select class="form-select" id="banDuration" name="ban_duration" required>
                             <option value="1">1 Gün</option>
                             <option value="3">3 Gün</option>
                             <option value="7" selected>7 Gün</option>
-                            <option value="15">15 Gün</option>
+                            <option value="14">14 Gün</option>
                             <option value="30">30 Gün</option>
                             <option value="90">90 Gün</option>
                             <option value="365">1 Yıl</option>
@@ -378,7 +502,7 @@ endif;
                 </div>
                 <div class="modal-footer">
                     <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">İptal</button>
-                    <button type="submit" class="btn btn-danger">Banla</button>
+                    <button type="submit" class="btn btn-danger">Kullanıcıyı Banla</button>
                 </div>
             </form>
         </div>
@@ -389,18 +513,20 @@ endif;
 <div class="modal fade" id="unbanModal" tabindex="-1" aria-labelledby="unbanModalLabel" aria-hidden="true">
     <div class="modal-dialog">
         <div class="modal-content">
-            <form action="" method="post">
-                <input type="hidden" name="ban_id" id="unbanBanId">
-                <input type="hidden" name="unban_user" value="1">
-                
-                <div class="modal-header">
-                    <h5 class="modal-title" id="unbanModalLabel">Ban Kaldır</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Kapat"></button>
-                </div>
+            <div class="modal-header">
+                <h5 class="modal-title" id="unbanModalLabel">Ban Kaldır</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <form method="post" action="">
                 <div class="modal-body">
+                    <input type="hidden" name="unban_user" value="1">
+                    <input type="hidden" name="ban_id" id="unbanBanId">
+                    
                     <p>
-                        <span id="unbanUsername"></span> kullanıcısının banını kaldırmak istediğinize emin misiniz?
+                        <i class="fas fa-exclamation-triangle text-warning me-1"></i>
+                        <span id="unbanUsername">Kullanıcı</span> adlı kullanıcının banını kaldırmak üzeresiniz.
                     </p>
+                    <p>Bu işlem, kullanıcının hesabını yeniden aktif hale getirecektir. Devam etmek istiyor musunuz?</p>
                 </div>
                 <div class="modal-footer">
                     <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">İptal</button>
@@ -415,28 +541,24 @@ endif;
 <div class="modal fade" id="deleteModal" tabindex="-1" aria-labelledby="deleteModalLabel" aria-hidden="true">
     <div class="modal-dialog">
         <div class="modal-content">
-            <form action="" method="post">
-                <input type="hidden" name="user_id" id="deleteUserId">
-                <input type="hidden" name="delete_user" value="1">
-                
-                <div class="modal-header">
-                    <h5 class="modal-title" id="deleteModalLabel">Kullanıcıyı Sil</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Kapat"></button>
-                </div>
+            <div class="modal-header">
+                <h5 class="modal-title" id="deleteModalLabel">Kullanıcıyı Sil</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <form method="post" action="">
                 <div class="modal-body">
-                    <div class="alert alert-danger">
-                        <i class="fas fa-exclamation-triangle me-1"></i> Dikkat: Bu işlem geri alınamaz!
-                    </div>
+                    <input type="hidden" name="delete_user" value="1">
+                    <input type="hidden" name="user_id" id="deleteUserId">
+                    
                     <p>
-                        <span id="deleteUsername"></span> kullanıcısını silmek istediğinize emin misiniz?
+                        <i class="fas fa-exclamation-triangle text-danger me-1"></i>
+                        <strong id="deleteUsername">Kullanıcı</strong> adlı kullanıcıyı silmek üzeresiniz.
                     </p>
-                    <p>
-                        Bu işlem sonucunda kullanıcının tüm verileri sistemden silinecektir. Bu işlemi geri alamazsınız.
-                    </p>
+                    <p>Bu işlem geri alınamaz! Kullanıcının tüm verileri (gönderiler, yorumlar, vb.) silinecektir. Devam etmek istiyor musunuz?</p>
                 </div>
                 <div class="modal-footer">
                     <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">İptal</button>
-                    <button type="submit" class="btn btn-danger">Evet, Sil</button>
+                    <button type="submit" class="btn btn-danger">Kullanıcıyı Sil</button>
                 </div>
             </form>
         </div>
@@ -444,47 +566,97 @@ endif;
 </div>
 
 <script>
-// Ban Modalı
-document.getElementById('banModal').addEventListener('show.bs.modal', function (event) {
-    const button = event.relatedTarget;
-    const userId = button.getAttribute('data-user-id');
-    const username = button.getAttribute('data-username');
+// Ban Modal veri aktarımı
+document.addEventListener('show.bs.modal', function (event) {
+    // Ban Modal için
+    if (event.target.id === 'banModal') {
+        const button = event.relatedTarget;
+        const userId = button.getAttribute('data-user-id');
+        const username = button.getAttribute('data-username');
+        
+        document.getElementById('banUserId').value = userId;
+        document.getElementById('banUsername').textContent = username;
+    }
     
-    document.getElementById('banUserId').value = userId;
-    document.getElementById('banUsername').textContent = username;
-});
-
-// Unban Modalı
-document.getElementById('unbanModal').addEventListener('show.bs.modal', function (event) {
-    const button = event.relatedTarget;
-    const banId = button.getAttribute('data-ban-id');
-    const username = button.getAttribute('data-username');
+    // Unban Modal için
+    if (event.target.id === 'unbanModal') {
+        const button = event.relatedTarget;
+        const banId = button.getAttribute('data-ban-id');
+        const username = button.getAttribute('data-username');
+        
+        document.getElementById('unbanBanId').value = banId;
+        document.getElementById('unbanUsername').textContent = username;
+    }
     
-    document.getElementById('unbanBanId').value = banId;
-    document.getElementById('unbanUsername').textContent = username;
+    // Delete Modal için
+    if (event.target.id === 'deleteModal') {
+        const button = event.relatedTarget;
+        const userId = button.getAttribute('data-user-id');
+        const username = button.getAttribute('data-username');
+        
+        document.getElementById('deleteUserId').value = userId;
+        document.getElementById('deleteUsername').textContent = username;
+    }
 });
-
-// Silme Modalı
-document.getElementById('deleteModal').addEventListener('show.bs.modal', function (event) {
-    const button = event.relatedTarget;
-    const userId = button.getAttribute('data-user-id');
-    const username = button.getAttribute('data-username');
-    
-    document.getElementById('deleteUserId').value = userId;
-    document.getElementById('deleteUsername').textContent = username;
-});
-
-// Bu JavaScript fonksiyonları artık kullanılmıyor çünkü bunların yerine doğrudan linkler kullandık
 
 // DataTables eklentisini etkinleştir
 document.addEventListener('DOMContentLoaded', function() {
     if (typeof $.fn.DataTable !== 'undefined') {
-        $('#usersTable').DataTable({
+        const table = $('#usersTable').DataTable({
+            paging: false,
+            ordering: true,
+            info: false,
+            searching: false,
+            responsive: true,
             language: {
-                url: '//cdn.datatables.net/plug-ins/1.10.21/i18n/Turkish.json'
-            },
-            order: [[5, 'desc']]
+                emptyTable: "Veri bulunamadı",
+                info: "_TOTAL_ kayıttan _START_ - _END_ arası gösteriliyor",
+                infoEmpty: "Gösterilecek veri bulunamadı",
+                infoFiltered: "(_MAX_ kayıt içerisinden filtrelendi)",
+                lengthMenu: "Sayfada _MENU_ kayıt göster",
+                loadingRecords: "Yükleniyor...",
+                processing: "İşleniyor...",
+                search: "Ara:",
+                zeroRecords: "Eşleşen kayıt bulunamadı",
+                paginate: {
+                    first: "İlk",
+                    last: "Son",
+                    next: "Sonraki",
+                    previous: "Önceki"
+                },
+                aria: {
+                    sortAscending: ": artan sütun sıralamasını aktifleştir",
+                    sortDescending: ": azalan sütun sıralamasını aktifleştir"
+                }
+            }
         });
+    }
+});
+
+// Şehir değiştiğinde ilçeleri güncelle
+document.getElementById('filterCity').addEventListener('change', function() {
+    const cityName = this.value;
+    const districtSelect = document.getElementById('filterDistrict');
+    
+    // İlçe dropdown'ını temizle
+    districtSelect.innerHTML = '<option value="">Tümü</option>';
+    
+    if (cityName) {
+        // İlgili şehrin ilçelerini al
+        fetch('index.php?page=api&action=get_districts_by_city&city=' + encodeURIComponent(cityName))
+            .then(response => response.json())
+            .then(data => {
+                if (data && data.length > 0) {
+                    // İlçeleri dropdown'a ekle
+                    data.forEach(district => {
+                        const option = document.createElement('option');
+                        option.value = district.name;
+                        option.textContent = district.name;
+                        districtSelect.appendChild(option);
+                    });
+                }
+            })
+            .catch(error => console.error('İlçeler alınırken bir hata oluştu:', error));
     }
 });
 </script>
