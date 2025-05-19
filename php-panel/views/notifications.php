@@ -22,88 +22,113 @@ if (isset($_POST['submit_bulk_notification'])) {
     $link = $_POST['link'] ?? '';
     $type = $_POST['type'] ?? 'system';
     $target_type = $_POST['target_type'] ?? 'all';
-    $city_id = isset($_POST['city_id']) && $_POST['city_id'] != '' ? (int)$_POST['city_id'] : null;
-    $district_id = isset($_POST['district_id']) && $_POST['district_id'] != '' ? (int)$_POST['district_id'] : null;
+    $city_id = isset($_POST['city_id']) && $_POST['city_id'] != '' ? $_POST['city_id'] : null;
+    $district_id = isset($_POST['district_id']) && $_POST['district_id'] != '' ? $_POST['district_id'] : null;
+    
+    error_log("FORM BİLGİLERİ - Başlık: $title, Mesaj: $message, Tip: $type, Hedef: $target_type, Şehir ID: " . ($city_id ?? 'boş') . ", İlçe ID: " . ($district_id ?? 'boş'));
     
     try {
         // Hedeflenen kullanıcıları belirle
         $users = [];
         
         if ($target_type == 'city' && $city_id) {
-            // Belirli şehirdeki kullanıcıları al - users tablosundan
-            $users_result = getData('users', [
-                'select' => 'id,email,city',
-                'city' => 'eq.' . urlencode($city_id)
+            $users = [];
+            // Tüm kullanıcıları alıp şehir filtresini PHP'de yapalım
+            $all_users_result = getData('users', [
+                'select' => '*'
             ]);
             
-            error_log("Şehir seçimi: " . $city_id);
+            error_log("Şehir hedefi seçildi, ID:" . $city_id);
             
-            if (!$users_result['error'] && !empty($users_result['data'])) {
-                $users = array_column($users_result['data'], 'id');
-                error_log("Şehre göre kullanıcılar bulundu: " . implode(', ', $users));
-            } else {
-                // Cities tablosundan şehir adını bulalım
-                $city_name_result = getData('cities', [
-                    'select' => 'name',
-                    'id' => 'eq.' . $city_id
-                ]);
+            if (!$all_users_result['error'] && !empty($all_users_result['data'])) {
+                $all_users = $all_users_result['data'];
+                error_log("Toplam " . count($all_users) . " kullanıcı bulundu, şehir filtreleniyor...");
                 
-                $city_name = '';
-                if (!$city_name_result['error'] && !empty($city_name_result['data'])) {
-                    $city_name = $city_name_result['data'][0]['name'] ?? '';
-                    error_log("Şehir adı bulundu: " . $city_name);
+                // Önce şehir adını bulalım
+                $city_name = null;
+                
+                // city_id bir sayı mı yoksa metin mi kontrol edelim
+                if (is_numeric($city_id)) {
+                    $city_result = getData('cities', [
+                        'select' => 'name',
+                        'id' => 'eq.' . $city_id
+                    ]);
                     
-                    // Şehir adına göre kullanıcıları al
-                    if (!empty($city_name)) {
-                        $users_by_name = getData('users', [
-                            'select' => 'id',
-                            'city' => 'eq.' . urlencode($city_name)
-                        ]);
-                        
-                        if (!$users_by_name['error'] && !empty($users_by_name['data'])) {
-                            $users = array_column($users_by_name['data'], 'id');
-                            error_log("Şehir adına göre kullanıcılar bulundu: " . implode(', ', $users));
-                        }
+                    if (!$city_result['error'] && !empty($city_result['data'])) {
+                        $city_name = $city_result['data'][0]['name'] ?? null;
+                        error_log("Şehir ID'sine göre şehir adı bulundu: " . ($city_name ?? 'bulunamadı'));
+                    }
+                } else {
+                    // city_id doğrudan şehir adı olabilir
+                    $city_name = $city_id;
+                    error_log("Şehir adı doğrudan alındı: " . $city_name);
+                }
+                
+                // Şehre göre kullanıcıları filtrele
+                foreach ($all_users as $user) {
+                    $user_city = $user['city'] ?? '';
+                    
+                    // Şehir adı veya ID eşleşmesini kontrol et
+                    if (($city_name && strcasecmp($user_city, $city_name) === 0) || 
+                        ($user['city_id'] ?? '') == $city_id) {
+                        $users[] = $user['id'];
+                        error_log("Kullanıcı şehre uygun: " . $user['email'] . " - Şehir: " . $user_city);
                     }
                 }
+                
+                error_log("Şehir filtrelemesinden sonra kalan kullanıcı sayısı: " . count($users));
+            } else {
+                error_log("Kullanıcılar alınırken hata oluştu: " . ($all_users_result['message'] ?? 'Bilinmeyen hata'));
             }
+            
         } elseif ($target_type == 'district' && $district_id) {
-            // Belirli ilçedeki kullanıcıları al - users tablosundan
-            $users_result = getData('users', [
-                'select' => 'id,email,district',
-                'district' => 'eq.' . urlencode($district_id)
+            $users = [];
+            // Tüm kullanıcıları alıp ilçe filtresini PHP'de yapalım
+            $all_users_result = getData('users', [
+                'select' => '*'
             ]);
             
-            error_log("İlçe seçimi: " . $district_id);
+            error_log("İlçe hedefi seçildi, ID:" . $district_id);
             
-            if (!$users_result['error'] && !empty($users_result['data'])) {
-                $users = array_column($users_result['data'], 'id');
-                error_log("İlçeye göre kullanıcılar bulundu: " . implode(', ', $users));
-            } else {
-                // Districts tablosundan ilçe adını bulalım
-                $district_name_result = getData('districts', [
-                    'select' => 'name',
-                    'id' => 'eq.' . $district_id
-                ]);
+            if (!$all_users_result['error'] && !empty($all_users_result['data'])) {
+                $all_users = $all_users_result['data'];
+                error_log("Toplam " . count($all_users) . " kullanıcı bulundu, ilçe filtreleniyor...");
                 
-                $district_name = '';
-                if (!$district_name_result['error'] && !empty($district_name_result['data'])) {
-                    $district_name = $district_name_result['data'][0]['name'] ?? '';
-                    error_log("İlçe adı bulundu: " . $district_name);
+                // Önce ilçe adını bulalım
+                $district_name = null;
+                
+                // district_id bir sayı mı yoksa metin mi kontrol edelim
+                if (is_numeric($district_id)) {
+                    $district_result = getData('districts', [
+                        'select' => 'name',
+                        'id' => 'eq.' . $district_id
+                    ]);
                     
-                    // İlçe adına göre kullanıcıları al
-                    if (!empty($district_name)) {
-                        $users_by_name = getData('users', [
-                            'select' => 'id',
-                            'district' => 'eq.' . urlencode($district_name)
-                        ]);
-                        
-                        if (!$users_by_name['error'] && !empty($users_by_name['data'])) {
-                            $users = array_column($users_by_name['data'], 'id');
-                            error_log("İlçe adına göre kullanıcılar bulundu: " . implode(', ', $users));
-                        }
+                    if (!$district_result['error'] && !empty($district_result['data'])) {
+                        $district_name = $district_result['data'][0]['name'] ?? null;
+                        error_log("İlçe ID'sine göre ilçe adı bulundu: " . ($district_name ?? 'bulunamadı'));
+                    }
+                } else {
+                    // district_id doğrudan ilçe adı olabilir
+                    $district_name = $district_id;
+                    error_log("İlçe adı doğrudan alındı: " . $district_name);
+                }
+                
+                // İlçeye göre kullanıcıları filtrele
+                foreach ($all_users as $user) {
+                    $user_district = $user['district'] ?? '';
+                    
+                    // İlçe adı veya ID eşleşmesini kontrol et
+                    if (($district_name && strcasecmp($user_district, $district_name) === 0) || 
+                        ($user['district_id'] ?? '') == $district_id) {
+                        $users[] = $user['id'];
+                        error_log("Kullanıcı ilçeye uygun: " . $user['email'] . " - İlçe: " . $user_district);
                     }
                 }
+                
+                error_log("İlçe filtrelemesinden sonra kalan kullanıcı sayısı: " . count($users));
+            } else {
+                error_log("Kullanıcılar alınırken hata oluştu: " . ($all_users_result['message'] ?? 'Bilinmeyen hata'));
             }
         } else {
             // Notification preferences tablosundan kullanıcıları al
