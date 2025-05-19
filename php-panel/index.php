@@ -19,7 +19,8 @@ $action = isset($_GET['action']) ? $_GET['action'] : '';
 $valid_pages = [
     'dashboard', 'cities', 'districts', 'parties', 'posts', 'comments', 'announcements', 'users', 'not_found',
     'city_edit', 'city_detail', 'district_edit', 'district_detail', 'post_edit', 'post_detail', 'cozumorani',
-    'user_edit', 'update_party_scoring', 'update_scoring', 'update_triggers', 'api', 'disable_triggers', 'manuel_query'
+    'user_edit', 'update_party_scoring', 'update_scoring', 'update_triggers', 'api', 'disable_triggers', 'manuel_query',
+    'show_schema', 'trigger_posts', 'custom_sql'
 ];
 
 // Sayfa geçerli mi kontrol et
