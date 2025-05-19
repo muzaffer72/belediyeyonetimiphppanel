@@ -50,24 +50,36 @@ if (isset($_POST['submit_bulk_notification'])) {
                 $users = array_unique(array_column($users_result['data'], 'user_id'));
             }
         } else {
-            // Tüm kullanıcıları al
-            $users_result = getData('auth.users', [
-                'select' => 'id'
+            // Notification preferences tablosundan kullanıcıları al
+            $users_result = getData('notification_preferences', [
+                'select' => 'user_id'
             ]);
             
             if (!$users_result['error'] && !empty($users_result['data'])) {
-                $users = array_column($users_result['data'], 'id');
-            }
-            
-            // Debug için ekstra kontrol
-            error_log("Tüm kullanıcılar sorgusu: " . json_encode($users_result));
-            
-            // Kullanıcı bulunamadıysa demo amaçlı en az bir kullanıcı oluştur
-            if (empty($users)) {
-                // Mevcut bir kullanıcı bul veya oluştur
-                $current_user_id = '83190944-98d5-41be-ac3a-178676faf017'; // Daha önce verdiğiniz kullanıcı ID'si
-                $users = [$current_user_id];
-                error_log("Mevcut bir ID kullanılıyor: " . $current_user_id);
+                $users = array_column($users_result['data'], 'user_id');
+                error_log("Notification preferences tablosundan " . count($users) . " kullanıcı bulundu.");
+            } else {
+                error_log("Notification preferences tablosundan kullanıcılar alınamadı: " . ($users_result['message'] ?? 'Bilinmeyen hata'));
+                
+                // Kullanıcı bulunamadıysa, users tablosundan deneyelim
+                $users_alternate = getData('users', [
+                    'select' => 'id'
+                ]);
+                
+                if (!$users_alternate['error'] && !empty($users_alternate['data'])) {
+                    $users = array_column($users_alternate['data'], 'id');
+                    error_log("Users tablosundan " . count($users) . " kullanıcı bulundu.");
+                } else {
+                    // Sabit kullanıcı listesi
+                    $users = [
+                        '2372d46c-da91-4c5d-a4de-7eab455932ab',
+                        'f4191657-a714-4ddc-a6fa-c5e54d4c1f7a',
+                        '8cf8d436-82cd-4160-8394-ba29323cd2b2',
+                        '83190944-98d5-41be-ac3a-178676faf017',
+                        'b5008bcd-3119-4789-8568-9da762fa4341'
+                    ];
+                    error_log("Sabit kullanıcı listesi kullanılıyor: " . count($users) . " kullanıcı");
+                }
             }
         }
         
@@ -144,27 +156,48 @@ try {
     if (!empty($notifications)) {
         $user_ids = array_column($notifications, 'user_id');
         $user_emails = [];
+        $user_cities = [];
+        $user_districts = [];
         
         // Benzersiz kullanıcı ID'lerini al
         $unique_user_ids = array_unique($user_ids);
         
-        // Her ID için ayrı sorgu yapmak yerine sadece bir kez sorgu yapalım
-        $user_ids_string = "'" . implode("','", $unique_user_ids) . "'";
-        $users_result = getData('auth.users', [
-            'select' => 'id,email'
+        // Önce users tablosundan kullanıcı bilgilerini almayı dene
+        $users_result = getData('users', [
+            'select' => '*'
         ]);
         
         if (!$users_result['error'] && !empty($users_result['data'])) {
             foreach ($users_result['data'] as $user) {
-                if (isset($user['id']) && isset($user['email'])) {
-                    $user_emails[$user['id']] = $user['email'];
+                if (isset($user['id'])) {
+                    $user_emails[$user['id']] = $user['email'] ?? 'Bilinmiyor';
+                    $user_cities[$user['id']] = $user['city'] ?? 'Bilinmiyor';
+                    $user_districts[$user['id']] = $user['district'] ?? 'Bilinmiyor';
                 }
+            }
+            error_log("Users tablosundan " . count($users_result['data']) . " kullanıcı bilgisi alındı.");
+        } else {
+            // Users tablosundan alınamazsa notification_preferences'den deneyelim
+            $users_pref_result = getData('notification_preferences', [
+                'select' => 'user_id'
+            ]);
+            
+            if (!$users_pref_result['error'] && !empty($users_pref_result['data'])) {
+                foreach ($users_pref_result['data'] as $pref) {
+                    $user_emails[$pref['user_id']] = "Kullanıcı #" . substr($pref['user_id'], 0, 8);
+                }
+                error_log("Notification preferences tablosundan " . count($users_pref_result['data']) . " kullanıcı bilgisi alındı.");
+            } else {
+                error_log("Kullanıcı bilgileri alınamadı: " . ($users_result['message'] ?? 'Bilinmeyen hata'));
             }
         }
         
-        // E-postaları bildirim verilerine ekle
+        // E-postaları ve diğer bilgileri bildirim verilerine ekle
         foreach ($notifications as &$notification) {
-            $notification['user_email'] = $user_emails[$notification['user_id']] ?? 'Bilinmiyor';
+            $uid = $notification['user_id'];
+            $notification['user_email'] = $user_emails[$uid] ?? 'Bilinmiyor';
+            $notification['user_city'] = $user_cities[$uid] ?? '';
+            $notification['user_district'] = $user_districts[$uid] ?? '';
         }
     }
 } catch (Exception $e) {
@@ -240,6 +273,25 @@ if (!empty($error_message)) {
                                             <?php 
                                             if (isset($notification['user_email'])) {
                                                 echo htmlspecialchars($notification['user_email']);
+                                                
+                                                // Şehir ve ilçe bilgisi varsa göster
+                                                if (!empty($notification['user_city']) || !empty($notification['user_district'])) {
+                                                    echo '<br><small class="text-muted">';
+                                                    
+                                                    if (!empty($notification['user_city'])) {
+                                                        echo htmlspecialchars($notification['user_city']);
+                                                    }
+                                                    
+                                                    if (!empty($notification['user_city']) && !empty($notification['user_district'])) {
+                                                        echo ' / ';
+                                                    }
+                                                    
+                                                    if (!empty($notification['user_district'])) {
+                                                        echo htmlspecialchars($notification['user_district']);
+                                                    }
+                                                    
+                                                    echo '</small>';
+                                                }
                                             } else {
                                                 echo '<span class="text-muted">Bilinmiyor</span>';
                                             }
