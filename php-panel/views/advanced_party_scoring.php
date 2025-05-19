@@ -165,48 +165,42 @@ FROM
 WHERE 
     pp.id = cs.party_id;
 
--- 5. Adım: Partilerin çözüm oranlarını hesapla
-WITH party_solution_rates AS (
+-- 5. Adım: Partilerin puanlarını toplam sayılara göre hesapla (100 puana oranlayarak)
+WITH party_counts AS (
+    -- Her bir partinin sayılarını al
     SELECT 
         id,
         name,
-        parti_sikayet_sayisi,
         parti_cozulmus_sikayet_sayisi,
         parti_tesekkur_sayisi,
-        -- Çözüm oranı: (Çözülmüş Şikayet + Teşekkür) / (Toplam Şikayet + Teşekkür) * 100
-        CASE 
-            WHEN (COALESCE(parti_sikayet_sayisi, 0) + COALESCE(parti_tesekkur_sayisi, 0)) = 0 THEN 0
-            ELSE ((COALESCE(parti_cozulmus_sikayet_sayisi, 0) + COALESCE(parti_tesekkur_sayisi, 0)) * 100.0 / 
-                  (COALESCE(parti_sikayet_sayisi, 0) + COALESCE(parti_tesekkur_sayisi, 0)))
-        END AS solution_rate
+        -- Parti başarı puanı (çözülmüş şikayetler + teşekkürler)
+        (COALESCE(parti_cozulmus_sikayet_sayisi, 0) + COALESCE(parti_tesekkur_sayisi, 0)) AS success_count
     FROM 
         political_parties
 ),
-ranked_parties AS (
-    -- Partileri çözüm oranına göre sırala
+total_counts AS (
+    -- Tüm partilerin toplam başarı sayısını hesapla
     SELECT 
-        id,
-        name,
-        solution_rate,
-        -- Performansı sıfırdan yüksek olan partilerin toplam sayısı
-        SUM(CASE WHEN solution_rate > 0 THEN 1 ELSE 0 END) OVER() AS valid_party_count
+        SUM(success_count) AS total_success_count
     FROM 
-        party_solution_rates
+        party_counts
+    WHERE 
+        success_count > 0
 ),
 party_scores AS (
-    -- 100 puanı performansa göre dağıt
+    -- 100 puanı tüm partilerin başarı sayılarına göre orantılı dağıt
     SELECT 
         id,
         name,
-        solution_rate,
+        success_count,
         CASE
-            -- Performansı olan partiler içinde puanı dağıt
-            WHEN solution_rate > 0 AND valid_party_count > 0 THEN
-                (solution_rate * 100.0) / (SELECT MAX(solution_rate) FROM ranked_parties WHERE solution_rate > 0)
-            ELSE 0
+            -- Eğer toplam başarı sayısı sıfırsa kimseye puan verme
+            WHEN (SELECT total_success_count FROM total_counts) = 0 THEN 0
+            -- Değilse puanı başarı sayısına göre dağıt (toplam 100 puan)
+            ELSE (success_count * 100.0) / (SELECT total_success_count FROM total_counts)
         END AS final_score
     FROM 
-        ranked_parties
+        party_counts
 )
 -- 6. Adım: Puanları güncelle
 UPDATE political_parties pp
