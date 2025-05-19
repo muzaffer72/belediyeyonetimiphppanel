@@ -30,24 +30,80 @@ if (isset($_POST['submit_bulk_notification'])) {
         $users = [];
         
         if ($target_type == 'city' && $city_id) {
-            // Belirli şehirdeki kullanıcıları al
-            $users_result = getData('posts', [
-                'select' => 'user_id', 
-                'city_id' => 'eq.' . $city_id
+            // Belirli şehirdeki kullanıcıları al - users tablosundan
+            $users_result = getData('users', [
+                'select' => 'id,email,city',
+                'city' => 'eq.' . urlencode($city_id)
             ]);
             
+            error_log("Şehir seçimi: " . $city_id);
+            
             if (!$users_result['error'] && !empty($users_result['data'])) {
-                $users = array_unique(array_column($users_result['data'], 'user_id'));
+                $users = array_column($users_result['data'], 'id');
+                error_log("Şehre göre kullanıcılar bulundu: " . implode(', ', $users));
+            } else {
+                // Cities tablosundan şehir adını bulalım
+                $city_name_result = getData('cities', [
+                    'select' => 'name',
+                    'id' => 'eq.' . $city_id
+                ]);
+                
+                $city_name = '';
+                if (!$city_name_result['error'] && !empty($city_name_result['data'])) {
+                    $city_name = $city_name_result['data'][0]['name'] ?? '';
+                    error_log("Şehir adı bulundu: " . $city_name);
+                    
+                    // Şehir adına göre kullanıcıları al
+                    if (!empty($city_name)) {
+                        $users_by_name = getData('users', [
+                            'select' => 'id',
+                            'city' => 'eq.' . urlencode($city_name)
+                        ]);
+                        
+                        if (!$users_by_name['error'] && !empty($users_by_name['data'])) {
+                            $users = array_column($users_by_name['data'], 'id');
+                            error_log("Şehir adına göre kullanıcılar bulundu: " . implode(', ', $users));
+                        }
+                    }
+                }
             }
         } elseif ($target_type == 'district' && $district_id) {
-            // Belirli ilçedeki kullanıcıları al
-            $users_result = getData('posts', [
-                'select' => 'user_id', 
-                'district_id' => 'eq.' . $district_id
+            // Belirli ilçedeki kullanıcıları al - users tablosundan
+            $users_result = getData('users', [
+                'select' => 'id,email,district',
+                'district' => 'eq.' . urlencode($district_id)
             ]);
             
+            error_log("İlçe seçimi: " . $district_id);
+            
             if (!$users_result['error'] && !empty($users_result['data'])) {
-                $users = array_unique(array_column($users_result['data'], 'user_id'));
+                $users = array_column($users_result['data'], 'id');
+                error_log("İlçeye göre kullanıcılar bulundu: " . implode(', ', $users));
+            } else {
+                // Districts tablosundan ilçe adını bulalım
+                $district_name_result = getData('districts', [
+                    'select' => 'name',
+                    'id' => 'eq.' . $district_id
+                ]);
+                
+                $district_name = '';
+                if (!$district_name_result['error'] && !empty($district_name_result['data'])) {
+                    $district_name = $district_name_result['data'][0]['name'] ?? '';
+                    error_log("İlçe adı bulundu: " . $district_name);
+                    
+                    // İlçe adına göre kullanıcıları al
+                    if (!empty($district_name)) {
+                        $users_by_name = getData('users', [
+                            'select' => 'id',
+                            'district' => 'eq.' . urlencode($district_name)
+                        ]);
+                        
+                        if (!$users_by_name['error'] && !empty($users_by_name['data'])) {
+                            $users = array_column($users_by_name['data'], 'id');
+                            error_log("İlçe adına göre kullanıcılar bulundu: " . implode(', ', $users));
+                        }
+                    }
+                }
             }
         } else {
             // Notification preferences tablosundan kullanıcıları al
@@ -89,26 +145,75 @@ if (isset($_POST['submit_bulk_notification'])) {
             $success_count = 0;
             $error_count = 0;
             
-            // Her kullanıcıya bildirim gönder
+            // Bildirim tercihleri olan kullanıcıları kontrol et
+            $prefs_result = getData('notification_preferences', [
+                'select' => '*'
+            ]);
+            
+            $preferences = [];
+            if (!$prefs_result['error'] && !empty($prefs_result['data'])) {
+                foreach ($prefs_result['data'] as $pref) {
+                    if (isset($pref['user_id'])) {
+                        $preferences[$pref['user_id']] = $pref;
+                    }
+                }
+                error_log("Bildirim tercihleri alındı: " . count($preferences) . " kullanıcı için");
+            }
+            
+            // Her kullanıcıya bildirim gönder - tercihlerine göre
             foreach ($users as $user_id) {
-                $notification_data = [
-                    'user_id' => $user_id,
-                    'title' => $title,
-                    'content' => $message,
-                    'type' => $type,
-                    'is_read' => false,
-                    'related_entity_id' => $link,
-                    'related_entity_type' => 'link',
-                    'created_at' => date('c'),
-                    'updated_at' => date('c')
-                ];
+                // Kullanıcının tercihlerine göre bildirim gönderme kontrolü
+                $should_send = true;
                 
-                $result = addData('notifications', $notification_data);
+                if (isset($preferences[$user_id])) {
+                    $pref = $preferences[$user_id];
+                    
+                    // Bildirim tipine göre kullanıcı tercihini kontrol et
+                    switch ($type) {
+                        case 'like':
+                            $should_send = ($pref['likes_enabled'] ?? true);
+                            break;
+                        case 'comment':
+                            $should_send = ($pref['comments_enabled'] ?? true);
+                            break;
+                        case 'reply':
+                            $should_send = ($pref['replies_enabled'] ?? true);
+                            break;
+                        case 'mention':
+                            $should_send = ($pref['mentions_enabled'] ?? true);
+                            break;
+                        case 'system':
+                            $should_send = ($pref['system_notifications_enabled'] ?? true);
+                            break;
+                    }
+                    
+                    error_log("Kullanıcı ID: $user_id, Bildirim tipi: $type, Gönderilecek mi: " . ($should_send ? 'Evet' : 'Hayır'));
+                }
                 
-                if (!$result['error']) {
-                    $success_count++;
+                // Kullanıcı bu bildirim tipini almayı tercih etmişse gönder
+                if ($should_send) {
+                    $notification_data = [
+                        'user_id' => $user_id,
+                        'title' => $title,
+                        'content' => $message,
+                        'type' => $type,
+                        'is_read' => false,
+                        'related_entity_id' => $link,
+                        'related_entity_type' => 'link',
+                        'created_at' => date('c'),
+                        'updated_at' => date('c')
+                    ];
+                    
+                    $result = addData('notifications', $notification_data);
+                    
+                    if (!$result['error']) {
+                        $success_count++;
+                    } else {
+                        $error_count++;
+                        error_log("Bildirim gönderme hatası: " . ($result['message'] ?? 'Bilinmeyen hata'));
+                    }
                 } else {
-                    $error_count++;
+                    error_log("Kullanıcı $user_id için bildirim tercihi kapalı olduğundan gönderilmedi");
                 }
             }
             
