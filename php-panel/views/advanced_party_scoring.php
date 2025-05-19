@@ -40,34 +40,55 @@ SET
     score = 0;
 
 -- 3. Adım: Şehir ve ilçelerden toplamları hesaplayarak partilere dağıt
-WITH city_party_stats AS (
-    -- Şehirlerden toplanan istatistikler
+WITH city_groups AS (
+    -- Şehirleri büyükşehir olma durumuna göre grupla
+    SELECT 
+        id,
+        political_party_id,
+        total_complaints,
+        solved_complaints,
+        thanks_count,
+        is_metropolitan
+    FROM 
+        cities
+    WHERE 
+        political_party_id IS NOT NULL
+),
+city_party_stats AS (
+    -- Sadece büyükşehir olan şehirlerden toplanan istatistikler
     SELECT 
         c.political_party_id,
         SUM(COALESCE(c.total_complaints, 0)) AS total_city_complaints,
         SUM(COALESCE(c.solved_complaints, 0)) AS total_city_solved_complaints,
-        SUM(COALESCE(c.thanks_count, 0)) AS total_city_thanks,
-        -- Büyükşehir belediyeleri için ilçelerle paylaşım faktörü
-        CASE 
-            WHEN COUNT(CASE WHEN c.is_metropolitan = true THEN 1 END) > 0 THEN 0.5
-            ELSE 1.0
-        END AS city_share_factor
+        SUM(COALESCE(c.thanks_count, 0)) AS total_city_thanks
     FROM 
-        cities c
+        city_groups c
     WHERE 
-        c.political_party_id IS NOT NULL
+        c.is_metropolitan = true
+    GROUP BY 
+        c.political_party_id
+),
+normal_city_party_stats AS (
+    -- Büyükşehir olmayan şehirlerin istatistikleri - bunlar olduğu gibi kalır
+    SELECT 
+        c.political_party_id,
+        SUM(COALESCE(c.total_complaints, 0)) AS total_normal_city_complaints,
+        SUM(COALESCE(c.solved_complaints, 0)) AS total_normal_city_solved_complaints,
+        SUM(COALESCE(c.thanks_count, 0)) AS total_normal_city_thanks
+    FROM 
+        city_groups c
+    WHERE 
+        c.is_metropolitan = false
     GROUP BY 
         c.political_party_id
 ),
 district_party_stats AS (
-    -- İlçelerden toplanan istatistikler
+    -- İlçelerden toplanan istatistikler - sadece büyükşehirlerdeki ilçeler
     SELECT 
         d.political_party_id,
         SUM(COALESCE(d.total_complaints, 0)) AS total_district_complaints,
         SUM(COALESCE(d.solved_complaints, 0)) AS total_district_solved_complaints,
-        SUM(COALESCE(d.thanks_count, 0)) AS total_district_thanks,
-        -- İlçelerin büyükşehirlerde paylaşım faktörü
-        0.5 AS district_share_factor
+        SUM(COALESCE(d.thanks_count, 0)) AS total_district_thanks
     FROM 
         districts d
     JOIN 
@@ -77,29 +98,68 @@ district_party_stats AS (
     GROUP BY 
         d.political_party_id
 ),
-combined_stats AS (
-    -- Şehir ve ilçe istatistiklerini birleştir
+normal_district_party_stats AS (
+    -- Büyükşehir olmayan ilçelerin istatistikleri
     SELECT 
-        COALESCE(cps.political_party_id, dps.political_party_id) AS party_id,
-        -- Şehir istatistikleri (büyükşehir faktörü ile)
-        COALESCE(cps.total_city_complaints * cps.city_share_factor, 0) AS city_complaints,
-        COALESCE(cps.total_city_solved_complaints * cps.city_share_factor, 0) AS city_solved_complaints,
-        COALESCE(cps.total_city_thanks * cps.city_share_factor, 0) AS city_thanks,
-        -- İlçe istatistikleri (büyükşehirde)
-        COALESCE(dps.total_district_complaints * dps.district_share_factor, 0) AS district_complaints,
-        COALESCE(dps.total_district_solved_complaints * dps.district_share_factor, 0) AS district_solved_complaints,
-        COALESCE(dps.total_district_thanks * dps.district_share_factor, 0) AS district_thanks
+        d.political_party_id,
+        SUM(COALESCE(d.total_complaints, 0)) AS total_normal_district_complaints,
+        SUM(COALESCE(d.solved_complaints, 0)) AS total_normal_district_solved_complaints,
+        SUM(COALESCE(d.thanks_count, 0)) AS total_normal_district_thanks
     FROM 
-        city_party_stats cps
-    FULL OUTER JOIN 
-        district_party_stats dps ON cps.political_party_id = dps.political_party_id
+        districts d
+    JOIN 
+        cities c ON d.city_id = c.id
+    WHERE 
+        d.political_party_id IS NOT NULL AND c.is_metropolitan = false
+    GROUP BY 
+        d.political_party_id
+),
+combined_stats AS (
+    -- Tüm istatistikleri birleştir
+    SELECT 
+        p.id AS party_id,
+        -- Büyükşehir istatistikleri (50% paylaşım)
+        COALESCE(cps.total_city_complaints * 0.5, 0) AS metro_city_complaints,
+        COALESCE(cps.total_city_solved_complaints * 0.5, 0) AS metro_city_solved_complaints,
+        COALESCE(cps.total_city_thanks * 0.5, 0) AS metro_city_thanks,
+        -- Büyükşehirlerdeki ilçe istatistikleri (50% paylaşım)
+        COALESCE(dps.total_district_complaints * 0.5, 0) AS metro_district_complaints,
+        COALESCE(dps.total_district_solved_complaints * 0.5, 0) AS metro_district_solved_complaints,
+        COALESCE(dps.total_district_thanks * 0.5, 0) AS metro_district_thanks,
+        -- Normal şehir istatistikleri (tam)
+        COALESCE(ncps.total_normal_city_complaints, 0) AS normal_city_complaints,
+        COALESCE(ncps.total_normal_city_solved_complaints, 0) AS normal_city_solved_complaints,
+        COALESCE(ncps.total_normal_city_thanks, 0) AS normal_city_thanks,
+        -- Normal ilçe istatistikleri (tam)
+        COALESCE(ndps.total_normal_district_complaints, 0) AS normal_district_complaints,
+        COALESCE(ndps.total_normal_district_solved_complaints, 0) AS normal_district_solved_complaints,
+        COALESCE(ndps.total_normal_district_thanks, 0) AS normal_district_thanks
+    FROM 
+        political_parties p
+    LEFT JOIN 
+        city_party_stats cps ON p.id = cps.political_party_id
+    LEFT JOIN 
+        district_party_stats dps ON p.id = dps.political_party_id
+    LEFT JOIN 
+        normal_city_party_stats ncps ON p.id = ncps.political_party_id
+    LEFT JOIN 
+        normal_district_party_stats ndps ON p.id = ndps.political_party_id
 )
 -- 4. Adım: Parti istatistiklerini güncelle
 UPDATE political_parties pp
 SET 
-    parti_sikayet_sayisi = CAST(ROUND(cs.city_complaints + cs.district_complaints) AS INTEGER),
-    parti_cozulmus_sikayet_sayisi = CAST(ROUND(cs.city_solved_complaints + cs.district_solved_complaints) AS INTEGER),
-    parti_tesekkur_sayisi = CAST(ROUND(cs.city_thanks + cs.district_thanks) AS INTEGER)
+    parti_sikayet_sayisi = CAST(ROUND(
+        cs.metro_city_complaints + cs.metro_district_complaints +
+        cs.normal_city_complaints + cs.normal_district_complaints
+    ) AS INTEGER),
+    parti_cozulmus_sikayet_sayisi = CAST(ROUND(
+        cs.metro_city_solved_complaints + cs.metro_district_solved_complaints +
+        cs.normal_city_solved_complaints + cs.normal_district_solved_complaints
+    ) AS INTEGER),
+    parti_tesekkur_sayisi = CAST(ROUND(
+        cs.metro_city_thanks + cs.metro_district_thanks +
+        cs.normal_city_thanks + cs.normal_district_thanks
+    ) AS INTEGER)
 FROM 
     combined_stats cs
 WHERE 
