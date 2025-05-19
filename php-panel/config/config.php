@@ -83,8 +83,14 @@ function formatDate($date, $format = 'd.m.Y H:i') {
  * @return void
  */
 function redirect($url) {
-    header('Location: ' . $url);
-    exit;
+    if (!headers_sent()) {
+        header('Location: ' . $url);
+        exit;
+    } else {
+        echo '<script>window.location.href="' . $url . '";</script>';
+        echo '<noscript><meta http-equiv="refresh" content="0;url=' . $url . '"></noscript>';
+        exit;
+    }
 }
 
 /**
