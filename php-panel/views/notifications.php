@@ -130,24 +130,36 @@ try {
     $notifications = [];
 }
 
-// Şehir listesini al
-try {
-    $cities = supabase_query('cities', [
-        'select' => 'id,name',
-        'order' => 'name'
-    ]) ?: [];
-} catch (Exception $e) {
-    $cities = [];
+// Şehirleri direkt veritabanından al (debug amaçlı)
+$cities = [];
+$test_city_query = supabase_request('rest/v1/cities?select=id,name&order=name');
+if ($test_city_query) {
+    $cities = $test_city_query;
+    error_log('Şehirler başarıyla alındı: ' . count($cities) . ' şehir bulundu.');
+} else {
+    error_log('Şehirleri alma hatası: Supabase API hatası');
+    // Varsayılan şehirler (debug amaçlı)
+    $cities = [
+        ['id' => 1, 'name' => 'İstanbul'],
+        ['id' => 2, 'name' => 'Ankara'],
+        ['id' => 3, 'name' => 'İzmir']
+    ];
 }
 
-// İlçe listesini al
-try {
-    $districts = supabase_query('districts', [
-        'select' => 'id,name,city_id',
-        'order' => 'name'
-    ]) ?: [];
-} catch (Exception $e) {
-    $districts = [];
+// İlçeleri direkt veritabanından al (debug amaçlı)
+$districts = [];
+$test_district_query = supabase_request('rest/v1/districts?select=id,name,city_id&order=name');
+if ($test_district_query) {
+    $districts = $test_district_query;
+    error_log('İlçeler başarıyla alındı: ' . count($districts) . ' ilçe bulundu.');
+} else {
+    error_log('İlçeleri alma hatası: Supabase API hatası');
+    // Varsayılan ilçeler (debug amaçlı)
+    $districts = [
+        ['id' => 1, 'name' => 'Kadıköy', 'city_id' => 1],
+        ['id' => 2, 'name' => 'Beşiktaş', 'city_id' => 1],
+        ['id' => 3, 'name' => 'Çankaya', 'city_id' => 2]
+    ];
 }
 
 // Uyarı ve bilgilendirme mesajları
