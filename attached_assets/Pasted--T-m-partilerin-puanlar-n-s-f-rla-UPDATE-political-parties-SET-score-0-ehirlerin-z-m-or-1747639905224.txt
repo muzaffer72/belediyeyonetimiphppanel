@@ -1,0 +1,104 @@
+-- Tüm partilerin puanlarını sıfırla
+UPDATE political_parties SET score = 0;
+
+-- Şehirlerin çözüm oranlarını hesapla - FORMÜL: (Çözülmüş Şikayet + Teşekkür) / (Toplam Şikayet + Teşekkür) * 100
+UPDATE cities c
+SET solution_rate = (
+    CASE 
+        WHEN (COALESCE(c.total_complaints, 0) + COALESCE(c.thanks_count, 0)) = 0 THEN 0
+        ELSE ((COALESCE(c.solved_complaints, 0) + COALESCE(c.thanks_count, 0)) * 100.0 / 
+              (COALESCE(c.total_complaints, 0) + COALESCE(c.thanks_count, 0)))
+    END
+);
+
+-- İlçelerin çözüm oranlarını hesapla - aynı formülle
+UPDATE districts d
+SET solution_rate = (
+    CASE 
+        WHEN (COALESCE(d.total_complaints, 0) + COALESCE(d.thanks_count, 0)) = 0 THEN 0
+        ELSE ((COALESCE(d.solved_complaints, 0) + COALESCE(d.thanks_count, 0)) * 100.0 / 
+              (COALESCE(d.total_complaints, 0) + COALESCE(d.thanks_count, 0)))
+    END
+);
+
+-- Partilerin şehirlerdeki ortalama çözüm oranını hesapla
+WITH city_party_rates AS (
+    SELECT 
+        pp.id AS party_id,
+        pp.name AS party_name,
+        COALESCE(AVG(c.solution_rate), 0) AS avg_solution_rate,
+        SUM(COALESCE(c.solved_complaints, 0)) AS total_solved_complaints,
+        SUM(COALESCE(c.total_complaints, 0)) AS total_total_complaints,
+        SUM(COALESCE(c.thanks_count, 0)) AS total_thanks_count
+    FROM 
+        political_parties pp
+    LEFT JOIN 
+        cities c ON c.political_party_id = pp.id
+    GROUP BY 
+        pp.id, pp.name
+),
+-- Partileri çözüm oranına göre sırala ve 0 çözüm oranı olanları filtrele
+ranked_parties AS (
+    SELECT 
+        party_id,
+        party_name,
+        avg_solution_rate,
+        -- Şikayet çözmemiş belediyelere 0 puan vermek için kontrol
+        CASE 
+            WHEN total_solved_complaints = 0 AND total_thanks_count = 0 THEN 0
+            ELSE avg_solution_rate 
+        END AS effective_solution_rate,
+        RANK() OVER (ORDER BY 
+            CASE 
+                WHEN total_solved_complaints = 0 AND total_thanks_count = 0 THEN 0
+                ELSE avg_solution_rate 
+            END DESC
+        ) AS rank
+    FROM 
+        city_party_rates
+),
+-- Çözüm yapmamış partileri filtrele - sadece puanı hak eden partiler
+scoring_parties AS (
+    SELECT * FROM ranked_parties
+    WHERE effective_solution_rate > 0
+),
+-- Puanlamayı sadece skor hak eden partiler üzerinden yap
+party_scores AS (
+    SELECT 
+        party_id,
+        party_name,
+        effective_solution_rate,
+        rank,
+        -- Toplam parti sayısını bul
+        COUNT(*) OVER () AS valid_party_count,
+        -- Aynı rank'teki parti sayısını bul
+        COUNT(*) OVER (PARTITION BY rank) AS same_rank_count,
+        -- Toplam puanı 100 olarak belirle
+        100.0 AS total_points
+    FROM 
+        scoring_parties
+),
+-- Her partinin toplam puandan alacağı payı hesapla
+final_scores AS (
+    SELECT 
+        party_id,
+        party_name,
+        effective_solution_rate,
+        rank,
+        CASE
+            -- Eğer skor hak eden parti yoksa, kimseye puan verme
+            WHEN valid_party_count = 0 THEN 0
+            -- Eşit sıradaki partilere eşit puan ver, performansa göre sırala
+            ELSE (total_points * effective_solution_rate / 
+                  (SELECT SUM(effective_solution_rate) FROM party_scores))
+        END AS final_score
+    FROM 
+        party_scores
+)
+-- Puanları political_parties tablosuna güncelle
+UPDATE political_parties pp
+SET score = (
+    SELECT fs.final_score
+    FROM final_scores fs
+    WHERE fs.party_id = pp.id
+);
