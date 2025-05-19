@@ -765,8 +765,32 @@ function loadDistricts() {
         echo "var allDistricts = " . json_encode($districts) . ";\n";
         ?>
         
+        console.log("Şehir seçildi:", cityId);
+        console.log("Tüm ilçeler:", allDistricts);
+        
+        // İlçeleri filtrele - city_id karşılaştırmasını string olarak yap
         var filteredDistricts = allDistricts.filter(function(district) {
-            return district.city_id === cityId;
+            // City değerlerini karşılaştır
+            var cities_result = <?php echo json_encode($cities); ?>;
+            var selectedCityId = null;
+            
+            // Seçilen şehrin ID'sini bul
+            for (var i = 0; i < cities_result.length; i++) {
+                if (cities_result[i].name === cityId) {
+                    selectedCityId = cities_result[i].id;
+                    break;
+                }
+            }
+            
+            console.log("Aranan şehir:", cityId, "ID:", selectedCityId);
+            console.log("İlçe:", district.name, "city_id:", district.city_id);
+            
+            if (selectedCityId) {
+                // Sayısal ve string karşılaştırması
+                return district.city_id == selectedCityId || district.city_id === String(selectedCityId);
+            }
+            
+            return false;
         });
         
         // Filtrelenmiş ilçeleri ekle
