@@ -2,7 +2,7 @@
 // Yapılandırma dosyasını ve gerekli fonksiyonları yükle
 require_once(__DIR__ . '/../config/config.php');
 require_once(__DIR__ . '/../includes/functions.php');
-require_once(__DIR__ . '/../includes/db.php');
+require_once(__DIR__ . '/../includes/supabase-api.php');
 
 // Sadece admin erişimi kontrolü
 if (!isLoggedIn()) {
@@ -25,54 +25,68 @@ if (isset($_POST['submit_bulk_notification'])) {
     $city_id = isset($_POST['city_id']) && $_POST['city_id'] != '' ? (int)$_POST['city_id'] : null;
     $district_id = isset($_POST['district_id']) && $_POST['district_id'] != '' ? (int)$_POST['district_id'] : null;
     
-    // SQL sorgusu oluşturma
-    if ($target_type == 'all') {
-        // Tüm kullanıcılara bildirim
-        $sql = "INSERT INTO notifications (user_id, title, content, related_entity_id, type, is_read, created_at) 
-                SELECT id, '$title', '$message', '$link', '$type', false, NOW() 
-                FROM auth.users WHERE NOT is_admin";
-    } elseif ($target_type == 'city' && $city_id) {
-        // Belirli şehirdeki kullanıcılara bildirim
-        $sql = "INSERT INTO notifications (user_id, title, content, related_entity_id, type, is_read, created_at) 
-                SELECT DISTINCT u.id, '$title', '$message', '$link', '$type', false, NOW() 
-                FROM auth.users u
-                JOIN posts p ON u.id = p.user_id
-                WHERE p.city_id = $city_id AND NOT u.is_admin";
-    } elseif ($target_type == 'district' && $district_id) {
-        // Belirli ilçedeki kullanıcılara bildirim
-        $sql = "INSERT INTO notifications (user_id, title, content, related_entity_id, type, is_read, created_at) 
-                SELECT DISTINCT u.id, '$title', '$message', '$link', '$type', false, NOW() 
-                FROM auth.users u
-                JOIN posts p ON u.id = p.user_id
-                WHERE p.district_id = $district_id AND NOT u.is_admin";
-    }
-
-    if (isset($sql)) {
-        try {
-            // Bildirimi gönder
-            $result = db_query($sql);
-            
-            if ($result) {
-                $success_message = "Bildirimler başarıyla gönderildi!";
-            } else {
-                $error_message = "Bildirim gönderme hatası: Veritabanı hatası oluştu.";
+    // Bildirim verilerini hazırla
+    $notification = [
+        'title' => $title,
+        'content' => $message,
+        'type' => $type,
+        'related_entity_id' => $link,
+        'related_entity_type' => 'link'
+    ];
+    
+    $user_ids = [];
+    
+    // Hedeflenen kullanıcıları belirle
+    if ($target_type == 'city' && $city_id) {
+        // Belirli şehirdeki kullanıcıların ID'lerini al
+        $city_users = supabase_query('posts', [
+            'select' => 'user_id',
+            'filters' => ['city_id' => $city_id]
+        ]);
+        
+        if ($city_users) {
+            foreach ($city_users as $user) {
+                if (!in_array($user['user_id'], $user_ids)) {
+                    $user_ids[] = $user['user_id'];
+                }
             }
-        } catch (Exception $e) {
-            $error_message = "Hata: " . $e->getMessage();
         }
-    } else {
-        $error_message = "Geçersiz hedef tipi veya eksik bilgi.";
+    } elseif ($target_type == 'district' && $district_id) {
+        // Belirli ilçedeki kullanıcıların ID'lerini al
+        $district_users = supabase_query('posts', [
+            'select' => 'user_id',
+            'filters' => ['district_id' => $district_id]
+        ]);
+        
+        if ($district_users) {
+            foreach ($district_users as $user) {
+                if (!in_array($user['user_id'], $user_ids)) {
+                    $user_ids[] = $user['user_id'];
+                }
+            }
+        }
+    }
+    
+    try {
+        // Bildirimi gönder (boş user_ids dizisi tüm kullanıcılara gönderir)
+        $success = send_notification($notification, $user_ids);
+        
+        if ($success) {
+            $success_message = "Bildirimler başarıyla gönderildi!";
+        } else {
+            $error_message = "Bildirim gönderme hatası: Supabase API hatası.";
+        }
+    } catch (Exception $e) {
+        $error_message = "Hata: " . $e->getMessage();
     }
 }
 
 // Silme işlemi
 if ($action == 'delete' && $notification_id > 0) {
-    $sql = "DELETE FROM notifications WHERE id = '$notification_id'";
-    
     try {
-        $result = db_query($sql);
+        $success = delete_notification($notification_id);
         
-        if ($result) {
+        if ($success) {
             $success_message = "Bildirim başarıyla silindi!";
         } else {
             $error_message = "Bildirim silinirken hata oluştu.";
@@ -83,33 +97,55 @@ if ($action == 'delete' && $notification_id > 0) {
 }
 
 // Bildirim listesini al
-$sql = "SELECT n.*, u.email as user_email
-        FROM notifications n
-        LEFT JOIN auth.users u ON n.user_id = u.id
-        ORDER BY n.created_at DESC
-        LIMIT 200";
 try {
-    $result = db_query($sql);
-    $notifications = db_fetch_all($result) ?: [];
+    $notifications = get_notifications();
+    
+    // Kullanıcı e-postalarını birleştir
+    if ($notifications) {
+        $user_ids = array_column($notifications, 'user_id');
+        $user_emails = [];
+        
+        // Benzersiz kullanıcı ID'lerini al
+        $unique_user_ids = array_unique($user_ids);
+        
+        // Kullanıcı bilgilerini al
+        foreach ($unique_user_ids as $user_id) {
+            $user = supabase_query('auth.users', [
+                'select' => 'id,email',
+                'filters' => ['id' => $user_id]
+            ]);
+            
+            if ($user && isset($user[0])) {
+                $user_emails[$user_id] = $user[0]['email'];
+            }
+        }
+        
+        // E-postaları bildirim verilerine ekle
+        foreach ($notifications as &$notification) {
+            $notification['user_email'] = $user_emails[$notification['user_id']] ?? 'Bilinmiyor';
+        }
+    }
 } catch (Exception $e) {
     $error_message = "Hata: " . $e->getMessage();
     $notifications = [];
 }
 
 // Şehir listesini al
-$sql = "SELECT id, name FROM cities ORDER BY name";
 try {
-    $result = db_query($sql);
-    $cities = db_fetch_all($result) ?: [];
+    $cities = supabase_query('cities', [
+        'select' => 'id,name',
+        'order' => 'name'
+    ]) ?: [];
 } catch (Exception $e) {
     $cities = [];
 }
 
 // İlçe listesini al
-$sql = "SELECT id, name, city_id FROM districts ORDER BY name";
 try {
-    $result = db_query($sql);
-    $districts = db_fetch_all($result) ?: [];
+    $districts = supabase_query('districts', [
+        'select' => 'id,name,city_id',
+        'order' => 'name'
+    ]) ?: [];
 } catch (Exception $e) {
     $districts = [];
 }
@@ -310,43 +346,51 @@ if (!empty($error_message)) {
                         
                         <?php
                         // Bildirim tercihleri istatistiklerini al
-                        $sql = "SELECT 
-                                SUM(CASE WHEN likes_enabled = true THEN 1 ELSE 0 END) as likes_count,
-                                SUM(CASE WHEN comments_enabled = true THEN 1 ELSE 0 END) as comments_count,
-                                SUM(CASE WHEN replies_enabled = true THEN 1 ELSE 0 END) as replies_count,
-                                SUM(CASE WHEN mentions_enabled = true THEN 1 ELSE 0 END) as mentions_count,
-                                SUM(CASE WHEN system_notifications_enabled = true THEN 1 ELSE 0 END) as system_count,
-                                COUNT(*) as total_users
-                                FROM notification_preferences";
-                        
                         try {
-                            $result = db_query($sql);
-                            $stats = db_fetch_one($result);
+                            $stats = get_notification_preferences_stats();
                             
                             if ($stats && $stats['total_users'] > 0) {
-                                $post_replies_percent = round(($stats['post_replies_count'] / $stats['total_users']) * 100);
-                                $post_status_percent = round(($stats['post_status_count'] / $stats['total_users']) * 100);
-                                $system_announcements_percent = round(($stats['system_announcements_count'] / $stats['total_users']) * 100);
+                                $likes_percent = $stats['likes_enabled_percent'] ?? 0;
+                                $comments_percent = $stats['comments_enabled_percent'] ?? 0;
+                                $replies_percent = $stats['replies_enabled_percent'] ?? 0;
+                                $mentions_percent = $stats['mentions_enabled_percent'] ?? 0;
+                                $system_percent = $stats['system_notifications_enabled_percent'] ?? 0;
                                 
                                 echo '<div class="row mt-3">';
                                 echo '<div class="col-md-4">';
-                                echo '<p><strong>Gönderi Yanıtları:</strong> %' . $post_replies_percent . '</p>';
+                                echo '<p><strong>Beğeni Bildirimleri:</strong> %' . $likes_percent . '</p>';
                                 echo '<div class="progress">';
-                                echo '<div class="progress-bar bg-success" role="progressbar" style="width: ' . $post_replies_percent . '%" aria-valuenow="' . $post_replies_percent . '" aria-valuemin="0" aria-valuemax="100"></div>';
+                                echo '<div class="progress-bar bg-success" role="progressbar" style="width: ' . $likes_percent . '%" aria-valuenow="' . $likes_percent . '" aria-valuemin="0" aria-valuemax="100"></div>';
                                 echo '</div>';
                                 echo '</div>';
                                 
                                 echo '<div class="col-md-4">';
-                                echo '<p><strong>Gönderi Durum Değişiklikleri:</strong> %' . $post_status_percent . '</p>';
+                                echo '<p><strong>Yorum Bildirimleri:</strong> %' . $comments_percent . '</p>';
                                 echo '<div class="progress">';
-                                echo '<div class="progress-bar bg-info" role="progressbar" style="width: ' . $post_status_percent . '%" aria-valuenow="' . $post_status_percent . '" aria-valuemin="0" aria-valuemax="100"></div>';
+                                echo '<div class="progress-bar bg-info" role="progressbar" style="width: ' . $comments_percent . '%" aria-valuenow="' . $comments_percent . '" aria-valuemin="0" aria-valuemax="100"></div>';
                                 echo '</div>';
                                 echo '</div>';
                                 
                                 echo '<div class="col-md-4">';
-                                echo '<p><strong>Sistem Duyuruları:</strong> %' . $system_announcements_percent . '</p>';
+                                echo '<p><strong>Yanıt Bildirimleri:</strong> %' . $replies_percent . '</p>';
                                 echo '<div class="progress">';
-                                echo '<div class="progress-bar bg-warning" role="progressbar" style="width: ' . $system_announcements_percent . '%" aria-valuenow="' . $system_announcements_percent . '" aria-valuemin="0" aria-valuemax="100"></div>';
+                                echo '<div class="progress-bar bg-primary" role="progressbar" style="width: ' . $replies_percent . '%" aria-valuenow="' . $replies_percent . '" aria-valuemin="0" aria-valuemax="100"></div>';
+                                echo '</div>';
+                                echo '</div>';
+                                echo '</div>';
+                                
+                                echo '<div class="row mt-3">';
+                                echo '<div class="col-md-6">';
+                                echo '<p><strong>Bahsetme Bildirimleri:</strong> %' . $mentions_percent . '</p>';
+                                echo '<div class="progress">';
+                                echo '<div class="progress-bar bg-warning" role="progressbar" style="width: ' . $mentions_percent . '%" aria-valuenow="' . $mentions_percent . '" aria-valuemin="0" aria-valuemax="100"></div>';
+                                echo '</div>';
+                                echo '</div>';
+                                
+                                echo '<div class="col-md-6">';
+                                echo '<p><strong>Sistem Bildirimleri:</strong> %' . $system_percent . '</p>';
+                                echo '<div class="progress">';
+                                echo '<div class="progress-bar bg-secondary" role="progressbar" style="width: ' . $system_percent . '%" aria-valuenow="' . $system_percent . '" aria-valuemin="0" aria-valuemax="100"></div>';
                                 echo '</div>';
                                 echo '</div>';
                                 echo '</div>';
