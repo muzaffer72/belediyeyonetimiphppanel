@@ -59,7 +59,27 @@ function showAlert($type, $message) {
  * @return bool Oturum durumu
  */
 function isLoggedIn() {
-    return isset($_SESSION['admin_logged_in']) && $_SESSION['admin_logged_in'] === true;
+    return isset($_SESSION['admin_logged_in']) && $_SESSION['admin_logged_in'] === true || 
+           isset($_SESSION['user_id']);
+}
+
+/**
+ * Kullanıcının admin olup olmadığını kontrol eder
+ * 
+ * @return bool Admin ise true, değilse false
+ */
+function isAdmin() {
+    return isset($_SESSION['is_admin']) && $_SESSION['is_admin'] === true || 
+           (isset($_SESSION['admin_logged_in']) && $_SESSION['admin_logged_in'] === true);
+}
+
+/**
+ * Kullanıcının belediye görevlisi olup olmadığını kontrol eder
+ * 
+ * @return bool Belediye görevlisi ise true, değilse false
+ */
+function isOfficial() {
+    return isset($_SESSION['is_official']) && $_SESSION['is_official'] === true;
 }
 
 /**

@@ -1,36 +1,31 @@
 <?php
-// Yapılandırma dosyasını yükle
-require_once(__DIR__ . '/config/config.php');
+// Yapılandırma dosyasını ve gerekli fonksiyonları yükle
+require_once(__DIR__ . '/../config/config.php');
+require_once(__DIR__ . '/../includes/functions.php');
+require_once(__DIR__ . '/../includes/auth_functions.php');
 
 // Kullanıcı zaten giriş yapmışsa yönlendir
 if (isLoggedIn()) {
     if (isAdmin()) {
         redirect('index.php?page=dashboard');
-    } elseif (isOfficial()) {
+    } else {
         redirect('index.php?page=official_dashboard');
     }
 }
 
 $error = '';
 
-// Giriş formu gönderildi mi kontrol et
+// Form gönderildi mi kontrol et
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    $username = $_POST['username'] ?? '';
+    $email = $_POST['email'] ?? '';
     $password = $_POST['password'] ?? '';
     
-    // Kullanıcı adı ve şifre kontrolü
-    if ($username === ADMIN_USERNAME && $password === ADMIN_PASSWORD) {
-        // Admin girişi başarılı
-        $_SESSION['admin_logged_in'] = true;
-        $_SESSION['user_id'] = 'admin';
-        $_SESSION['is_admin'] = true;
-        
-        // Ana sayfaya yönlendir
-        redirect('index.php?page=dashboard');
+    if (empty($email) || empty($password)) {
+        $error = 'E-posta ve şifre gereklidir';
     } else {
-        // Belediye görevlisi girişini dene
+        // Supabase API ile giriş denemesi
         $login_data = [
-            'email' => $username,
+            'email' => $email,
             'password' => $password
         ];
         
@@ -52,7 +47,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $official = $official_result['data'][0];
                 
                 $_SESSION['user_id'] = $user_id;
-                $_SESSION['email'] = $username;
+                $_SESSION['email'] = $email;
                 $_SESSION['is_admin'] = false;
                 $_SESSION['is_official'] = true;
                 $_SESSION['official_id'] = $official['id'];
@@ -85,24 +80,32 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 // Görevli paneline yönlendir
                 redirect('index.php?page=official_dashboard');
             } else {
-                $error = 'Geçersiz kullanıcı adı veya şifre';
+                // Admin girişi kontrolü
+                if ($email === ADMIN_USERNAME && $password === ADMIN_PASSWORD) {
+                    $_SESSION['user_id'] = 'admin';
+                    $_SESSION['email'] = $email;
+                    $_SESSION['is_admin'] = true;
+                    $_SESSION['is_official'] = false;
+                    
+                    redirect('index.php?page=dashboard');
+                } else {
+                    $error = 'Bu e-posta ve şifre ile ilişkili bir belediye görevlisi hesabı bulunamadı';
+                }
             }
         } else {
-            $error = 'Geçersiz kullanıcı adı veya şifre';
+            $error = 'Giriş yapılamadı: ' . ($login_result['message'] ?? 'Hatalı e-posta veya şifre');
         }
     }
 }
-
-// Giriş sayfasını yükle
-include(__DIR__ . '/views/header.php');
 ?>
 
+<!-- Giriş Sayfası -->
 <div class="container mt-5">
     <div class="row justify-content-center">
         <div class="col-md-6">
             <div class="card shadow">
                 <div class="card-header bg-primary text-white">
-                    <h4 class="mb-0"><i class="fas fa-lock me-2"></i> Yönetici Girişi</h4>
+                    <h4 class="mb-0"><i class="fas fa-user-tie me-2"></i> Belediye Görevlisi Girişi</h4>
                 </div>
                 <div class="card-body">
                     <?php if (!empty($error)): ?>
@@ -111,10 +114,10 @@ include(__DIR__ . '/views/header.php');
                         </div>
                     <?php endif; ?>
                     
-                    <form method="post" action="login.php">
+                    <form method="post" action="">
                         <div class="mb-3">
-                            <label for="username" class="form-label">Kullanıcı Adı</label>
-                            <input type="text" class="form-control" id="username" name="username" required>
+                            <label for="email" class="form-label">E-posta Adresi</label>
+                            <input type="email" class="form-control" id="email" name="email" required>
                         </div>
                         
                         <div class="mb-3">
@@ -136,7 +139,7 @@ include(__DIR__ . '/views/header.php');
                 </div>
                 <div class="card-footer text-center">
                     <div class="small">
-                        <a href="index.php?page=official_login">Belediye görevlisi girişi için tıklayın</a>
+                        <a href="index.php?page=login">Yönetici girişi için tıklayın</a>
                     </div>
                 </div>
             </div>
@@ -158,8 +161,3 @@ document.addEventListener('DOMContentLoaded', function() {
     });
 });
 </script>
-
-<?php
-// Footer yükle
-include(__DIR__ . '/views/footer.php');
-?>
