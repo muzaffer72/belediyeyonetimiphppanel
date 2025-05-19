@@ -1,0 +1,254 @@
+<?php
+/**
+ * Bu dosya, parti puanlarını güncellemek için bir cron job olarak çalıştırılabilir
+ * Supabase veritabanında çalışmak üzere ayarlanmıştır
+ * 
+ * Tavsiye edilen cron programı: Günde 1 kez, örneğin gece yarısı
+ * Linux crontab örneği: 0 0 * * * php /path/to/update_party_scores.php
+ */
+
+// Gerekli yapılandırma ve fonksiyonları yükle
+$script_dir = dirname(__FILE__);
+require_once($script_dir . '/../config/config.php');
+require_once($script_dir . '/../includes/functions.php');
+
+// Log fonksiyonu
+function log_message($message) {
+    $date = date('Y-m-d H:i:s');
+    echo "[$date] $message\n";
+    // Opsiyonel: Log dosyasına yaz
+    file_put_contents($script_dir . '/party_scores_cron.log', "[$date] $message\n", FILE_APPEND);
+}
+
+// Başlangıç mesajı
+log_message("Parti puanlama sistemi güncelleme işlemi başladı");
+
+// SQL sorgusunu hazırla
+$sql_query = "-- 1. Adım: political_parties tablosuna yeni sütunları ekle (eğer yoksa)
+DO $$ 
+BEGIN
+    -- Parti toplam şikayet sayısı sütunu
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns 
+                   WHERE table_name = 'political_parties' AND column_name = 'parti_sikayet_sayisi') THEN
+        ALTER TABLE political_parties ADD COLUMN parti_sikayet_sayisi INTEGER DEFAULT 0;
+    END IF;
+    
+    -- Parti çözülmüş şikayet sayısı sütunu
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns 
+                   WHERE table_name = 'political_parties' AND column_name = 'parti_cozulmus_sikayet_sayisi') THEN
+        ALTER TABLE political_parties ADD COLUMN parti_cozulmus_sikayet_sayisi INTEGER DEFAULT 0;
+    END IF;
+    
+    -- Parti teşekkür sayısı sütunu
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns 
+                   WHERE table_name = 'political_parties' AND column_name = 'parti_tesekkur_sayisi') THEN
+        ALTER TABLE political_parties ADD COLUMN parti_tesekkur_sayisi INTEGER DEFAULT 0;
+    END IF;
+END $$;
+
+-- 2. Adım: Tüm partilerin istatistiklerini sıfırla
+UPDATE political_parties
+SET 
+    parti_sikayet_sayisi = 0,
+    parti_cozulmus_sikayet_sayisi = 0,
+    parti_tesekkur_sayisi = 0,
+    score = 0;
+
+-- 3. Adım: Şehir ve ilçelerden toplamları hesaplayarak partilere dağıt
+WITH city_groups AS (
+    -- Şehirleri büyükşehir olma durumuna göre grupla
+    SELECT 
+        id,
+        political_party_id,
+        total_complaints,
+        solved_complaints,
+        thanks_count,
+        is_metropolitan
+    FROM 
+        cities
+    WHERE 
+        political_party_id IS NOT NULL
+),
+city_party_stats AS (
+    -- Sadece büyükşehir olan şehirlerden toplanan istatistikler
+    SELECT 
+        c.political_party_id,
+        SUM(COALESCE(c.total_complaints, 0)) AS total_city_complaints,
+        SUM(COALESCE(c.solved_complaints, 0)) AS total_city_solved_complaints,
+        SUM(COALESCE(c.thanks_count, 0)) AS total_city_thanks
+    FROM 
+        city_groups c
+    WHERE 
+        c.is_metropolitan = true
+    GROUP BY 
+        c.political_party_id
+),
+normal_city_party_stats AS (
+    -- Büyükşehir olmayan şehirlerin istatistikleri - bunlar olduğu gibi kalır
+    SELECT 
+        c.political_party_id,
+        SUM(COALESCE(c.total_complaints, 0)) AS total_normal_city_complaints,
+        SUM(COALESCE(c.solved_complaints, 0)) AS total_normal_city_solved_complaints,
+        SUM(COALESCE(c.thanks_count, 0)) AS total_normal_city_thanks
+    FROM 
+        city_groups c
+    WHERE 
+        c.is_metropolitan = false
+    GROUP BY 
+        c.political_party_id
+),
+district_party_stats AS (
+    -- İlçelerden toplanan istatistikler - sadece büyükşehirlerdeki ilçeler
+    SELECT 
+        d.political_party_id,
+        SUM(COALESCE(d.total_complaints, 0)) AS total_district_complaints,
+        SUM(COALESCE(d.solved_complaints, 0)) AS total_district_solved_complaints,
+        SUM(COALESCE(d.thanks_count, 0)) AS total_district_thanks
+    FROM 
+        districts d
+    JOIN 
+        cities c ON d.city_id = c.id
+    WHERE 
+        d.political_party_id IS NOT NULL AND c.is_metropolitan = true
+    GROUP BY 
+        d.political_party_id
+),
+normal_district_party_stats AS (
+    -- Büyükşehir olmayan ilçelerin istatistikleri
+    SELECT 
+        d.political_party_id,
+        SUM(COALESCE(d.total_complaints, 0)) AS total_normal_district_complaints,
+        SUM(COALESCE(d.solved_complaints, 0)) AS total_normal_district_solved_complaints,
+        SUM(COALESCE(d.thanks_count, 0)) AS total_normal_district_thanks
+    FROM 
+        districts d
+    JOIN 
+        cities c ON d.city_id = c.id
+    WHERE 
+        d.political_party_id IS NOT NULL AND c.is_metropolitan = false
+    GROUP BY 
+        d.political_party_id
+),
+combined_stats AS (
+    -- Tüm istatistikleri birleştir
+    SELECT 
+        p.id AS party_id,
+        -- Büyükşehir istatistikleri (50% paylaşım)
+        COALESCE(cps.total_city_complaints * 0.5, 0) AS metro_city_complaints,
+        COALESCE(cps.total_city_solved_complaints * 0.5, 0) AS metro_city_solved_complaints,
+        COALESCE(cps.total_city_thanks * 0.5, 0) AS metro_city_thanks,
+        -- Büyükşehirlerdeki ilçe istatistikleri (50% paylaşım)
+        COALESCE(dps.total_district_complaints * 0.5, 0) AS metro_district_complaints,
+        COALESCE(dps.total_district_solved_complaints * 0.5, 0) AS metro_district_solved_complaints,
+        COALESCE(dps.total_district_thanks * 0.5, 0) AS metro_district_thanks,
+        -- Normal şehir istatistikleri (tam)
+        COALESCE(ncps.total_normal_city_complaints, 0) AS normal_city_complaints,
+        COALESCE(ncps.total_normal_city_solved_complaints, 0) AS normal_city_solved_complaints,
+        COALESCE(ncps.total_normal_city_thanks, 0) AS normal_city_thanks,
+        -- Normal ilçe istatistikleri (tam)
+        COALESCE(ndps.total_normal_district_complaints, 0) AS normal_district_complaints,
+        COALESCE(ndps.total_normal_district_solved_complaints, 0) AS normal_district_solved_complaints,
+        COALESCE(ndps.total_normal_district_thanks, 0) AS normal_district_thanks
+    FROM 
+        political_parties p
+    LEFT JOIN 
+        city_party_stats cps ON p.id = cps.political_party_id
+    LEFT JOIN 
+        district_party_stats dps ON p.id = dps.political_party_id
+    LEFT JOIN 
+        normal_city_party_stats ncps ON p.id = ncps.political_party_id
+    LEFT JOIN 
+        normal_district_party_stats ndps ON p.id = ndps.political_party_id
+)
+-- 4. Adım: Parti istatistiklerini güncelle
+UPDATE political_parties pp
+SET 
+    parti_sikayet_sayisi = CAST(ROUND(
+        cs.metro_city_complaints + cs.metro_district_complaints +
+        cs.normal_city_complaints + cs.normal_district_complaints
+    ) AS INTEGER),
+    parti_cozulmus_sikayet_sayisi = CAST(ROUND(
+        cs.metro_city_solved_complaints + cs.metro_district_solved_complaints +
+        cs.normal_city_solved_complaints + cs.normal_district_solved_complaints
+    ) AS INTEGER),
+    parti_tesekkur_sayisi = CAST(ROUND(
+        cs.metro_city_thanks + cs.metro_district_thanks +
+        cs.normal_city_thanks + cs.normal_district_thanks
+    ) AS INTEGER)
+FROM 
+    combined_stats cs
+WHERE 
+    pp.id = cs.party_id;
+
+-- 5. Adım: Partilerin puanlarını toplam sayılara göre hesapla (100 puana oranlayarak)
+WITH party_counts AS (
+    -- Her bir partinin sayılarını al
+    SELECT 
+        id,
+        name,
+        parti_cozulmus_sikayet_sayisi,
+        parti_tesekkur_sayisi,
+        -- Parti başarı puanı (çözülmüş şikayetler + teşekkürler)
+        (COALESCE(parti_cozulmus_sikayet_sayisi, 0) + COALESCE(parti_tesekkur_sayisi, 0)) AS success_count
+    FROM 
+        political_parties
+),
+total_counts AS (
+    -- Tüm partilerin toplam başarı sayısını hesapla
+    SELECT 
+        SUM(success_count) AS total_success_count
+    FROM 
+        party_counts
+    WHERE 
+        success_count > 0
+),
+party_scores AS (
+    -- 100 puanı tüm partilerin başarı sayılarına göre orantılı dağıt
+    SELECT 
+        id,
+        name,
+        success_count,
+        CASE
+            -- Eğer toplam başarı sayısı sıfırsa kimseye puan verme
+            WHEN (SELECT total_success_count FROM total_counts) = 0 THEN 0
+            -- Değilse puanı başarı sayısına göre dağıt (toplam 100 puan)
+            ELSE (success_count * 100.0) / (SELECT total_success_count FROM total_counts)
+        END AS final_score
+    FROM 
+        party_counts
+)
+-- 6. Adım: Puanları güncelle
+UPDATE political_parties pp
+SET score = ps.final_score
+FROM party_scores ps
+WHERE pp.id = ps.id;";
+
+// Supabase'de SQL çalıştırmak için izin olmadığından, 
+// Bu sorguyu doğrudan veritabanına gönderemiyoruz
+// Bunun yerine başka bir yöntem kullanmalıyız
+
+try {
+    // Supabase API üzerinden SQL çalıştırma yöntemi
+    log_message("Supabase API üzerinden SQL çalıştırılıyor...");
+    
+    // SQL dosyasını bir dosyaya kaydet
+    $sql_file = $script_dir . '/update_party_scores.sql';
+    file_put_contents($sql_file, $sql_query);
+    
+    log_message("SQL sorgusu kaydedildi: " . $sql_file);
+    
+    // Supabase URL ve anahtarını kontrol et
+    if (empty($_ENV['SUPABASE_URL']) || empty($_ENV['SUPABASE_KEY'])) {
+        throw new Exception("Supabase URL veya API anahtarı bulunamadı. Lütfen çevre değişkenlerini kontrol edin.");
+    }
+    
+    // Bu cron sadece SQL sorgusunu hazırlar, asıl çalıştırmayı Supabase SQL Editörü'nden yapmalısınız
+    // veya bir web endpoint üzerinden sağlamalısınız
+    log_message("Cron tamamlandı. SQL'i manuel olarak çalıştırmak için aşağıdaki sayfayı kullanabilirsiniz:");
+    log_message("http://siteniz.com/adminpanel/index.php?page=advanced_party_scoring");
+    
+    return true;
+} catch (Exception $e) {
+    log_message("HATA: " . $e->getMessage());
+    return false;
+}
