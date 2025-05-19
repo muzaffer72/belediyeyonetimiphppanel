@@ -135,7 +135,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['update_city'])) {
 
 <!-- Üst Başlık ve Butonlar -->
 <div class="d-flex justify-content-between mb-4">
-    <h1 class="h3">Şehir Düzenle: <?php echo escape($city['name']); ?></h1>
+    <h1 class="h3">Şehir Düzenle: <?php echo isset($city['name']) ? escape($city['name']) : 'Şehir Bilgisi'; ?></h1>
     
     <a href="index.php?page=cities" class="btn btn-secondary">
         <i class="fas fa-arrow-left me-1"></i> Şehirlere Dön
