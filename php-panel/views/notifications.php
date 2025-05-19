@@ -527,9 +527,10 @@ if (!empty($error_message)) {
                                         <select class="form-select" id="city_id" name="city_id" onchange="loadDistricts()">
                                             <option value="">Şehir Seçin</option>
                                             <?php foreach ($cities as $city): ?>
-                                                <option value="<?php echo $city['id']; ?>"><?php echo htmlspecialchars($city['name']); ?></option>
+                                                <option value="<?php echo htmlspecialchars($city['name']); ?>"><?php echo htmlspecialchars($city['name']); ?></option>
                                             <?php endforeach; ?>
                                         </select>
+                                        <div class="form-text text-muted">Not: Şehir adını kullanarak filtreleme yapılır.</div>
                                     </div>
                                     
                                     <div class="mb-3" id="district_selector" style="display: none;">
@@ -537,6 +538,7 @@ if (!empty($error_message)) {
                                         <select class="form-select" id="district_id" name="district_id">
                                             <option value="">Önce Şehir Seçin</option>
                                         </select>
+                                        <div class="form-text text-muted">Not: İlçe adını kullanarak filtreleme yapılır.</div>
                                     </div>
                                     
                                     <div class="d-grid gap-2">
