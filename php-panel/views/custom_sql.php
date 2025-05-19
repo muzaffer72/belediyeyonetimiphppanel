@@ -123,19 +123,19 @@ party_scores AS (
     FROM 
         scoring_parties
 ),
--- Her partinin toplam puandan alacağı payı hesapla
+-- Her partinin puanını belirli bir formüle göre hesapla
 final_scores AS (
     SELECT 
         party_id,
         party_name,
         effective_solution_rate,
         rank,
+        -- Sıralama bazlı puanlama yöntemi (1. sıra 100 puan, 2. sıra 90 puan vb.)
         CASE
             -- Eğer skor hak eden parti yoksa, kimseye puan verme
             WHEN valid_party_count = 0 THEN 0
-            -- Eşit sıradaki partilere eşit puan ver, performansa göre sırala
-            ELSE (total_points * effective_solution_rate / 
-                  (SELECT SUM(effective_solution_rate) FROM party_scores))
+            -- Her sıra için belirli bir puan (her sıra düşüşünde 10 puan azalt)
+            ELSE (100 - ((rank - 1) * (100 / GREATEST(valid_party_count, 1)))) / same_rank_count
         END AS final_score
     FROM 
         party_scores
