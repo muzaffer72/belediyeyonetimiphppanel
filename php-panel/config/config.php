@@ -12,7 +12,7 @@ date_default_timezone_set('Europe/Istanbul');
 
 // Temel sabitler
 define('SITE_TITLE', 'Belediye Yönetim Paneli');
-define('SITE_URL', 'http://localhost:8080');
+define('SITE_URL', 'https://onvao.net/adminpanel');
 define('ASSETS_URL', SITE_URL . '/assets');
 
 // Çevre değişkenleri
