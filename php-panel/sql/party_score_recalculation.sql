@@ -1,6 +1,9 @@
+-- Önce fonksiyonu sil (varsa)
+DROP FUNCTION IF EXISTS recalculate_all_party_scores();
+
 -- Bu fonksiyon, tüm partilerin puanlarını dengeli bir şekilde yeniden hesaplar
 -- 100'lük sisteme göre puanlama yapar
-CREATE OR REPLACE FUNCTION recalculate_all_party_scores() 
+CREATE FUNCTION recalculate_all_party_scores() 
 RETURNS VOID AS $$
 DECLARE
     total_parties INTEGER;
@@ -104,5 +107,6 @@ AFTER INSERT OR UPDATE OR DELETE ON posts
 FOR EACH ROW
 EXECUTE FUNCTION update_solution_rates_and_scores();
 
--- Mevcut çözüm oranlarını hesaplamak için bu fonksiyonu bir kez çalıştırın
-SELECT recalculate_all_party_scores();
+-- Mevcut çözüm oranlarını hesaplamak için fonksiyonu SQL dosyasından çıkarıyoruz
+-- Fonksiyonun çağrısını burada yapmak yerine, ayrı olarak manuel çalıştıracağız
+-- SELECT recalculate_all_party_scores();
