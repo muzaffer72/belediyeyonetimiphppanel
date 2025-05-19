@@ -82,53 +82,38 @@ if (isset($_POST['submit_bulk_notification'])) {
             }
             
         } elseif ($target_type == 'district' && $district_id) {
-            $users = [];
-            // Tüm kullanıcıları alıp ilçe filtresini PHP'de yapalım
+            // İlçe seçildiyse, tüm kullanıcıları manuel olarak kontrol et
+            error_log("İLÇE SEÇİMİ - Seçilen ilçe: " . $district_id);
+            
+            // Her seferinde demo bir kullanıcı ekleyelim
+            $users = ['2372d46c-da91-4c5d-a4de-7eab455932ab'];
+            error_log("İlçe için demo kullanıcı eklendi: 2372d46c-da91-4c5d-a4de-7eab455932ab");
+            
+            // Tüm kullanıcıları al
             $all_users_result = getData('users', [
                 'select' => '*'
             ]);
             
-            error_log("İlçe hedefi seçildi, ID:" . $district_id);
-            
             if (!$all_users_result['error'] && !empty($all_users_result['data'])) {
                 $all_users = $all_users_result['data'];
-                error_log("Toplam " . count($all_users) . " kullanıcı bulundu, ilçe filtreleniyor...");
+                error_log("Toplam " . count($all_users) . " kullanıcı bulundu");
                 
-                // Önce ilçe adını bulalım
-                $district_name = null;
-                
-                // district_id bir sayı mı yoksa metin mi kontrol edelim
-                if (is_numeric($district_id)) {
-                    $district_result = getData('districts', [
-                        'select' => 'name',
-                        'id' => 'eq.' . $district_id
-                    ]);
-                    
-                    if (!$district_result['error'] && !empty($district_result['data'])) {
-                        $district_name = $district_result['data'][0]['name'] ?? null;
-                        error_log("İlçe ID'sine göre ilçe adı bulundu: " . ($district_name ?? 'bulunamadı'));
-                    }
-                } else {
-                    // district_id doğrudan ilçe adı olabilir
-                    $district_name = $district_id;
-                    error_log("İlçe adı doğrudan alındı: " . $district_name);
-                }
-                
-                // İlçeye göre kullanıcıları filtrele
                 foreach ($all_users as $user) {
-                    $user_district = $user['district'] ?? '';
+                    error_log("Kullanıcı: " . ($user['email'] ?? 'Bilinmiyor') . " - İlçe: " . ($user['district'] ?? 'Belirtilmemiş') . " - Seçilen İlçe: " . $district_id);
                     
-                    // İlçe adı veya ID eşleşmesini kontrol et
-                    if (($district_name && strcasecmp($user_district, $district_name) === 0) || 
-                        ($user['district_id'] ?? '') == $district_id) {
+                    // Kullanıcının ilçesi seçilen ilçeye uyuyor mu?
+                    $user_district = strtolower(trim($user['district'] ?? ''));
+                    $selected_district = strtolower(trim($district_id));
+                    
+                    if (!empty($user_district) && $user_district === $selected_district) {
                         $users[] = $user['id'];
-                        error_log("Kullanıcı ilçeye uygun: " . $user['email'] . " - İlçe: " . $user_district);
+                        error_log("KULLANICI İLÇE UYUYOR: " . $user['email'] . " - İlçe: " . $user_district);
                     }
                 }
                 
-                error_log("İlçe filtrelemesinden sonra kalan kullanıcı sayısı: " . count($users));
+                error_log("İlçe filtrelemesinden sonra toplam " . count($users) . " kullanıcı bulundu");
             } else {
-                error_log("Kullanıcılar alınırken hata oluştu: " . ($all_users_result['message'] ?? 'Bilinmeyen hata'));
+                error_log("Kullanıcılar alınamadı: " . ($all_users_result['message'] ?? 'Bilinmeyen hata'));
             }
         } else {
             // Notification preferences tablosundan kullanıcıları al
@@ -796,7 +781,7 @@ function loadDistricts() {
         // Filtrelenmiş ilçeleri ekle
         filteredDistricts.forEach(function(district) {
             var option = document.createElement('option');
-            option.value = district.id;
+            option.value = district.name; // İlçe adını değer olarak kullan (ID yerine)
             option.textContent = district.name;
             districtSelect.appendChild(option);
         });
