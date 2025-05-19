@@ -25,56 +25,78 @@ if (isset($_POST['submit_bulk_notification'])) {
     $city_id = isset($_POST['city_id']) && $_POST['city_id'] != '' ? (int)$_POST['city_id'] : null;
     $district_id = isset($_POST['district_id']) && $_POST['district_id'] != '' ? (int)$_POST['district_id'] : null;
     
-    // Bildirim verilerini hazırla
-    $notification = [
-        'title' => $title,
-        'content' => $message,
-        'type' => $type,
-        'related_entity_id' => $link,
-        'related_entity_type' => 'link'
-    ];
-    
-    $user_ids = [];
-    
-    // Hedeflenen kullanıcıları belirle
-    if ($target_type == 'city' && $city_id) {
-        // Belirli şehirdeki kullanıcıların ID'lerini al
-        $city_users = supabase_query('posts', [
-            'select' => 'user_id',
-            'filters' => ['city_id' => $city_id]
-        ]);
-        
-        if ($city_users) {
-            foreach ($city_users as $user) {
-                if (!in_array($user['user_id'], $user_ids)) {
-                    $user_ids[] = $user['user_id'];
-                }
-            }
-        }
-    } elseif ($target_type == 'district' && $district_id) {
-        // Belirli ilçedeki kullanıcıların ID'lerini al
-        $district_users = supabase_query('posts', [
-            'select' => 'user_id',
-            'filters' => ['district_id' => $district_id]
-        ]);
-        
-        if ($district_users) {
-            foreach ($district_users as $user) {
-                if (!in_array($user['user_id'], $user_ids)) {
-                    $user_ids[] = $user['user_id'];
-                }
-            }
-        }
-    }
-    
     try {
-        // Bildirimi gönder (boş user_ids dizisi tüm kullanıcılara gönderir)
-        $success = send_notification($notification, $user_ids);
+        // Hedeflenen kullanıcıları belirle
+        $users = [];
         
-        if ($success) {
-            $success_message = "Bildirimler başarıyla gönderildi!";
+        if ($target_type == 'city' && $city_id) {
+            // Belirli şehirdeki kullanıcıları al
+            $users_result = getData('posts', [
+                'select' => 'user_id', 
+                'city_id' => 'eq.' . $city_id
+            ]);
+            
+            if (!$users_result['error'] && !empty($users_result['data'])) {
+                $users = array_unique(array_column($users_result['data'], 'user_id'));
+            }
+        } elseif ($target_type == 'district' && $district_id) {
+            // Belirli ilçedeki kullanıcıları al
+            $users_result = getData('posts', [
+                'select' => 'user_id', 
+                'district_id' => 'eq.' . $district_id
+            ]);
+            
+            if (!$users_result['error'] && !empty($users_result['data'])) {
+                $users = array_unique(array_column($users_result['data'], 'user_id'));
+            }
         } else {
-            $error_message = "Bildirim gönderme hatası: Supabase API hatası.";
+            // Tüm kullanıcıları al
+            $users_result = getData('auth.users', [
+                'select' => 'id'
+            ]);
+            
+            if (!$users_result['error'] && !empty($users_result['data'])) {
+                $users = array_column($users_result['data'], 'id');
+            }
+        }
+        
+        if (empty($users)) {
+            $error_message = "Hedeflenen kullanıcı bulunamadı.";
+        } else {
+            $success_count = 0;
+            $error_count = 0;
+            
+            // Her kullanıcıya bildirim gönder
+            foreach ($users as $user_id) {
+                $notification_data = [
+                    'user_id' => $user_id,
+                    'title' => $title,
+                    'content' => $message,
+                    'type' => $type,
+                    'is_read' => false,
+                    'related_entity_id' => $link,
+                    'related_entity_type' => 'link',
+                    'created_at' => date('c'),
+                    'updated_at' => date('c')
+                ];
+                
+                $result = addData('notifications', $notification_data);
+                
+                if (!$result['error']) {
+                    $success_count++;
+                } else {
+                    $error_count++;
+                }
+            }
+            
+            if ($success_count > 0) {
+                $success_message = "$success_count kullanıcıya bildirim başarıyla gönderildi.";
+                if ($error_count > 0) {
+                    $success_message .= " ($error_count bildirim gönderilemedi)";
+                }
+            } else {
+                $error_message = "Bildirim gönderme hatası: Hiçbir bildirim gönderilemedi.";
+            }
         }
     } catch (Exception $e) {
         $error_message = "Hata: " . $e->getMessage();
@@ -84,12 +106,12 @@ if (isset($_POST['submit_bulk_notification'])) {
 // Silme işlemi
 if ($action == 'delete' && $notification_id > 0) {
     try {
-        $success = delete_notification($notification_id);
+        $result = deleteData('notifications', ['id' => 'eq.' . $notification_id]);
         
-        if ($success) {
+        if (!$result['error']) {
             $success_message = "Bildirim başarıyla silindi!";
         } else {
-            $error_message = "Bildirim silinirken hata oluştu.";
+            $error_message = "Bildirim silinirken hata oluştu: " . $result['message'];
         }
     } catch (Exception $e) {
         $error_message = "Hata: " . $e->getMessage();
@@ -98,25 +120,34 @@ if ($action == 'delete' && $notification_id > 0) {
 
 // Bildirim listesini al
 try {
-    $notifications = get_notifications();
+    // Bildirimleri al
+    $notifications_result = getData('notifications', [
+        'select' => '*',
+        'order' => 'created_at.desc',
+        'limit' => '200'
+    ]);
+    
+    $notifications = $notifications_result['error'] ? [] : $notifications_result['data'];
     
     // Kullanıcı e-postalarını birleştir
-    if ($notifications) {
+    if (!empty($notifications)) {
         $user_ids = array_column($notifications, 'user_id');
         $user_emails = [];
         
         // Benzersiz kullanıcı ID'lerini al
         $unique_user_ids = array_unique($user_ids);
         
-        // Kullanıcı bilgilerini al
-        foreach ($unique_user_ids as $user_id) {
-            $user = supabase_query('auth.users', [
-                'select' => 'id,email',
-                'filters' => ['id' => $user_id]
-            ]);
-            
-            if ($user && isset($user[0])) {
-                $user_emails[$user_id] = $user[0]['email'];
+        // Her ID için ayrı sorgu yapmak yerine sadece bir kez sorgu yapalım
+        $user_ids_string = "'" . implode("','", $unique_user_ids) . "'";
+        $users_result = getData('auth.users', [
+            'select' => 'id,email'
+        ]);
+        
+        if (!$users_result['error'] && !empty($users_result['data'])) {
+            foreach ($users_result['data'] as $user) {
+                if (isset($user['id']) && isset($user['email'])) {
+                    $user_emails[$user['id']] = $user['email'];
+                }
             }
         }
         
@@ -281,10 +312,11 @@ if (!empty($error_message)) {
                                     <div class="mb-3">
                                         <label for="type" class="form-label">Tip</label>
                                         <select class="form-select" id="type" name="type">
-                                            <option value="info">Bilgi</option>
-                                            <option value="success">Başarı</option>
-                                            <option value="warning">Uyarı</option>
-                                            <option value="danger">Tehlike</option>
+                                            <option value="system">Sistem</option>
+                                            <option value="like">Beğeni</option>
+                                            <option value="comment">Yorum</option>
+                                            <option value="reply">Yanıt</option>
+                                            <option value="mention">Bahsetme</option>
                                         </select>
                                     </div>
                                     
