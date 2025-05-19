@@ -71,7 +71,10 @@ WITH city_party_rates AS (
     SELECT 
         pp.id AS party_id,
         pp.name AS party_name,
-        COALESCE(AVG(c.solution_rate), 0) AS avg_solution_rate
+        COALESCE(AVG(c.solution_rate), 0) AS avg_solution_rate,
+        SUM(COALESCE(c.solved_complaints, 0)) AS total_solved_complaints,
+        SUM(COALESCE(c.total_complaints, 0)) AS total_total_complaints,
+        SUM(COALESCE(c.thanks_count, 0)) AS total_thanks_count
     FROM 
         political_parties pp
     LEFT JOIN 
@@ -79,42 +82,61 @@ WITH city_party_rates AS (
     GROUP BY 
         pp.id, pp.name
 ),
--- Partileri çözüm oranına göre sırala
+-- Partileri çözüm oranına göre sırala ve 0 çözüm oranı olanları filtrele
 ranked_parties AS (
     SELECT 
         party_id,
         party_name,
         avg_solution_rate,
-        RANK() OVER (ORDER BY avg_solution_rate DESC) AS rank
+        -- Şikayet çözmemiş belediyelere 0 puan vermek için kontrol
+        CASE 
+            WHEN total_solved_complaints = 0 AND total_thanks_count = 0 THEN 0
+            ELSE avg_solution_rate 
+        END AS effective_solution_rate,
+        RANK() OVER (ORDER BY 
+            CASE 
+                WHEN total_solved_complaints = 0 AND total_thanks_count = 0 THEN 0
+                ELSE avg_solution_rate 
+            END DESC
+        ) AS rank
     FROM 
         city_party_rates
 ),
--- 100'lük sistemde puanları hesapla (eşit performanslı partilere eşit puan)
+-- Çözüm yapmamış partileri filtrele - sadece puanı hak eden partiler
+scoring_parties AS (
+    SELECT * FROM ranked_parties
+    WHERE effective_solution_rate > 0
+),
+-- Puanlamayı sadece skor hak eden partiler üzerinden yap
 party_scores AS (
     SELECT 
         party_id,
         party_name,
-        avg_solution_rate,
+        effective_solution_rate,
         rank,
-        -- Aynı sıradaki (eşit performanslı) parti sayısını bul
-        COUNT(*) OVER (PARTITION BY rank) AS equal_rank_count,
-        -- Toplam parti sayısı
-        (SELECT COUNT(*) FROM ranked_parties) AS total_parties,
-        -- Her sıra için toplam puan havuzu
-        100.0 * (SELECT COUNT(*) FROM ranked_parties WHERE rank = rp.rank) / 
-        (SELECT COUNT(*) FROM ranked_parties) AS rank_score_pool
+        -- Toplam parti sayısını bul
+        COUNT(*) OVER () AS valid_party_count,
+        -- Aynı rank'teki parti sayısını bul
+        COUNT(*) OVER (PARTITION BY rank) AS same_rank_count,
+        -- Toplam puanı 100 olarak belirle
+        100.0 AS total_points
     FROM 
-        ranked_parties rp
+        scoring_parties
 ),
--- Final puan hesaplaması (eşit performanslı partilere eşit puan)
+-- Her partinin toplam puandan alacağı payı hesapla
 final_scores AS (
     SELECT 
         party_id,
         party_name,
-        avg_solution_rate,
+        effective_solution_rate,
         rank,
-        -- Her sıradaki parti için puan havuzunu eşit dağıt
-        rank_score_pool / equal_rank_count AS final_score
+        CASE
+            -- Eğer skor hak eden parti yoksa, kimseye puan verme
+            WHEN valid_party_count = 0 THEN 0
+            -- Eşit sıradaki partilere eşit puan ver, performansa göre sırala
+            ELSE (total_points * effective_solution_rate / 
+                  (SELECT SUM(effective_solution_rate) FROM party_scores))
+        END AS final_score
     FROM 
         party_scores
 )
