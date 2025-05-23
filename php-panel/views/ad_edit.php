@@ -594,7 +594,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         
         // Ajax isteği
         const xhr = new XMLHttpRequest();
-        xhr.open('POST', 'views/upload_image.php', true);
+        // Tam yolu kullanarak resim yükleme işlemini gerçekleştir
+        xhr.open('POST', window.location.pathname.replace(/\/[^\/]*$/, '/views/upload_image.php'), true);
         
         // Yükleme durumunu izle
         xhr.upload.onprogress = function(e) {
@@ -774,7 +775,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         
         // AJAX isteği oluştur
         const xhr = new XMLHttpRequest();
-        xhr.open('GET', 'views/get_districts.php?city_id=' + encodeURIComponent(cityId), true);
+        // Tam yolu kullanarak ilçeleri yükleme işlemini gerçekleştir
+        xhr.open('GET', window.location.pathname.replace(/\/[^\/]*$/, '/views/get_districts.php?city_id=') + encodeURIComponent(cityId), true);
         
         xhr.onload = function() {
             if (xhr.status === 200) {
