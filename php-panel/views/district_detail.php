@@ -97,6 +97,9 @@ $district_stats = [
         <a href="index.php?page=district_edit&id=<?php echo $district_id; ?>" class="btn btn-warning me-2">
             <i class="fas fa-edit me-1"></i> Düzenle
         </a>
+        <a href="index.php?page=district_performance&id=<?php echo $district_id; ?>" class="btn btn-primary me-2">
+            <i class="fas fa-chart-line me-1"></i> Performans Analizi
+        </a>
         <a href="index.php?page=districts" class="btn btn-secondary">
             <i class="fas fa-arrow-left me-1"></i> İlçelere Dön
         </a>
