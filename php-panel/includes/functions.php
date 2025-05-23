@@ -87,12 +87,25 @@ function addData($table, $data) {
     $url = SUPABASE_REST_URL . '/' . $table;
     
     try {
+        // JSON alanlarını kontrol et - image_urls özel olarak işle
+        if (isset($data['image_urls'])) {
+            // Eğer image_urls boş veya dizi değilse, boş diziyle değiştir
+            if (empty($data['image_urls']) || !is_array($data['image_urls'])) {
+                $data['image_urls'] = [];
+            }
+            
+            // Boş değerleri filtrele
+            $data['image_urls'] = array_values(array_filter($data['image_urls'], function($url) {
+                return !empty(trim($url));
+            }));
+        }
+        
         // API isteği yap
         $ch = curl_init();
         curl_setopt($ch, CURLOPT_URL, $url);
         curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
         curl_setopt($ch, CURLOPT_POST, true);
-        curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($data));
+        curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($data, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES));
         curl_setopt($ch, CURLOPT_HTTPHEADER, [
             'apikey: ' . SUPABASE_API_KEY,
             'Authorization: ' . SUPABASE_AUTH_HEADER,
@@ -131,12 +144,25 @@ function updateData($table, $id, $data) {
     $url = SUPABASE_REST_URL . '/' . $table . '?id=eq.' . urlencode($id);
     
     try {
+        // JSON alanlarını kontrol et - image_urls özel olarak işle
+        if (isset($data['image_urls'])) {
+            // Eğer image_urls boş veya dizi değilse, boş diziyle değiştir
+            if (empty($data['image_urls']) || !is_array($data['image_urls'])) {
+                $data['image_urls'] = [];
+            }
+            
+            // Boş değerleri filtrele
+            $data['image_urls'] = array_values(array_filter($data['image_urls'], function($url) {
+                return !empty(trim($url));
+            }));
+        }
+        
         // API isteği yap
         $ch = curl_init();
         curl_setopt($ch, CURLOPT_URL, $url);
         curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
         curl_setopt($ch, CURLOPT_CUSTOMREQUEST, 'PATCH');
-        curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($data));
+        curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($data, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES));
         curl_setopt($ch, CURLOPT_HTTPHEADER, [
             'apikey: ' . SUPABASE_API_KEY,
             'Authorization: ' . SUPABASE_AUTH_HEADER,

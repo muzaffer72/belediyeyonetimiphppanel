@@ -64,6 +64,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         return !empty(trim($url));
     });
     
+    // Eğer dizi boşsa, boş dizi olarak ayarla - Supabase JSON array bekliyor
+    if (empty($image_urls)) {
+        $image_urls = [];
+    }
+    
     // Basit doğrulama
     $errors = [];
     
@@ -108,10 +113,24 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     
     // Hata yoksa reklam ekle/güncelle
     if (empty($errors)) {
+        // image_urls alanını boş dizi olarak ayarla - Supabase JSON dizisi bekliyor
+        if (empty($image_urls) || !is_array($image_urls)) {
+            $image_urls = [];
+        }
+        
+        // Tüm URL'leri temizle ve boş olmayanları al
+        $clean_image_urls = [];
+        foreach ($image_urls as $url) {
+            $url = trim($url);
+            if (!empty($url)) {
+                $clean_image_urls[] = $url;
+            }
+        }
+        
         $ad_data = [
             'title' => $title,
             'content' => $content,
-            'image_urls' => $image_urls,
+            'image_urls' => $clean_image_urls, // Temizlenmiş diziyi kullan
             'start_date' => $start_date,
             'end_date' => $end_date,
             'link_type' => $link_type,
