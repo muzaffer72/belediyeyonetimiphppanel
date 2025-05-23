@@ -15,13 +15,17 @@ if (!isset($_FILES['image']) || empty($_FILES['image']['name'])) {
     exit;
 }
 
-// Yükleme klasörü
-$upload_dir = __DIR__ . '/../uploads/ads/';
+// Yükleme klasörü - ana dizindeki uploads klasörü
+// Projenin köküne göre yolu düzenliyoruz
+$upload_dir = __DIR__ . '/../../uploads/ads/';
 
 // Klasör yoksa oluştur
 if (!is_dir($upload_dir)) {
     mkdir($upload_dir, 0775, true);
 }
+
+// Debug - nereye kaydedildiğini loglayalım
+error_log("Resim yükleme dizini: " . $upload_dir);
 
 // Dosya bilgileri
 $file = $_FILES['image'];
@@ -81,10 +85,14 @@ $upload_path = $upload_dir . $new_file_name;
 // Dosyayı taşı
 if (move_uploaded_file($file_tmp, $upload_path)) {
     // Dosyaya web üzerinden erişim URL'si
-    $base_url = isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on' ? "https://" : "http://";
-    $base_url .= $_SERVER['HTTP_HOST'];
+    // Site URL'sini config'den al
+    // SITE_URL değişkeni config.php'de tanımlandığı için kullanıyoruz
+    // Eğer tanımlı değilse varsayılan URL kullanılır
+    $site_url = defined('SITE_URL') ? SITE_URL : 'https://onvao.net';
+    
     // Doğrudan ads dizini içindeki dosyaya URL oluştur
-    $image_url = $base_url . '/php-panel/uploads/ads/' . $new_file_name;
+    // "/adminpanel" yerine direkt olarak uploads klasörünü hedefle
+    $image_url = $site_url . '/uploads/ads/' . $new_file_name;
     
     echo json_encode([
         'error' => false, 
