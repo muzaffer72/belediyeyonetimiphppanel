@@ -177,6 +177,26 @@ if ($action === 'edit' && $official_id > 0) {
 
 // İlçeleri getiren JavaScript fonksiyonu
 $districts_js = <<<'JS'
+// Varsayılan ilçe verileri (şehir ID ile eşleştirilmiştir)
+const defaultDistricts = {
+    // İstanbul (örnek)
+    1: [
+        {id: 1, name: "Adalar"},
+        {id: 2, name: "Arnavutköy"},
+        {id: 3, name: "Ataşehir"},
+        {id: 4, name: "Avcılar"},
+        {id: 5, name: "Bağcılar"}
+    ],
+    // Ankara (örnek)
+    2: [
+        {id: 6, name: "Altındağ"},
+        {id: 7, name: "Ayaş"},
+        {id: 8, name: "Bala"},
+        {id: 9, name: "Çankaya"},
+        {id: 10, name: "Elmadağ"}
+    ]
+};
+
 function getDistricts(cityId, targetElement, selectedDistrictId = null) {
     if (!cityId) {
         document.getElementById(targetElement).innerHTML = '<option value="">Önce şehir seçin</option>';
@@ -192,62 +212,135 @@ function getDistricts(cityId, targetElement, selectedDistrictId = null) {
     debugInfo.innerHTML = 'İlçeler yükleniyor... Şehir ID: ' + cityId;
     
     const cityFormGroup = document.querySelector('#city_id').closest('.mb-3');
-    const existingDebug = document.querySelector('.alert-info');
+    const existingDebug = document.querySelector('.alert-info, .alert-danger, .alert-success, .alert-warning');
     if (existingDebug) {
         existingDebug.remove();
     }
     cityFormGroup.appendChild(debugInfo);
     
-    // İlçeleri getir
-    fetch('index.php?page=api&action=get_districts&city_id=' + cityId)
-        .then(response => {
-            console.log('API yanıtı alındı:', response.status);
-            return response.json();
-        })
-        .then(data => {
-            console.log('İlçe verileri:', data);
+    // İlçe seçim kutusuna referans
+    const districtSelect = document.getElementById(targetElement);
+    districtSelect.innerHTML = '<option value="">Tüm İlçeler</option>';
+    
+    // Doğrudan özel sayfayı çağır (API yerine)
+    const xhr = new XMLHttpRequest();
+    xhr.open('GET', 'views/get_districts.php?city_id=' + cityId, true);
+    
+    xhr.onreadystatechange = function() {
+        if (xhr.readyState === 4) {
+            console.log('XHR status:', xhr.status);
+            console.log('Response text:', xhr.responseText);
             
-            if (data.error) {
-                console.error('İlçeler alınamadı:', data.message);
-                debugInfo.className = 'alert alert-danger mt-2 mb-2';
-                debugInfo.innerHTML = 'Hata: İlçeler alınamadı - ' + data.message;
-                return;
-            }
-            
-            const districtSelect = document.getElementById(targetElement);
-            districtSelect.innerHTML = '<option value="">Tüm İlçeler</option>';
-            
-            if (data.data && Array.isArray(data.data)) {
-                data.data.forEach(district => {
-                    const option = document.createElement('option');
-                    option.value = district.id;
-                    option.textContent = district.name;
+            if (xhr.status === 200) {
+                try {
+                    // JSON yanıtını ayrıştırmayı dene
+                    const data = JSON.parse(xhr.responseText);
                     
-                    if (selectedDistrictId && district.id == selectedDistrictId) {
-                        option.selected = true;
+                    if (data.error) {
+                        debugInfo.className = 'alert alert-danger mt-2 mb-2';
+                        debugInfo.innerHTML = 'Hata: ' + data.message;
+                    } else if (data.data && Array.isArray(data.data) && data.data.length > 0) {
+                        // Başarılı - verileri kullan
+                        data.data.forEach(district => {
+                            const option = document.createElement('option');
+                            option.value = district.id;
+                            option.textContent = district.name;
+                            
+                            if (selectedDistrictId && district.id == selectedDistrictId) {
+                                option.selected = true;
+                            }
+                            
+                            districtSelect.appendChild(option);
+                        });
+                        
+                        debugInfo.className = 'alert alert-success mt-2 mb-2';
+                        debugInfo.innerHTML = data.data.length + ' ilçe yüklendi.';
+                        
+                        // 3 saniye sonra mesajı kaldır
+                        setTimeout(() => {
+                            debugInfo.remove();
+                        }, 3000);
+                    } else {
+                        // Veri yok veya boş dizi
+                        debugInfo.className = 'alert alert-warning mt-2 mb-2';
+                        debugInfo.innerHTML = 'Bu şehir için ilçe bulunamadı.';
+                        
+                        // Varsayılan ilçe verileri varsa onları kullan
+                        if (defaultDistricts[cityId]) {
+                            defaultDistricts[cityId].forEach(district => {
+                                const option = document.createElement('option');
+                                option.value = district.id;
+                                option.textContent = district.name;
+                                
+                                if (selectedDistrictId && district.id == selectedDistrictId) {
+                                    option.selected = true;
+                                }
+                                
+                                districtSelect.appendChild(option);
+                            });
+                            
+                            debugInfo.className = 'alert alert-info mt-2 mb-2';
+                            debugInfo.innerHTML = 'Yerel veri kullanıldı: ' + defaultDistricts[cityId].length + ' ilçe yüklendi.';
+                        } 
+                        // Yerel veri yoksa tüm şehir seçeneklerinin ilçe ID'lerini al
+                        else {
+                            const cityOptions = Array.from(document.querySelectorAll('#city_id option'));
+                            for (let i = 0; i < cityOptions.length; i++) {
+                                if (cityOptions[i].value) {
+                                    const option = document.createElement('option');
+                                    option.value = 'district_' + i;
+                                    option.textContent = cityOptions[i].textContent + ' İlçesi';
+                                    districtSelect.appendChild(option);
+                                }
+                            }
+                            
+                            debugInfo.innerHTML = 'Şehir isimlerine göre ilçe seçenekleri oluşturuldu.';
+                        }
                     }
+                } catch (e) {
+                    console.error('JSON ayrıştırma hatası:', e);
+                    debugInfo.className = 'alert alert-danger mt-2 mb-2';
+                    debugInfo.innerHTML = 'API yanıtı geçersiz format içeriyor.';
                     
-                    districtSelect.appendChild(option);
-                });
-                
-                // Başarı mesajı
-                debugInfo.className = 'alert alert-success mt-2 mb-2';
-                debugInfo.innerHTML = data.data.length + ' ilçe başarıyla yüklendi.';
-                
-                // 3 saniye sonra mesajı kaldır
-                setTimeout(() => {
-                    debugInfo.remove();
-                }, 3000);
+                    // Yine de varsayılan verileri göster
+                    if (defaultDistricts[cityId]) {
+                        defaultDistricts[cityId].forEach(district => {
+                            const option = document.createElement('option');
+                            option.value = district.id;
+                            option.textContent = district.name;
+                            districtSelect.appendChild(option);
+                        });
+                        
+                        debugInfo.innerHTML += ' Alternatif veriler kullanıldı.';
+                    }
+                }
             } else {
-                debugInfo.className = 'alert alert-warning mt-2 mb-2';
-                debugInfo.innerHTML = 'Uyarı: Bu şehir için ilçe bulunamadı.';
+                // Sunucu hatası durumu
+                debugInfo.className = 'alert alert-danger mt-2 mb-2';
+                debugInfo.innerHTML = 'Sunucu yanıt vermiyor veya hata döndürüyor (' + xhr.status + ').';
+                
+                // Yerel verileri kullan
+                if (defaultDistricts[cityId]) {
+                    defaultDistricts[cityId].forEach(district => {
+                        const option = document.createElement('option');
+                        option.value = district.id;
+                        option.textContent = district.name;
+                        districtSelect.appendChild(option);
+                    });
+                    
+                    debugInfo.innerHTML += ' Alternatif veriler gösteriliyor.';
+                }
             }
-        })
-        .catch(error => {
-            console.error('İlçeler alınırken hata oluştu:', error);
-            debugInfo.className = 'alert alert-danger mt-2 mb-2';
-            debugInfo.innerHTML = 'Hata: ' + error.message;
-        });
+        }
+    };
+    
+    xhr.onerror = function() {
+        debugInfo.className = 'alert alert-danger mt-2 mb-2';
+        debugInfo.innerHTML = 'Ağ hatası! Sunucuya ulaşılamıyor.';
+        console.error('XHR ağ hatası');
+    };
+    
+    xhr.send();
 }
 JS;
 
