@@ -33,6 +33,7 @@ function getMenuItems($current_page) {
             ['id' => 'announcements', 'icon' => 'fas fa-bullhorn', 'text' => 'Duyurular'],
             ['id' => 'users', 'icon' => 'fas fa-users', 'text' => 'Kullanıcılar'],
             ['id' => 'officials', 'icon' => 'fas fa-user-tie', 'text' => 'Belediye Görevlileri'],
+            ['id' => 'advertisements', 'icon' => 'fas fa-ad', 'text' => 'Sponsorlu Reklamlar'],
         ];
     }
     
