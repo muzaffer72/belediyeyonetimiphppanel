@@ -63,12 +63,11 @@ function supabaseLogin($login_data) {
 
 /**
  * Kullanıcının belediye görevlisi olup olmadığını kontrol eder
+ * Config.php içinde zaten tanımlandığından burada yeniden tanımlanmıyor
  * 
  * @return bool Belediye görevlisi ise true, değilse false
  */
-function isOfficial() {
-    return isset($_SESSION['is_official']) && $_SESSION['is_official'] === true;
-}
+// Not: isOfficial fonksiyonu config.php'de zaten tanımlandığı için burada kaldırıldı
 
 /**
  * Kullanıcı çıkışı yapar

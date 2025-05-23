@@ -442,7 +442,7 @@
                 <div class="header-left">
                     <ol class="breadcrumb mb-0">
                         <li class="breadcrumb-item"><a href="index.php">Ana Sayfa</a></li>
-                        <?php if ($page !== 'dashboard'): ?>
+                        <?php if (isset($page) && $page !== 'dashboard'): ?>
                         <li class="breadcrumb-item active"><?php echo ucfirst($page); ?></li>
                         <?php endif; ?>
                     </ol>
@@ -472,9 +472,9 @@
             <div class="container-fluid mt-4">
                 <!-- Page Header -->
                 <div class="d-flex justify-content-between align-items-center mb-4">
-                    <h1 class="h3"><?php echo getPageTitle($page); ?></h1>
+                    <h1 class="h3"><?php echo isset($page) ? getPageTitle($page) : 'Belediye Yönetim Paneli'; ?></h1>
                     
-                    <?php if (in_array($page, ['cities', 'districts', 'parties', 'posts', 'comments', 'announcements', 'users'])): ?>
+                    <?php if (isset($page) && in_array($page, ['cities', 'districts', 'parties', 'posts', 'comments', 'announcements', 'users'])): ?>
                     <a href="?page=<?php echo $page; ?>&action=add" class="btn btn-primary">
                         <i class="fas fa-plus-circle me-1"></i> Yeni Ekle
                     </a>
