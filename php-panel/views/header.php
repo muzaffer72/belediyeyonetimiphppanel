@@ -3,7 +3,23 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title><?php echo isset($page_title) ? $page_title : 'Belediye Yönetim Paneli'; ?></title>
+    <?php
+    // Sayfa başlığını ayarla
+    $current_page = isset($page) ? $page : 'dashboard';
+    $page_title = 'Belediye Yönetim Paneli';
+    
+    // Özel sayfalar için başlıkları ayarla
+    if ($current_page === 'advertisements') {
+        $page_title = 'Sponsorlu Reklamlar - Belediye Yönetim Paneli';
+    } elseif ($current_page === 'ad_edit') {
+        $page_title = 'Reklam Düzenle - Belediye Yönetim Paneli';
+    } elseif ($current_page === 'ad_analytics') {
+        $page_title = 'Reklam Analitikleri - Belediye Yönetim Paneli';
+    } elseif ($current_page !== 'dashboard') {
+        $page_title = ucfirst($current_page) . ' - Belediye Yönetim Paneli';
+    }
+    ?>
+    <title><?php echo $page_title; ?></title>
     
     <!-- Bootstrap CSS -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.2.3/dist/css/bootstrap.min.css" rel="stylesheet">
@@ -421,7 +437,8 @@
         <ul class="sidebar-menu">
             <?php 
             require_once(__DIR__ . '/../includes/menu.php');
-            $menu_items = getMenuItems($page);
+            $current_page = isset($page) ? $page : 'dashboard';
+            $menu_items = getMenuItems($current_page);
             foreach ($menu_items as $item): 
             ?>
             <li class="sidebar-item">
@@ -442,8 +459,11 @@
                 <div class="header-left">
                     <ol class="breadcrumb mb-0">
                         <li class="breadcrumb-item"><a href="index.php">Ana Sayfa</a></li>
-                        <?php if (isset($page) && $page !== 'dashboard'): ?>
-                        <li class="breadcrumb-item active"><?php echo ucfirst($page); ?></li>
+                        <?php 
+                        $current_page = isset($page) ? $page : 'dashboard';
+                        if ($current_page !== 'dashboard'): 
+                        ?>
+                        <li class="breadcrumb-item active"><?php echo ucfirst($current_page); ?></li>
                         <?php endif; ?>
                     </ol>
                 </div>
@@ -474,8 +494,11 @@
                 <div class="d-flex justify-content-between align-items-center mb-4">
                     <h1 class="h3"><?php echo isset($page) ? getPageTitle($page) : 'Belediye Yönetim Paneli'; ?></h1>
                     
-                    <?php if (isset($page) && in_array($page, ['cities', 'districts', 'parties', 'posts', 'comments', 'announcements', 'users'])): ?>
-                    <a href="?page=<?php echo $page; ?>&action=add" class="btn btn-primary">
+                    <?php 
+                    $current_page = isset($page) ? $page : '';
+                    if (in_array($current_page, ['cities', 'districts', 'parties', 'posts', 'comments', 'announcements', 'users'])): 
+                    ?>
+                    <a href="?page=<?php echo $current_page; ?>&action=add" class="btn btn-primary">
                         <i class="fas fa-plus-circle me-1"></i> Yeni Ekle
                     </a>
                     <?php endif; ?>
