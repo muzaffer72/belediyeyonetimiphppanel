@@ -90,7 +90,7 @@ function getDistrictsByCityId() {
     // İlçeleri al
     $districts_result = getData('districts', [
         'select' => 'id,name',
-        'filters' => ['city_id' => 'eq.' . $city_id],
+        'city_id' => 'eq.' . $city_id,
         'order' => 'name'
     ]);
     

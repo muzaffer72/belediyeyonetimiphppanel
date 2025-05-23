@@ -19,12 +19,18 @@ $error_message = '';
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && $action === 'add') {
     $user_id = $_POST['user_id'] ?? '';
     $city_id = isset($_POST['city_id']) ? (int)$_POST['city_id'] : 0;
-    $district_id = isset($_POST['district_id']) ? (int)$_POST['district_id'] : null;
+    $district_id = isset($_POST['district_id']) && !empty($_POST['district_id']) ? (int)$_POST['district_id'] : null;
     $title = $_POST['title'] ?? '';
     $notes = $_POST['notes'] ?? '';
     
-    if (empty($user_id) || $city_id <= 0) {
-        $error_message = 'Kullanıcı ID ve şehir seçimi zorunludur';
+    // Form verilerini ekrana yazdır (Debug için)
+    error_log('Form verileri: ' . json_encode($_POST));
+    
+    // Kullanıcı ID ve şehir ID kontrolü
+    if (empty($user_id)) {
+        $error_message = 'Kullanıcı seçimi zorunludur';
+    } elseif ($city_id <= 0) {
+        $error_message = 'Şehir seçimi zorunludur';
     } else {
         // Görevli ekle
         $official_data = [
@@ -97,16 +103,21 @@ $cities = $cities_result['error'] ? [] : $cities_result['data'];
 // Kullanıcıları al - doğrudan tüm kullanıcıları getir
 $users_result = getData('users');
 
-// Debug için kullanıcı verilerini kontrol et
+// Kullanıcı verilerini kontrol et ve göster
 if (isset($users_result['error']) && $users_result['error']) {
-    echo '<div class="alert alert-danger">Kullanıcı verileri yüklenemedi: ' . htmlspecialchars($users_result['message'] ?? 'Bilinmeyen hata') . '</div>';
+    $error_message = 'Kullanıcı verileri yüklenemedi: ' . htmlspecialchars($users_result['message'] ?? 'Bilinmeyen hata');
     error_log('User data error: ' . json_encode($users_result));
     $users = [];
 } else {
     $users = isset($users_result['data']) ? $users_result['data'] : [];
     if (empty($users)) {
-        echo '<div class="alert alert-warning">Hiç kullanıcı bulunamadı. Lütfen önce kullanıcı ekleyin.</div>';
+        $error_message = 'Hiç kullanıcı bulunamadı. Lütfen önce kullanıcı ekleyin.';
     }
+}
+
+// Kullanıcı listesi boşsa ve ileti gösterilmemişse
+if (empty($users) && empty($error_message)) {
+    $error_message = 'Kullanıcı listesi yüklenemedi. Lütfen sayfayı yenileyin veya önce kullanıcı ekleyin.';
 }
 
 // Görevlileri al
@@ -268,7 +279,7 @@ if (!empty($error_message)) {
                         <select class="form-select" id="city_id" name="city_id" required onchange="getDistricts(this.value, 'district_id')">
                             <option value="">Şehir Seçin</option>
                             <?php foreach ($cities as $city): ?>
-                                <option value="<?php echo $city['id']; ?>" <?php echo ($edit_official && $edit_official['city_id'] == $city['id']) ? 'selected' : ''; ?>><?php echo htmlspecialchars($city['name']); ?></option>
+                                <option value="<?php echo $city['id']; ?>" <?php echo ($edit_official && isset($edit_official['city_id']) && $edit_official['city_id'] == $city['id']) ? 'selected' : ''; ?>><?php echo htmlspecialchars($city['name']); ?></option>
                             <?php endforeach; ?>
                         </select>
                     </div>
@@ -370,9 +381,58 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
     
-    <?php if ($edit_official && $edit_official['city_id']): ?>
+    // Şehir seçildiğinde ilçeleri getir
+    const citySelect = document.getElementById('city_id');
+    if (citySelect) {
+        citySelect.addEventListener('change', function() {
+            getDistricts(this.value, 'district_id');
+        });
+        
+        // Sayfa yüklendiğinde şehir seçiliyse ilçeleri getir
+        if (citySelect.value) {
+            getDistricts(citySelect.value, 'district_id');
+        }
+    }
+    
+    <?php if ($edit_official && isset($edit_official['city_id']) && $edit_official['city_id']): ?>
     // Düzenle modunda ilçeleri yükle
-    getDistricts(<?php echo $edit_official['city_id']; ?>, 'district_id', <?php echo $edit_official['district_id'] ?? 'null'; ?>);
+    getDistricts(<?php echo $edit_official['city_id']; ?>, 'district_id', <?php echo isset($edit_official['district_id']) ? $edit_official['district_id'] : 'null'; ?>);
     <?php endif; ?>
+    
+    // Form submit öncesi kontrol
+    const officialForm = document.querySelector('form[action*="officials"]');
+    if (officialForm) {
+        officialForm.addEventListener('submit', function(e) {
+            const userSelect = document.getElementById('user_id');
+            const citySelect = document.getElementById('city_id');
+            
+            let hasError = false;
+            let errorMessage = '';
+            
+            if (userSelect && userSelect.value === '') {
+                hasError = true;
+                errorMessage += 'Lütfen bir kullanıcı seçin. ';
+                userSelect.classList.add('is-invalid');
+            } else if (userSelect) {
+                userSelect.classList.remove('is-invalid');
+            }
+            
+            if (!citySelect.value) {
+                hasError = true;
+                errorMessage += 'Lütfen bir şehir seçin.';
+                citySelect.classList.add('is-invalid');
+            } else {
+                citySelect.classList.remove('is-invalid');
+            }
+            
+            if (hasError) {
+                e.preventDefault();
+                alert(errorMessage);
+                return false;
+            }
+            
+            return true;
+        });
+    }
 });
 </script>
