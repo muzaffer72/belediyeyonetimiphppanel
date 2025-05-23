@@ -19,6 +19,60 @@ function formatDateStr($date, $format = 'd.m.Y H:i') {
 
 // isLoggedIn ve isOfficial fonksiyonları config.php'de tanımlandığı için buradan kaldırıldı
 
+/**
+ * Belirli bir reklama ait detay bilgilerini getirir
+ * 
+ * @param int $id Reklam ID
+ * @return array|null Reklam bilgileri veya null
+ */
+function getAdById($id) {
+    $result = getDataById('sponsored_ads', $id);
+    
+    if (!$result['error'] && isset($result['data'])) {
+        return $result['data'];
+    }
+    
+    return null;
+}
+
+/**
+ * Reklam görüntülenme sayısını getirir
+ * 
+ * @param int $ad_id Reklam ID
+ * @return int Görüntülenme sayısı
+ */
+function getAdViewCount($ad_id) {
+    $result = getData('ad_analytics', [
+        'select' => 'COUNT(*)',
+        'filter' => "ad_id=$ad_id AND event_type='view'"
+    ]);
+    
+    if (!$result['error'] && isset($result['data']) && is_array($result['data']) && count($result['data']) > 0) {
+        return (int)$result['data'][0]['count'];
+    }
+    
+    return 0;
+}
+
+/**
+ * Reklam tıklanma sayısını getirir
+ * 
+ * @param int $ad_id Reklam ID
+ * @return int Tıklanma sayısı
+ */
+function getAdClickCount($ad_id) {
+    $result = getData('ad_analytics', [
+        'select' => 'COUNT(*)',
+        'filter' => "ad_id=$ad_id AND event_type='click'"
+    ]);
+    
+    if (!$result['error'] && isset($result['data']) && is_array($result['data']) && count($result['data']) > 0) {
+        return (int)$result['data'][0]['count'];
+    }
+    
+    return 0;
+}
+
 // escape fonksiyonu config.php'de tanımlandığı için buradan kaldırıldı
 
 // safeRedirect fonksiyonu yerine config.php'deki redirect fonksiyonu kullanılıyor

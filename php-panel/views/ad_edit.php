@@ -230,22 +230,27 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                                 
                                 <!-- Görsel önizleme alanı -->
                                 <div id="image_preview" class="mb-3 row">
-                                    <?php if (!empty($image_urls) && is_array($image_urls)): ?>
-                                        <?php foreach($image_urls as $url): ?>
-                                            <?php if (!empty($url)): ?>
-                                            <div class="col-md-4 mb-2">
-                                                <div class="card h-100">
-                                                    <img src="<?php echo escape($url); ?>" class="card-img-top" alt="Reklam görseli" style="height: 120px; object-fit: cover;">
-                                                    <div class="card-body p-2 text-center">
-                                                        <button type="button" class="btn btn-sm btn-danger" onclick="removeImageFromPreview('<?php echo escape($url); ?>')">
-                                                            <i class="fas fa-trash"></i> Kaldır
-                                                        </button>
-                                                    </div>
-                                                </div>
+                                    <?php 
+                                    // Javascript ile mevcut resimleri yüklüyoruz (sayfa yüklendiğinde)
+                                    if ($ad && isset($ad['image_urls']) && is_array($ad['image_urls'])): 
+                                        foreach($ad['image_urls'] as $url): 
+                                            if (!empty($url)): 
+                                    ?>
+                                    <div class="col-md-4 mb-2">
+                                        <div class="card h-100">
+                                            <img src="<?php echo escape($url); ?>" class="card-img-top" alt="Reklam görseli" style="height: 120px; object-fit: cover;" onerror="this.src='https://via.placeholder.com/300x200?text=Resim+Y%C3%BCklenemedi';">
+                                            <div class="card-body p-2 text-center">
+                                                <button type="button" class="btn btn-sm btn-danger" onclick="removeImageFromPreview('<?php echo escape($url); ?>')">
+                                                    <i class="fas fa-trash"></i> Kaldır
+                                                </button>
                                             </div>
-                                            <?php endif; ?>
-                                        <?php endforeach; ?>
-                                    <?php endif; ?>
+                                        </div>
+                                    </div>
+                                    <?php 
+                                            endif; 
+                                        endforeach; 
+                                    endif; 
+                                    ?>
                                 </div>
                                 
                                 <!-- Görsel URL'leri (gizli) -->

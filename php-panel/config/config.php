@@ -19,6 +19,50 @@ define('ASSETS_URL', SITE_URL . '/assets');
 $_ENV['SUPABASE_URL'] = getenv('SUPABASE_URL') ?: 'https://bimer.onvao.net:8443';
 $_ENV['SUPABASE_KEY'] = getenv('SUPABASE_SERVICE_ROLE_KEY') ?: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyAgCiAgICAicm9sZSI6ICJzZXJ2aWNlX3JvbGUiLAogICAgImlzcyI6ICJzdXBhYmFzZS1kZW1vIiwKICAgICJpYXQiOiAxNjQxNzY5MjAwLAogICAgImV4cCI6IDE3OTk1MzU2MDAKfQ.DaYlNEoUrrEn2Ig7tqibS-PHK5vgusbcbo7X36XVt4Q';
 
+/**
+ * Tarih formatla
+ * 
+ * @param string $date ISO 8601 tarih formatı
+ * @param string $format Çıktı formatı
+ * @return string Formatlanmış tarih
+ */
+function formatDate($date, $format = 'd.m.Y H:i') {
+    if (empty($date)) return '-';
+    
+    $timestamp = strtotime($date);
+    return date($format, $timestamp);
+}
+
+/**
+ * HTML için güvenli çıktı
+ * 
+ * @param string $str Güvenli hale getirilecek string
+ * @return string HTML için güvenli string
+ */
+if (!function_exists('escape')) {
+    function escape($str) {
+        return htmlspecialchars($str, ENT_QUOTES, 'UTF-8');
+    }
+}
+
+/**
+ * Kullanıcı giriş yapmış mı kontrolü
+ *
+ * @return boolean Giriş yapılmışsa true, yapılmamışsa false
+ */
+function isLoggedIn() {
+    return isset($_SESSION['logged_in']) && $_SESSION['logged_in'] === true;
+}
+
+/**
+ * Kullanıcı yetkili mi kontrolü
+ *
+ * @return boolean Yetkili ise true, değilse false
+ */
+function isOfficial() {
+    return isset($_SESSION['user_type']) && $_SESSION['user_type'] === 'official';
+}
+
 // API sabitleri
 define('SUPABASE_REST_URL', $_ENV['SUPABASE_URL'] . '/rest/v1');
 define('SUPABASE_API_KEY', $_ENV['SUPABASE_KEY']);
