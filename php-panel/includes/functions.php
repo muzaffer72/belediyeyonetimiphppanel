@@ -15,6 +15,8 @@ function formatDateStr($date, $format = 'd.m.Y H:i') {
     return date($format, $timestamp);
 }
 
+// Config.php'de zaten formatDate fonksiyonu tanımlandığı için buradan kaldırıldı
+
 /**
  * Supabase'den veri al
  * 

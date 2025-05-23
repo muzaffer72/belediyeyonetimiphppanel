@@ -94,12 +94,20 @@ $cities_result = getData('cities', [
 ]);
 $cities = $cities_result['error'] ? [] : $cities_result['data'];
 
-// Kullanıcıları al
-$users_result = getData('users', [
-    'select' => 'id,email,name',
-    'order' => 'email'
-]);
-$users = $users_result['error'] ? [] : $users_result['data'];
+// Kullanıcıları al - doğrudan tüm kullanıcıları getir
+$users_result = getData('users');
+
+// Debug için kullanıcı verilerini kontrol et
+if (isset($users_result['error']) && $users_result['error']) {
+    echo '<div class="alert alert-danger">Kullanıcı verileri yüklenemedi: ' . htmlspecialchars($users_result['message'] ?? 'Bilinmeyen hata') . '</div>';
+    error_log('User data error: ' . json_encode($users_result));
+    $users = [];
+} else {
+    $users = isset($users_result['data']) ? $users_result['data'] : [];
+    if (empty($users)) {
+        echo '<div class="alert alert-warning">Hiç kullanıcı bulunamadı. Lütfen önce kullanıcı ekleyin.</div>';
+    }
+}
 
 // Görevlileri al
 $officials_result = getData('officials', [
@@ -228,7 +236,23 @@ if (!empty($error_message)) {
                         <select class="form-select" id="user_id" name="user_id" required>
                             <option value="">Kullanıcı Seçin</option>
                             <?php foreach ($users as $user): ?>
-                                <option value="<?php echo $user['id']; ?>"><?php echo htmlspecialchars($user['email']); ?> (<?php echo htmlspecialchars($user['name'] ?? 'İsimsiz'); ?>)</option>
+                                <option value="<?php echo $user['id']; ?>">
+                                    <?php 
+                                    // ID, email veya name bilgilerinden hangisi varsa onu göster
+                                    if (isset($user['email']) && !empty($user['email'])) {
+                                        echo htmlspecialchars($user['email']);
+                                    } elseif (isset($user['username']) && !empty($user['username'])) {
+                                        echo htmlspecialchars($user['username']);
+                                    } else {
+                                        echo 'Kullanıcı #' . $user['id'];
+                                    }
+                                    
+                                    // Ek olarak isim bilgisi varsa parantez içinde göster
+                                    if (isset($user['name']) && !empty($user['name'])) {
+                                        echo ' (' . htmlspecialchars($user['name']) . ')';
+                                    }
+                                    ?>
+                                </option>
                             <?php endforeach; ?>
                         </select>
                     </div>
