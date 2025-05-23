@@ -27,7 +27,7 @@ if ($edit_mode) {
     } else {
         $_SESSION['message'] = 'Reklam bulunamadı';
         $_SESSION['message_type'] = 'danger';
-        safeRedirect('index.php?page=advertisements');
+        redirect('index.php?page=advertisements');
     }
 }
 
@@ -143,7 +143,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         if (!$response['error']) {
             $_SESSION['message'] = $message_success;
             $_SESSION['message_type'] = 'success';
-            safeRedirect('index.php?page=advertisements');
+            redirect('index.php?page=advertisements');
         } else {
             $_SESSION['message'] = 'İşlem sırasında bir hata oluştu: ' . $response['message'];
             $_SESSION['message_type'] = 'danger';

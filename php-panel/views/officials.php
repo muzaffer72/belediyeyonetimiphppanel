@@ -55,18 +55,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $action === 'add') {
 
 // Görevli güncelleme işlemi
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && $action === 'edit' && $official_id > 0) {
-    $city_id = isset($_POST['city_id']) ? (int)$_POST['city_id'] : 0;
-    $district_id = isset($_POST['district_id']) ? (int)$_POST['district_id'] : null;
+    $city_id = isset($_POST['city_id']) ? $_POST['city_id'] : '';
+    $district_id = isset($_POST['district_id']) && !empty($_POST['district_id']) ? $_POST['district_id'] : null;
     $title = $_POST['title'] ?? '';
     $notes = $_POST['notes'] ?? '';
     
-    if ($city_id <= 0) {
+    if (empty($city_id)) {
         $error_message = 'Şehir seçimi zorunludur';
     } else {
         // Görevliyi güncelle
         $update_data = [
             'city_id' => $city_id,
-            'district_id' => $district_id ?? null,
+            'district_id' => $district_id,
             'title' => $title,
             'notes' => $notes,
             'updated_at' => date('c')
