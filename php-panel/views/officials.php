@@ -18,8 +18,8 @@ $error_message = '';
 // Görevli ekleme işlemi
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && $action === 'add') {
     $user_id = $_POST['user_id'] ?? '';
-    $city_id = isset($_POST['city_id']) ? (int)$_POST['city_id'] : 0;
-    $district_id = isset($_POST['district_id']) && !empty($_POST['district_id']) ? (int)$_POST['district_id'] : null;
+    $city_id = isset($_POST['city_id']) ? $_POST['city_id'] : '';
+    $district_id = isset($_POST['district_id']) && !empty($_POST['district_id']) ? $_POST['district_id'] : null;
     $title = $_POST['title'] ?? '';
     $notes = $_POST['notes'] ?? '';
     
@@ -29,7 +29,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $action === 'add') {
     // Kullanıcı ID ve şehir ID kontrolü
     if (empty($user_id)) {
         $error_message = 'Kullanıcı seçimi zorunludur';
-    } elseif ($city_id <= 0) {
+    } elseif (empty($city_id)) {
         $error_message = 'Şehir seçimi zorunludur';
     } else {
         // Görevli ekle
