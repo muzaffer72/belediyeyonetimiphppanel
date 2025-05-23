@@ -167,10 +167,32 @@ if (!empty($officials)) {
 // Düzenleme modunda ise görevli bilgilerini al
 $edit_official = null;
 if ($action === 'edit' && $official_id > 0) {
+    // Önce doğrudan ID ile arama yapalım
     foreach ($officials as $official) {
-        if ($official['id'] === $official_id) {
+        if ($official['id'] == $official_id) {
             $edit_official = $official;
             break;
+        }
+    }
+    
+    // Eğer görevli bulunamadıysa API üzerinden doğrudan çekelim
+    if (!$edit_official) {
+        $official_result = getDataById('officials', $official_id);
+        if (!$official_result['error'] && isset($official_result['data'])) {
+            $edit_official = $official_result['data'];
+            
+            // Eksik bilgileri tamamlayalım
+            if (isset($edit_official['city_id']) && isset($city_map[$edit_official['city_id']])) {
+                $edit_official['city_name'] = $city_map[$edit_official['city_id']]['name'];
+            } else {
+                $edit_official['city_name'] = 'Bilinmiyor';
+            }
+            
+            if (isset($edit_official['district_id']) && isset($district_map[$edit_official['district_id']])) {
+                $edit_official['district_name'] = $district_map[$edit_official['district_id']]['name'];
+            } else {
+                $edit_official['district_name'] = 'Tüm İlçeler';
+            }
         }
     }
 }
@@ -204,19 +226,19 @@ function getDistricts(cityId, targetElement, selectedDistrictId = null) {
     }
     
     // Form için debug bilgisi göster
-    console.log('Şehir ID: ' + cityId + ' için ilçeler getiriliyor...');
+    console.log('Şehir ID: ' + cityId + ' için ilçeler getiriliyor... (seçili ilçe ID: ' + selectedDistrictId + ')');
     
     // İlçeleri doğrudan sayfada göster
-    const debugInfo = document.createElement('div');
-    debugInfo.className = 'alert alert-info mt-2 mb-2';
-    debugInfo.innerHTML = 'İlçeler yükleniyor... Şehir ID: ' + cityId;
-    
-    const cityFormGroup = document.querySelector('#city_id').closest('.mb-3');
-    const existingDebug = document.querySelector('.alert-info, .alert-danger, .alert-success, .alert-warning');
-    if (existingDebug) {
-        existingDebug.remove();
+    let debugInfo = document.getElementById('city_debug_info');
+    if (!debugInfo) {
+        debugInfo = document.createElement('div');
+        debugInfo.id = 'city_debug_info';
+        const cityFormGroup = document.querySelector('#city_id').closest('.mb-3');
+        cityFormGroup.appendChild(debugInfo);
     }
-    cityFormGroup.appendChild(debugInfo);
+    
+    debugInfo.className = 'alert alert-info mt-2 mb-2';
+    debugInfo.innerHTML = 'İlçeler yükleniyor... Lütfen bekleyin';
     
     // İlçe seçim kutusuna referans
     const districtSelect = document.getElementById(targetElement);
@@ -224,7 +246,7 @@ function getDistricts(cityId, targetElement, selectedDistrictId = null) {
     
     // Doğrudan özel sayfayı çağır (API yerine)
     const xhr = new XMLHttpRequest();
-    xhr.open('GET', 'views/get_districts.php?city_id=' + cityId, true);
+    xhr.open('GET', 'views/get_districts.php?city_id=' + encodeURIComponent(cityId), true);
     
     xhr.onreadystatechange = function() {
         if (xhr.readyState === 4) {
@@ -234,7 +256,15 @@ function getDistricts(cityId, targetElement, selectedDistrictId = null) {
             if (xhr.status === 200) {
                 try {
                     // JSON yanıtını ayrıştırmayı dene
-                    const data = JSON.parse(xhr.responseText);
+                    let data;
+                    try {
+                        data = JSON.parse(xhr.responseText);
+                    } catch (jsonError) {
+                        console.error('JSON parse error:', jsonError);
+                        debugInfo.className = 'alert alert-danger mt-2 mb-2';
+                        debugInfo.innerHTML = 'İlçe verileri alınamadı: JSON ayrıştırma hatası';
+                        return;
+                    }
                     
                     if (data.error) {
                         debugInfo.className = 'alert alert-danger mt-2 mb-2';
@@ -246,8 +276,10 @@ function getDistricts(cityId, targetElement, selectedDistrictId = null) {
                             option.value = district.id;
                             option.textContent = district.name;
                             
-                            if (selectedDistrictId && district.id == selectedDistrictId) {
+                            // Hem ID ile karşılaştır
+                            if (selectedDistrictId && (district.id == selectedDistrictId || district.id === selectedDistrictId)) {
                                 option.selected = true;
+                                console.log('İlçe eşleşti: ', district.id, ' = ', selectedDistrictId);
                             }
                             
                             districtSelect.appendChild(option);
@@ -407,18 +439,22 @@ if (!empty($error_message)) {
                     
                     <div class="col-md-6 mb-3">
                         <label for="city_id" class="form-label">Şehir</label>
-                        <select class="form-select" id="city_id" name="city_id" required onchange="getDistricts(this.value, 'district_id')">
+                        <select class="form-select" id="city_id" name="city_id" required onchange="getDistricts(this.value, 'district_id', '<?php echo $edit_official['district_id'] ?? ''; ?>')">
                             <option value="">Şehir Seçin</option>
                             <?php foreach ($cities as $city): ?>
                                 <option value="<?php echo $city['id']; ?>" <?php echo ($edit_official && isset($edit_official['city_id']) && $edit_official['city_id'] == $city['id']) ? 'selected' : ''; ?>><?php echo htmlspecialchars($city['name']); ?></option>
                             <?php endforeach; ?>
                         </select>
+                        <div id="city_debug_info"></div>
                     </div>
                     
                     <div class="col-md-6 mb-3">
                         <label for="district_id" class="form-label">İlçe (Opsiyonel)</label>
                         <select class="form-select" id="district_id" name="district_id">
                             <option value="">Tüm İlçeler</option>
+                            <?php if ($edit_official && isset($edit_official['district_id']) && !empty($edit_official['district_id'])): ?>
+                                <option value="<?php echo $edit_official['district_id']; ?>" selected><?php echo htmlspecialchars($edit_official['district_name'] ?? 'Seçili İlçe'); ?></option>
+                            <?php endif; ?>
                         </select>
                     </div>
                     
@@ -438,6 +474,23 @@ if (!empty($error_message)) {
                         </a>
                     <?php endif; ?>
                 </div>
+                
+                <?php if ($action === 'edit' && isset($edit_official['city_id'])): ?>
+                <script>
+                // Sayfa yüklendiğinde düzenleme modunda ilçeleri otomatik yükle
+                document.addEventListener('DOMContentLoaded', function() {
+                    // Seçili şehir ve ilçe ID'lerini al
+                    const cityId = '<?php echo $edit_official['city_id']; ?>';
+                    const districtId = '<?php echo $edit_official['district_id'] ?? ''; ?>';
+                    
+                    if (cityId) {
+                        console.log('Düzenleme modunda ilçeler yükleniyor - Şehir ID:', cityId, ' İlçe ID:', districtId);
+                        // İlçeleri yükle
+                        getDistricts(cityId, 'district_id', districtId);
+                    }
+                });
+                </script>
+                <?php endif; ?>
             </form>
         </div>
     </div>
