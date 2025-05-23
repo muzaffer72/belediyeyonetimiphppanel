@@ -16,7 +16,7 @@ if (!isset($_FILES['image']) || empty($_FILES['image']['name'])) {
 }
 
 // Yükleme klasörü
-$upload_dir = __DIR__ . '/../uploads/';
+$upload_dir = __DIR__ . '/../uploads/ads/';
 
 // Klasör yoksa oluştur
 if (!is_dir($upload_dir)) {
@@ -83,8 +83,8 @@ if (move_uploaded_file($file_tmp, $upload_path)) {
     // Dosyaya web üzerinden erişim URL'si
     $base_url = isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on' ? "https://" : "http://";
     $base_url .= $_SERVER['HTTP_HOST'];
-    $url_path = str_replace($_SERVER['DOCUMENT_ROOT'], '', realpath($upload_dir));
-    $image_url = $base_url . '/uploads/' . $new_file_name;
+    // Doğrudan ads dizini içindeki dosyaya URL oluştur
+    $image_url = $base_url . '/php-panel/uploads/ads/' . $new_file_name;
     
     echo json_encode([
         'error' => false, 

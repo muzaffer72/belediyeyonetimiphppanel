@@ -541,6 +541,198 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         button.closest('.input-group').remove();
     }
     
+    // Resim yükleme işlevi
+    function uploadImage() {
+        const fileInput = document.getElementById('image_upload');
+        const progressBar = document.getElementById('upload_progress');
+        const progressBarInner = progressBar.querySelector('.progress-bar');
+        const statusDiv = document.getElementById('upload_status');
+        
+        // Dosya kontrolü
+        if (!fileInput.files.length) {
+            statusDiv.innerHTML = '<div class="alert alert-warning">Lütfen bir resim seçin</div>';
+            return;
+        }
+        
+        const file = fileInput.files[0];
+        
+        // Dosya türü kontrolü
+        const allowedTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
+        if (!allowedTypes.includes(file.type)) {
+            statusDiv.innerHTML = '<div class="alert alert-danger">Sadece JPG, PNG, GIF veya WEBP dosyaları yükleyebilirsiniz</div>';
+            return;
+        }
+        
+        // Dosya boyutu kontrolü (max 5MB)
+        if (file.size > 5 * 1024 * 1024) {
+            statusDiv.innerHTML = '<div class="alert alert-danger">Dosya boyutu 5MB\'ı geçemez</div>';
+            return;
+        }
+        
+        // FormData objesi oluştur
+        const formData = new FormData();
+        formData.append('image', file);
+        
+        // Ajax isteği
+        const xhr = new XMLHttpRequest();
+        xhr.open('POST', 'views/upload_image.php', true);
+        
+        // Yükleme durumunu izle
+        xhr.upload.onprogress = function(e) {
+            if (e.lengthComputable) {
+                const percent = (e.loaded / e.total) * 100;
+                progressBar.classList.remove('d-none');
+                progressBarInner.style.width = percent + '%';
+                progressBarInner.textContent = Math.round(percent) + '%';
+            }
+        };
+        
+        // Yanıt geldiğinde
+        xhr.onload = function() {
+            if (xhr.status === 200) {
+                try {
+                    const response = JSON.parse(xhr.responseText);
+                    
+                    if (!response.error) {
+                        // Başarılı
+                        statusDiv.innerHTML = '<div class="alert alert-success">Resim başarıyla yüklendi</div>';
+                        
+                        // Resim URL'sini ekle
+                        addImageUrlToList(response.url);
+                        
+                        // Önizleme ekle
+                        addImageToPreview(response.url);
+                        
+                        // Formu temizle
+                        fileInput.value = '';
+                    } else {
+                        // Hata
+                        statusDiv.innerHTML = '<div class="alert alert-danger">Hata: ' + response.message + '</div>';
+                    }
+                } catch (e) {
+                    // JSON parse hatası
+                    console.error('JSON ayrıştırma hatası:', e);
+                    statusDiv.innerHTML = '<div class="alert alert-danger">İşlem sırasında bir hata oluştu</div>';
+                }
+            } else {
+                // Sunucu hatası
+                statusDiv.innerHTML = '<div class="alert alert-danger">Sunucu hatası: ' + xhr.status + '</div>';
+            }
+            
+            // İlerleme çubuğunu gizle
+            setTimeout(function() {
+                progressBar.classList.add('d-none');
+            }, 1000);
+        };
+        
+        // Hata durumunda
+        xhr.onerror = function() {
+            statusDiv.innerHTML = '<div class="alert alert-danger">Bağlantı hatası</div>';
+            progressBar.classList.add('d-none');
+        };
+        
+        // İsteği gönder
+        xhr.send(formData);
+    }
+    
+    // Resim URL'sini listeye ekle
+    function addImageUrlToList(url) {
+        const container = document.getElementById('imageUrlsContainer');
+        
+        // Yeni input elementi oluştur
+        const input = document.createElement('input');
+        input.type = 'hidden';
+        input.name = 'image_urls[]';
+        input.value = url;
+        
+        // Container'a ekle
+        container.appendChild(input);
+    }
+    
+    // Görsel önizlemeye resim ekle
+    function addImageToPreview(url) {
+        const previewContainer = document.getElementById('image_preview');
+        
+        // Yeni kart oluştur
+        const col = document.createElement('div');
+        col.className = 'col-md-4 mb-2';
+        col.innerHTML = `
+            <div class="card h-100">
+                <img src="${url}" class="card-img-top" alt="Reklam görseli" style="height: 120px; object-fit: cover;">
+                <div class="card-body p-2 text-center">
+                    <button type="button" class="btn btn-sm btn-danger" onclick="removeImageFromPreview('${url}')">
+                        <i class="fas fa-trash"></i> Kaldır
+                    </button>
+                </div>
+            </div>
+        `;
+        
+        // Önizleme containerına ekle
+        previewContainer.appendChild(col);
+    }
+    
+    // Manuel URL ekleme
+    function addManualImageUrl() {
+        const urlInput = document.getElementById('manual_image_url');
+        const url = urlInput.value.trim();
+        
+        if (!url) {
+            document.getElementById('upload_status').innerHTML = '<div class="alert alert-warning">Lütfen geçerli bir URL girin</div>';
+            return;
+        }
+        
+        // URL formatını kontrol et
+        if (!url.match(/^https?:\/\/.+\.(jpg|jpeg|png|gif|webp)(\?.+)?$/i)) {
+            document.getElementById('upload_status').innerHTML = '<div class="alert alert-warning">Lütfen geçerli bir resim URL\'si girin</div>';
+            return;
+        }
+        
+        // URL'yi ekle
+        addImageUrlToList(url);
+        
+        // Önizlemeye ekle
+        addImageToPreview(url);
+        
+        // Input'u temizle
+        urlInput.value = '';
+        
+        // Başarı mesajı
+        document.getElementById('upload_status').innerHTML = '<div class="alert alert-success">URL başarıyla eklendi</div>';
+    }
+    
+    // Resmi önizlemeden kaldır
+    function removeImageFromPreview(url) {
+        // Önizlemeden kaldır
+        const previewContainer = document.getElementById('image_preview');
+        const cards = previewContainer.querySelectorAll('.card');
+        
+        cards.forEach(card => {
+            const imgSrc = card.querySelector('img').src;
+            if (imgSrc === url) {
+                card.closest('.col-md-4').remove();
+            }
+        });
+        
+        // Gizli input'lardan kaldır
+        const container = document.getElementById('imageUrlsContainer');
+        const inputs = container.querySelectorAll('input[name="image_urls[]"]');
+        
+        inputs.forEach(input => {
+            if (input.value === url) {
+                input.remove();
+            }
+        });
+        
+        // Eğer hiç resim kalmadıysa boş bir input ekle
+        if (container.querySelectorAll('input').length === 0) {
+            const input = document.createElement('input');
+            input.type = 'hidden';
+            input.name = 'image_urls[]';
+            input.value = '';
+            container.appendChild(input);
+        }
+    }
+    
     // Şehire göre ilçeleri yükle
     function loadDistrictsForCity(cityId) {
         if (!cityId) {
