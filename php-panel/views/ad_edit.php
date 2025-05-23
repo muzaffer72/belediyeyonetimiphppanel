@@ -12,8 +12,8 @@ if ($edit_mode) {
     $ad_id = $_GET['id'];
     $ad_result = getDataById('sponsored_ads', $ad_id);
     
-    if ($ad_result) {
-        $ad = $ad_result;
+    if (!$ad_result['error'] && isset($ad_result['data'])) {
+        $ad = $ad_result['data'];
         
         // Kopyalama modunda başlığa "- Kopya" ifadesi ekle
         if ($clone_mode) {

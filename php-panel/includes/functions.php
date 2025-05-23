@@ -15,7 +15,76 @@ function formatDateStr($date, $format = 'd.m.Y H:i') {
     return date($format, $timestamp);
 }
 
-// Config.php'de zaten formatDate fonksiyonu tanımlandığı için buradan kaldırıldı
+/**
+ * Tarih formatla (Genel kullanım)
+ * 
+ * @param string $date ISO 8601 tarih formatı
+ * @param string $format Çıktı formatı
+ * @return string Formatlanmış tarih
+ */
+function formatDate($date, $format = 'd.m.Y H:i') {
+    if (empty($date)) return '-';
+    
+    $timestamp = strtotime($date);
+    return date($format, $timestamp);
+}
+
+/**
+ * Kullanıcının giriş yapmış olup olmadığını kontrol eder
+ * 
+ * @return bool Giriş yapmışsa true, yapmamışsa false döner
+ */
+function isLoggedIn() {
+    return isset($_SESSION['user_id']) && !empty($_SESSION['user_id']);
+}
+
+/**
+ * Kullanıcının belediye görevlisi olup olmadığını kontrol eder
+ * 
+ * @return bool Görevliyse true, değilse false döner
+ */
+function isOfficial() {
+    return isset($_SESSION['is_official']) && $_SESSION['is_official'] === true;
+}
+
+/**
+ * HTML için özel karakterleri kaçış (escape) işleminden geçirir
+ * 
+ * @param string $str İşlenecek metin
+ * @return string İşlenmiş metin
+ */
+function escape($str) {
+    return htmlspecialchars($str, ENT_QUOTES, 'UTF-8');
+}
+
+/**
+ * Güvenli yönlendirme yapar
+ * 
+ * @param string $url Yönlendirilecek URL
+ * @param int $statusCode HTTP durum kodu (varsayılan: 302)
+ * @return void
+ */
+function safeRedirect($url, $statusCode = 302) {
+    // URL'nin geçerli olduğundan emin ol
+    if (!preg_match('/^[a-zA-Z0-9\?\/\=\&\%\.\:\-_]+$/', $url)) {
+        // Geçersiz URL, varsayılan olarak anasayfaya yönlendir
+        $url = 'index.php';
+    }
+    
+    // Tam URL oluştur
+    if (strpos($url, 'http') !== 0) {
+        $url = (isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on' ? "https" : "http") . "://$_SERVER[HTTP_HOST]/$url";
+    }
+    
+    // Çıktı tamponunu temizle
+    if (ob_get_level()) {
+        ob_end_clean();
+    }
+    
+    // Yönlendirme başlıklarını gönder
+    header('Location: ' . $url, true, $statusCode);
+    exit;
+}
 
 /**
  * Supabase'den veri al

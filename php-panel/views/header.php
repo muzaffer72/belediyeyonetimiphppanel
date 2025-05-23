@@ -5,7 +5,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <?php
     // Sayfa başlığını ayarla
-    $current_page = isset($page) ? $page : 'dashboard';
+    $page = isset($_GET['page']) ? $_GET['page'] : 'dashboard';
+    $current_page = $page;
     $page_title = 'Belediye Yönetim Paneli';
     
     // Özel sayfalar için başlıkları ayarla
