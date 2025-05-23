@@ -162,7 +162,7 @@ $party_distribution = getPoliticalPartyDistribution();
 <!-- Ek Kartlar -->
 <div class="row">
     <!-- Siyasi Parti Dağılımı -->
-    <div class="col-md-12">
+    <div class="col-md-6">
         <div class="card">
             <div class="card-header">
                 <span><i class="fas fa-flag me-2"></i> Siyasi Parti Dağılımı</span>
@@ -208,6 +208,193 @@ $party_distribution = getPoliticalPartyDistribution();
                 <script>
                     const partyDistributionData = <?php echo json_encode($party_distribution); ?>;
                 </script>
+                <?php endif; ?>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Parti Performans Skorları -->
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header">
+                <span><i class="fas fa-chart-line me-2"></i> Parti Performans Skorları</span>
+            </div>
+            <div class="card-body">
+                <?php
+                // Partileri performans skorlarına göre al
+                $party_scores_result = getData('political_parties', [
+                    'order' => 'score.desc.nullslast',
+                    'limit' => 5
+                ]);
+                $party_scores = $party_scores_result['data'];
+                ?>
+                
+                <?php if (empty($party_scores)): ?>
+                <p class="text-center">Henüz performans verisi bulunmuyor.</p>
+                <?php else: ?>
+                
+                <div class="table-responsive">
+                    <table class="table table-sm">
+                        <thead>
+                            <tr>
+                                <th>Parti</th>
+                                <th>Skor</th>
+                                <th>Performans</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <?php foreach ($party_scores as $party): ?>
+                            <tr>
+                                <td>
+                                    <div class="d-flex align-items-center">
+                                        <?php if (!empty($party['logo_url'])): ?>
+                                        <img src="<?php echo escape($party['logo_url']); ?>" alt="<?php echo escape($party['name']); ?>" class="me-2" style="width: 24px; height: 24px;">
+                                        <?php else: ?>
+                                        <i class="fas fa-flag me-2"></i>
+                                        <?php endif; ?>
+                                        <?php echo escape($party['name']); ?>
+                                    </div>
+                                </td>
+                                <td>
+                                    <strong><?php echo isset($party['score']) ? number_format(floatval($party['score']), 1) : 'N/A'; ?></strong>
+                                </td>
+                                <td>
+                                    <?php 
+                                    $score = isset($party['score']) ? floatval($party['score']) : 0;
+                                    $scoreClass = 'bg-secondary';
+                                    
+                                    if ($score >= 80) $scoreClass = 'bg-success';
+                                    elseif ($score >= 60) $scoreClass = 'bg-info';
+                                    elseif ($score >= 40) $scoreClass = 'bg-warning';
+                                    elseif ($score > 0) $scoreClass = 'bg-danger';
+                                    ?>
+                                    
+                                    <div class="progress" style="height: 15px;">
+                                        <div class="progress-bar <?php echo $scoreClass; ?>" role="progressbar" 
+                                             style="width: <?php echo min(100, $score); ?>%" 
+                                             aria-valuenow="<?php echo $score; ?>" 
+                                             aria-valuemin="0" aria-valuemax="100">
+                                            <?php echo number_format($score, 1); ?>
+                                        </div>
+                                    </div>
+                                </td>
+                            </tr>
+                            <?php endforeach; ?>
+                        </tbody>
+                    </table>
+                </div>
+                
+                <div class="text-end mt-2">
+                    <a href="index.php?page=parties" class="btn btn-sm btn-outline-primary">
+                        <i class="fas fa-list me-1"></i> Tüm Partileri Görüntüle
+                    </a>
+                </div>
+                <?php endif; ?>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- En İyi İlçeler -->
+<div class="row mt-4">
+    <div class="col-md-12">
+        <div class="card">
+            <div class="card-header">
+                <span><i class="fas fa-trophy me-2"></i> En İyi Performans Gösteren İlçeler</span>
+            </div>
+            <div class="card-body">
+                <?php
+                // En iyi performans gösteren ilçeleri çözüm oranlarına göre al
+                $top_districts_result = getData('districts', [
+                    'select' => 'id,name,city_id,solution_rate,total_complaints,solved_complaints,thanks_count,political_party_id',
+                    'order' => 'solution_rate.desc.nullslast',
+                    'limit' => 10
+                ]);
+                $top_districts = $top_districts_result['data'];
+                
+                // İlçelerin şehir ve parti bilgilerini al
+                foreach ($top_districts as &$district) {
+                    if (isset($district['city_id'])) {
+                        $city_result = getDataById('cities', $district['city_id']);
+                        $district['city_name'] = $city_result ? $city_result['name'] : 'Bilinmiyor';
+                    } else {
+                        $district['city_name'] = 'Bilinmiyor';
+                    }
+                    
+                    if (isset($district['political_party_id'])) {
+                        $party_result = getDataById('political_parties', $district['political_party_id']);
+                        $district['party_name'] = $party_result ? $party_result['name'] : 'Bilinmiyor';
+                    } else {
+                        $district['party_name'] = 'Bilinmiyor';
+                    }
+                }
+                unset($district); // İşaretçiyi kaldır
+                ?>
+                
+                <?php if (empty($top_districts)): ?>
+                <p class="text-center">Henüz ilçe performans verisi bulunmuyor.</p>
+                <?php else: ?>
+                <div class="table-responsive">
+                    <table class="table table-striped">
+                        <thead>
+                            <tr>
+                                <th>Sıra</th>
+                                <th>İlçe</th>
+                                <th>Şehir</th>
+                                <th>Parti</th>
+                                <th>Şikayet</th>
+                                <th>Çözülen</th>
+                                <th>Teşekkür</th>
+                                <th>Çözüm Oranı</th>
+                                <th>İşlemler</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <?php foreach ($top_districts as $index => $district): ?>
+                            <tr>
+                                <td><?php echo $index + 1; ?></td>
+                                <td><strong><?php echo escape($district['name']); ?></strong></td>
+                                <td><?php echo escape($district['city_name']); ?></td>
+                                <td><?php echo escape($district['party_name']); ?></td>
+                                <td><?php echo isset($district['total_complaints']) ? intval($district['total_complaints']) : 0; ?></td>
+                                <td><?php echo isset($district['solved_complaints']) ? intval($district['solved_complaints']) : 0; ?></td>
+                                <td><?php echo isset($district['thanks_count']) ? intval($district['thanks_count']) : 0; ?></td>
+                                <td>
+                                    <?php 
+                                    $solution_rate = isset($district['solution_rate']) ? floatval($district['solution_rate']) : 0;
+                                    $rateClass = 'bg-secondary';
+                                    
+                                    if ($solution_rate >= 80) $rateClass = 'bg-success';
+                                    elseif ($solution_rate >= 60) $rateClass = 'bg-info';
+                                    elseif ($solution_rate >= 40) $rateClass = 'bg-warning';
+                                    elseif ($solution_rate > 0) $rateClass = 'bg-danger';
+                                    ?>
+                                    
+                                    <div class="progress" style="height: 15px;">
+                                        <div class="progress-bar <?php echo $rateClass; ?>" role="progressbar" 
+                                             style="width: <?php echo min(100, $solution_rate); ?>%" 
+                                             aria-valuenow="<?php echo $solution_rate; ?>" 
+                                             aria-valuemin="0" aria-valuemax="100">
+                                            <?php echo number_format($solution_rate, 1); ?>%
+                                        </div>
+                                    </div>
+                                </td>
+                                <td>
+                                    <a href="index.php?page=district_detail&id=<?php echo $district['id']; ?>" class="btn btn-sm btn-info">
+                                        <i class="fas fa-eye"></i>
+                                    </a>
+                                </td>
+                            </tr>
+                            <?php endforeach; ?>
+                        </tbody>
+                    </table>
+                </div>
+                
+                <div class="text-end mt-2">
+                    <a href="index.php?page=districts" class="btn btn-sm btn-outline-primary">
+                        <i class="fas fa-list me-1"></i> Tüm İlçeleri Görüntüle
+                    </a>
+                </div>
                 <?php endif; ?>
             </div>
         </div>

@@ -235,7 +235,7 @@ $district_stats = [
             </div>
             <div class="card-body">
                 <div class="row">
-                    <div class="col-md-4 mb-3">
+                    <div class="col-md-3 mb-3">
                         <div class="card bg-info text-white">
                             <div class="card-body">
                                 <div class="d-flex justify-content-between align-items-center">
@@ -251,7 +251,7 @@ $district_stats = [
                         </div>
                     </div>
                     
-                    <div class="col-md-4 mb-3">
+                    <div class="col-md-3 mb-3">
                         <div class="card bg-success text-white">
                             <div class="card-body">
                                 <div class="d-flex justify-content-between align-items-center">
@@ -267,7 +267,7 @@ $district_stats = [
                         </div>
                     </div>
                     
-                    <div class="col-md-4 mb-3">
+                    <div class="col-md-3 mb-3">
                         <div class="card bg-primary text-white">
                             <div class="card-body">
                                 <div class="d-flex justify-content-between align-items-center">
@@ -277,6 +277,91 @@ $district_stats = [
                                     </div>
                                     <div>
                                         <i class="fas fa-users fa-2x"></i>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="col-md-3 mb-3">
+                        <div class="card bg-warning text-dark">
+                            <div class="card-body">
+                                <div class="d-flex justify-content-between align-items-center">
+                                    <div>
+                                        <h6 class="mb-0">Çözüm Oranı</h6>
+                                        <h2 class="mb-0"><?php echo isset($district['solution_rate']) ? number_format(floatval($district['solution_rate']), 1) : '0'; ?>%</h2>
+                                    </div>
+                                    <div>
+                                        <i class="fas fa-chart-pie fa-2x"></i>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Performans Göstergeleri -->
+                <div class="row mt-3">
+                    <div class="col-md-12">
+                        <div class="card">
+                            <div class="card-header">
+                                <h6 class="mb-0">Performans Göstergeleri</h6>
+                            </div>
+                            <div class="card-body">
+                                <div class="row">
+                                    <div class="col-md-4 mb-3">
+                                        <div class="card bg-light">
+                                            <div class="card-body text-center p-2">
+                                                <h6>Toplam Şikayet</h6>
+                                                <h3><?php echo isset($district['total_complaints']) ? number_format(intval($district['total_complaints'])) : '0'; ?></h3>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    
+                                    <div class="col-md-4 mb-3">
+                                        <div class="card bg-light">
+                                            <div class="card-body text-center p-2">
+                                                <h6>Çözülen Şikayet</h6>
+                                                <h3><?php echo isset($district['solved_complaints']) ? number_format(intval($district['solved_complaints'])) : '0'; ?></h3>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    
+                                    <div class="col-md-4 mb-3">
+                                        <div class="card bg-light">
+                                            <div class="card-body text-center p-2">
+                                                <h6>Teşekkür Sayısı</h6>
+                                                <h3><?php echo isset($district['thanks_count']) ? number_format(intval($district['thanks_count'])) : '0'; ?></h3>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                <div class="mt-3">
+                                    <h6 class="mb-2">Çözüm Oranı</h6>
+                                    <?php 
+                                    $solution_rate = isset($district['solution_rate']) ? floatval($district['solution_rate']) : 0;
+                                    $rateClass = 'bg-secondary';
+                                    
+                                    if ($solution_rate >= 80) $rateClass = 'bg-success';
+                                    elseif ($solution_rate >= 60) $rateClass = 'bg-info';
+                                    elseif ($solution_rate >= 40) $rateClass = 'bg-warning';
+                                    elseif ($solution_rate > 0) $rateClass = 'bg-danger';
+                                    ?>
+                                    
+                                    <div class="progress" style="height: 25px;">
+                                        <div class="progress-bar <?php echo $rateClass; ?>" role="progressbar" 
+                                             style="width: <?php echo min(100, $solution_rate); ?>%" 
+                                             aria-valuenow="<?php echo $solution_rate; ?>" 
+                                             aria-valuemin="0" aria-valuemax="100">
+                                            <?php echo number_format($solution_rate, 1); ?>%
+                                        </div>
+                                    </div>
+                                    
+                                    <div class="mt-3 text-end">
+                                        <a href="index.php?page=dashboard" class="btn btn-primary">
+                                            <i class="fas fa-chart-line me-1"></i> Detaylı Performans Analizi
+                                        </a>
                                     </div>
                                 </div>
                             </div>
