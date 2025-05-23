@@ -82,24 +82,63 @@ function getPostDetail() {
 function getDistrictsByCityId() {
     $city_id = isset($_GET['city_id']) ? (int)$_GET['city_id'] : 0;
     
+    // Debug için bilgi logla
+    error_log('İlçeler getiriliyor - Şehir ID: ' . $city_id);
+    
     if ($city_id <= 0) {
         responseJson(true, 'Geçersiz şehir ID');
         return;
     }
     
-    // İlçeleri al
+    // İlk olarak districts tablosunun yapısını kontrol et
+    $table_info = getData('districts', [
+        'limit' => 1
+    ]);
+    
+    // Debug bilgisi
+    error_log('Districts tablosu bilgisi: ' . json_encode($table_info));
+    
+    // İlçeleri doğrudan city_id ile filtrele
     $districts_result = getData('districts', [
         'select' => 'id,name',
         'city_id' => 'eq.' . $city_id,
         'order' => 'name'
     ]);
     
-    if ($districts_result['error']) {
-        responseJson(true, 'İlçeler alınamadı');
+    // Alternatif sorgu denemesi (Hata durumunda)
+    if (isset($districts_result['error']) && $districts_result['error']) {
+        error_log('İlk sorgu başarısız oldu, alternatif sorgu deneniyor...');
+        
+        // Tüm ilçeleri getir ve PHP tarafında filtreleme yap
+        $all_districts = getData('districts', [
+            'select' => '*',
+            'order' => 'name'
+        ]);
+        
+        if (!isset($all_districts['error']) || !$all_districts['error']) {
+            // PHP tarafında filtreleme
+            $filtered_districts = [];
+            foreach ($all_districts['data'] as $district) {
+                if (isset($district['city_id']) && (int)$district['city_id'] === $city_id) {
+                    $filtered_districts[] = $district;
+                }
+            }
+            
+            responseJson(false, 'İlçeler alternatif yöntemle alındı (' . count($filtered_districts) . ' ilçe)', $filtered_districts);
+            return;
+        }
+    }
+    
+    if (isset($districts_result['error']) && $districts_result['error']) {
+        responseJson(true, 'İlçeler alınamadı: ' . ($districts_result['message'] ?? 'Bilinmeyen hata'));
         return;
     }
     
-    responseJson(false, 'İlçeler başarıyla alındı', $districts_result['data']);
+    // Sonuç bilgisi
+    $districts_count = isset($districts_result['data']) ? count($districts_result['data']) : 0;
+    error_log('Bulunan ilçe sayısı: ' . $districts_count);
+    
+    responseJson(false, 'İlçeler başarıyla alındı (' . $districts_count . ' ilçe)', $districts_result['data']);
 }
 
 /**
