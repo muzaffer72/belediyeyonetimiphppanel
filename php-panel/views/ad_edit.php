@@ -735,15 +735,22 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     
     // Şehire göre ilçeleri yükle
     function loadDistrictsForCity(cityId) {
+        const districtSelect = document.getElementById('district');
+        
         if (!cityId) {
+            districtSelect.innerHTML = '<option value="">Önce şehir seçin</option>';
             return;
         }
         
+        console.log('İlçeler yükleniyor, Şehir ID:', cityId);
+        
         // Yükleme göstergesini göster
-        document.getElementById('city_loading').style.display = 'flex';
+        const cityLoading = document.getElementById('city_loading');
+        if (cityLoading) {
+            cityLoading.style.display = 'flex';
+        }
         
         // İlçe seçimini devre dışı bırak
-        const districtSelect = document.getElementById('district');
         districtSelect.disabled = true;
         
         // AJAX isteği oluştur
