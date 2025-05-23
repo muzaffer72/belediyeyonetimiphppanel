@@ -33,7 +33,8 @@ $valid_pages = [
     'city_edit', 'city_detail', 'district_edit', 'district_detail', 'post_edit', 'post_detail', 'cozumorani',
     'user_edit', 'update_party_scoring', 'update_scoring', 'update_triggers', 'api', 'disable_triggers', 'manuel_query',
     'show_schema', 'trigger_posts', 'custom_sql', 'new_party_scoring', 'advanced_party_scoring', 'trigger_setup',
-    'fix_post_sharing', 'use_cron_only', 'notifications', 'official_login', 'official_dashboard', 'officials'
+    'fix_post_sharing', 'use_cron_only', 'notifications', 'official_login', 'official_dashboard', 'officials',
+    'district_performance', 'party_performance', 'update_district_performance', 'update_party_performance'
 ];
 
 // Sayfa geçerli mi kontrol et

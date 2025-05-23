@@ -230,6 +230,9 @@ endif;
                                         <a href="index.php?page=district_edit&id=<?php echo $district['id']; ?>" class="btn btn-warning" title="Düzenle">
                                             <i class="fas fa-edit"></i>
                                         </a>
+                                        <a href="index.php?page=district_performance&id=<?php echo $district['id']; ?>" class="btn btn-primary" title="Performans Analizi">
+                                            <i class="fas fa-chart-line"></i>
+                                        </a>
                                         <a href="javascript:void(0);" class="btn btn-danger" 
                                            onclick="if(confirm('Bu ilçeyi silmek istediğinizden emin misiniz?')) window.location.href='index.php?page=districts&delete=<?php echo $district['id']; ?>';" 
                                            title="Sil">

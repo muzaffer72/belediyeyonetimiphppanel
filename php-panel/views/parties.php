@@ -253,6 +253,9 @@ endif;
                                         <a href="index.php?page=parties&edit=<?php echo $party['id']; ?>" class="btn btn-warning" title="Düzenle">
                                             <i class="fas fa-edit"></i>
                                         </a>
+                                        <a href="index.php?page=party_performance&id=<?php echo $party['id']; ?>" class="btn btn-primary" title="Performans Analizi">
+                                            <i class="fas fa-chart-line"></i>
+                                        </a>
                                         <a href="javascript:void(0);" class="btn btn-danger" 
                                            onclick="if(confirm('Bu siyasi partiyi silmek istediğinizden emin misiniz?')) window.location.href='index.php?page=parties&delete=<?php echo $party['id']; ?>';" 
                                            title="Sil">
