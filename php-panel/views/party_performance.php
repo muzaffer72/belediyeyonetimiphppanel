@@ -259,7 +259,13 @@ $compare_parties = array_slice($other_parties, 0, 5);
                 <div class="mt-4">
                     <h6 class="mb-2">Son Güncelleme:</h6>
                     <p class="mb-0 text-muted">
-                        <?php echo isset($party['last_updated']) ? formatDate($party['last_updated']) : 'Belirtilmemiş'; ?>
+                        <?php 
+                        if (isset($party['last_updated'])) {
+                            echo date('d.m.Y H:i', strtotime($party['last_updated']));
+                        } else {
+                            echo 'Belirtilmemiş';
+                        }
+                        ?>
                     </p>
                 </div>
             </div>

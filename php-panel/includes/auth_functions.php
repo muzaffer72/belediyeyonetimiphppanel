@@ -55,14 +55,11 @@ function supabaseLogin($login_data) {
 
 /**
  * Kullanıcının admin olup olmadığını kontrol eder
- * Config.php içindeki isLoggedIn fonksiyonunu genişletir
+ * Config.php içinde zaten tanımlandığından burada yeniden tanımlanmıyor
  * 
  * @return bool Admin ise true, değilse false
  */
-function isAdmin() {
-    return isset($_SESSION['is_admin']) && $_SESSION['is_admin'] === true || 
-           (isset($_SESSION['admin_logged_in']) && $_SESSION['admin_logged_in'] === true);
-}
+// Not: isAdmin fonksiyonu config.php'de zaten tanımlandığı için burada kaldırıldı
 
 /**
  * Kullanıcının belediye görevlisi olup olmadığını kontrol eder

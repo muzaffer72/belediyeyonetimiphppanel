@@ -2,6 +2,20 @@
 // Supabase API ile iletişim fonksiyonları
 
 /**
+ * Tarih formatla
+ * 
+ * @param string $date ISO 8601 tarih formatı
+ * @param string $format Çıktı formatı
+ * @return string Formatlanmış tarih
+ */
+function formatDateStr($date, $format = 'd.m.Y H:i') {
+    if (empty($date)) return '-';
+    
+    $timestamp = strtotime($date);
+    return date($format, $timestamp);
+}
+
+/**
  * Supabase'den veri al
  * 
  * @param string $table Tablo adı

@@ -332,7 +332,13 @@ if (!empty($city)) {
                 <div class="mt-3">
                     <h6 class="mb-2">Son Güncelleme:</h6>
                     <p class="mb-0 text-muted">
-                        <?php echo isset($party_info['last_updated']) ? formatDate($party_info['last_updated']) : 'Belirtilmemiş'; ?>
+                        <?php 
+                        if (isset($party_info['last_updated'])) {
+                            echo isset($party_info['last_updated']) ? date('d.m.Y H:i', strtotime($party_info['last_updated'])) : 'Belirtilmemiş';
+                        } else {
+                            echo 'Belirtilmemiş';
+                        }
+                        ?>
                     </p>
                 </div>
             </div>
