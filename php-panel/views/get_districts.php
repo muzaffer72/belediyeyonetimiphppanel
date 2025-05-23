@@ -1,87 +1,76 @@
 <?php
-// Yapılandırma dosyasını ve gerekli fonksiyonları yükle
+// Gerekli dosyaları dahil et
 require_once(__DIR__ . '/../config/config.php');
 require_once(__DIR__ . '/../includes/functions.php');
 
-// Şehir ID'sini al - string olarak tutuluyor olabilir (UUID formatında)
-$city_id = isset($_GET['city_id']) ? $_GET['city_id'] : '';
+// Hata ayıklama modu
+$debug = false;
 
-// Debug için bilgiyi yazdır
-error_log('İlçeler talep ediliyor - Şehir ID: ' . $city_id);
+// Yanıt formatı
+header('Content-Type: application/json');
 
-// Hata kontrolü - boş olmaması yeterli
-if (empty($city_id)) {
-    echo json_encode(['error' => true, 'message' => 'Geçersiz şehir ID (boş)']);
+// Şehir ID kontrolü
+if (!isset($_GET['city_id']) || empty($_GET['city_id'])) {
+    echo json_encode(['error' => true, 'message' => 'Şehir ID\'si belirtilmedi']);
     exit;
 }
 
-// İlçeleri al - En güvenilir yöntem
+$city_id = $_GET['city_id'];
+
 try {
-    error_log('Tüm ilçeleri getirmeyi deniyorum...');
+    // Supabase'e bağlan
+    $supabase = new Supabase($supabase_url, $supabase_key);
     
-    // Tüm ilçeleri getir
-    $all_districts = getData('districts', [
-        'select' => 'id,name,city_id',
-        'order' => 'name'
-    ]);
+    // İlçeleri şehir ID'sine göre filtrele
+    $query = [
+        'select' => '*',
+        'city_id' => 'eq.' . $city_id,
+        'order' => 'name.asc'
+    ];
     
-    // Başarılı mı?
-    if (!isset($all_districts['error']) || !$all_districts['error']) {
-        // İlçeleri manuel olarak filtrele
-        $filtered_districts = [];
-        
-        foreach ($all_districts['data'] as $district) {
-            if (isset($district['city_id']) && $district['city_id'] == $city_id) {
-                $filtered_districts[] = [
-                    'id' => $district['id'],
-                    'name' => $district['name']
-                ];
-            }
+    $districts_response = $supabase->from('districts')->select('*')->eq('city_id', $city_id)->order('name', 'asc')->execute();
+    
+    // Hata kontrolü
+    if (isset($districts_response['error'])) {
+        if ($debug) {
+            echo json_encode([
+                'error' => true, 
+                'message' => 'İlçeler yüklenirken bir hata oluştu', 
+                'api_error' => $districts_response['error']
+            ]);
+        } else {
+            echo json_encode(['error' => true, 'message' => 'İlçeler yüklenirken bir hata oluştu']);
         }
-        
-        // Hemen başarılı sonuç döndür
-        echo json_encode([
-            'error' => false,
-            'message' => 'İlçeler manuel filtrelemeyle alındı (' . count($filtered_districts) . ' ilçe)',
-            'data' => $filtered_districts
-        ]);
         exit;
     }
     
-    // İlk yöntem başarısız oldu, standart yöntemi dene
-    error_log('Manuel filtreleme başarısız oldu, standart sorguyu deniyorum...');
+    // İlçeleri diziye aktar
+    $districts = [];
+    if (isset($districts_response['data']) && is_array($districts_response['data'])) {
+        foreach ($districts_response['data'] as $district) {
+            $districts[] = [
+                'id' => $district['id'],
+                'name' => $district['name'],
+                'city_id' => $district['city_id']
+            ];
+        }
+    }
     
-    $districts_result = getData('districts', [
-        'select' => 'id,name',
-        'city_id' => 'eq.' . $city_id,
-        'order' => 'name'
+    // Sonuçları döndür
+    echo json_encode([
+        'error' => false,
+        'districts' => $districts
     ]);
+    
 } catch (Exception $e) {
-    error_log('İlçe getirme işleminde exception: ' . $e->getMessage());
-    
-    // Hatayı yakaladık, standart sonuç döndür
-    echo json_encode([
-        'error' => false,
-        'message' => 'İlçe verisi alınamadı (hata nedeniyle)',
-        'data' => []
-    ]);
-    exit;
-}
-
-// Sonucu kontrol et
-if (isset($districts_result['error']) && $districts_result['error']) {
-    // Hata varsa boş bir sonuç döndür
-    echo json_encode([
-        'error' => false, 
-        'message' => 'Veri bulunamadı',
-        'data' => []
-    ]);
-} else {
-    // Başarılı sonuç
-    echo json_encode([
-        'error' => false,
-        'message' => 'İlçeler başarıyla alındı',
-        'data' => $districts_result['data'] ?? []
-    ]);
+    if ($debug) {
+        echo json_encode([
+            'error' => true, 
+            'message' => 'İstek sırasında bir hata oluştu', 
+            'exception' => $e->getMessage()
+        ]);
+    } else {
+        echo json_encode(['error' => true, 'message' => 'İstek sırasında bir hata oluştu']);
+    }
 }
 ?>

@@ -207,7 +207,29 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                             </div>
                             
                             <div class="mb-3">
-                                <label class="form-label">Görsel URL'leri</label>
+                                <label class="form-label">Görseller</label>
+                                
+                                <!-- Görsel önizleme alanı -->
+                                <div id="image_preview" class="mb-3 row">
+                                    <?php if (!empty($image_urls) && is_array($image_urls)): ?>
+                                        <?php foreach($image_urls as $url): ?>
+                                            <?php if (!empty($url)): ?>
+                                            <div class="col-md-4 mb-2">
+                                                <div class="card h-100">
+                                                    <img src="<?php echo escape($url); ?>" class="card-img-top" alt="Reklam görseli" style="height: 120px; object-fit: cover;">
+                                                    <div class="card-body p-2 text-center">
+                                                        <button type="button" class="btn btn-sm btn-danger" onclick="removeImageFromPreview('<?php echo escape($url); ?>')">
+                                                            <i class="fas fa-trash"></i> Kaldır
+                                                        </button>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            <?php endif; ?>
+                                        <?php endforeach; ?>
+                                    <?php endif; ?>
+                                </div>
+                                
+                                <!-- Görsel URL'leri (gizli) -->
                                 <div id="imageUrlsContainer">
                                     <?php 
                                     $image_urls = [];
@@ -223,21 +245,36 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                                     
                                     foreach ($image_urls as $index => $url): 
                                     ?>
-                                    <div class="input-group mb-2">
-                                        <input type="text" class="form-control" name="image_urls[]" value="<?php echo escape($url); ?>" placeholder="https://...">
-                                        <?php if ($index === 0): ?>
-                                            <button type="button" class="btn btn-success" onclick="addImageUrl()">
-                                                <i class="fas fa-plus"></i>
-                                            </button>
-                                        <?php else: ?>
-                                            <button type="button" class="btn btn-danger" onclick="removeImageUrl(this)">
-                                                <i class="fas fa-minus"></i>
-                                            </button>
-                                        <?php endif; ?>
-                                    </div>
+                                    <input type="hidden" name="image_urls[]" value="<?php echo escape($url); ?>">
                                     <?php endforeach; ?>
                                 </div>
-                                <small class="form-text text-muted">Görsellerin tam URL'lerini ekleyin. Birden fazla görsel ekleyebilirsiniz.</small>
+                                
+                                <!-- Resim yükleme bölümü -->
+                                <div class="card mb-3">
+                                    <div class="card-header bg-light">
+                                        <h6 class="mb-0">Resim Yükleme</h6>
+                                    </div>
+                                    <div class="card-body">
+                                        <div class="input-group">
+                                            <input type="file" class="form-control" id="image_upload" accept="image/*">
+                                            <button type="button" class="btn btn-primary" onclick="uploadImage()">
+                                                <i class="fas fa-upload me-1"></i> Yükle
+                                            </button>
+                                        </div>
+                                        <div class="progress mt-2 d-none" id="upload_progress">
+                                            <div class="progress-bar progress-bar-striped progress-bar-animated" role="progressbar" style="width: 0%"></div>
+                                        </div>
+                                        <div id="upload_status" class="mt-2"></div>
+                                        <small class="form-text text-muted mt-2">Yüklediğiniz görseller otomatik olarak URL'e dönüştürülecek. Ayrıca doğrudan URL de ekleyebilirsiniz:</small>
+                                        
+                                        <div class="input-group mt-2">
+                                            <input type="text" class="form-control" id="manual_image_url" placeholder="https://...">
+                                            <button type="button" class="btn btn-success" onclick="addManualImageUrl()">
+                                                <i class="fas fa-plus"></i> Ekle
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -364,9 +401,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                                 </div>
                             </div>
                             
-                            <div id="city_field" class="mb-3" style="display: <?php echo ($ad && ($ad['ad_display_scope'] === 'il' || $ad['ad_display_scope'] === 'ililce')) ? 'block' : 'none'; ?>;">
+                            <div id="city_field" class="mb-3" style="display: <?php echo ($ad && ($ad['ad_display_scope'] === 'il' || $ad['ad_display_scope'] === 'ilce' || $ad['ad_display_scope'] === 'ililce')) ? 'block' : 'none'; ?>;">
                                 <label for="city" class="form-label">Şehir <span class="text-danger">*</span></label>
-                                <select class="form-select" id="city" name="city" onchange="updateCityId()">
+                                <select class="form-select" id="city" name="city" onchange="updateCityId(); loadDistrictsForCity(this.options[this.selectedIndex].getAttribute('data-id'));">
                                     <option value="">Şehir Seçin</option>
                                     <?php foreach ($cities as $city): ?>
                                         <option value="<?php echo escape($city['name']); ?>" 
@@ -377,19 +414,25 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                                     <?php endforeach; ?>
                                 </select>
                                 <input type="hidden" id="city_id" name="city_id" value="<?php echo $ad && isset($ad['city_id']) ? $ad['city_id'] : ''; ?>">
+                                <div id="city_loading" class="mt-2" style="display: none;">
+                                    <div class="spinner-border spinner-border-sm text-primary" role="status">
+                                        <span class="visually-hidden">Yükleniyor...</span>
+                                    </div>
+                                    <span class="ms-2">İlçeler yükleniyor...</span>
+                                </div>
                             </div>
                             
                             <div id="district_field" class="mb-3" style="display: <?php echo ($ad && ($ad['ad_display_scope'] === 'ilce' || $ad['ad_display_scope'] === 'ililce')) ? 'block' : 'none'; ?>;">
                                 <label for="district" class="form-label">İlçe <span class="text-danger">*</span></label>
                                 <select class="form-select" id="district" name="district" onchange="updateDistrictId()">
                                     <option value="">İlçe Seçin</option>
-                                    <?php foreach ($districts as $district): ?>
-                                        <option value="<?php echo escape($district['name']); ?>" 
-                                                data-id="<?php echo $district['id']; ?>" 
-                                                <?php echo ($ad && isset($ad['district']) && $ad['district'] === $district['name']) ? 'selected' : ''; ?>>
-                                            <?php echo escape($district['name']); ?>
+                                    <?php if ($ad && isset($ad['district']) && !empty($ad['district'])): ?>
+                                        <option value="<?php echo escape($ad['district']); ?>" 
+                                                data-id="<?php echo $ad['district_id']; ?>" 
+                                                selected>
+                                            <?php echo escape($ad['district']); ?>
                                         </option>
-                                    <?php endforeach; ?>
+                                    <?php endif; ?>
                                 </select>
                                 <input type="hidden" id="district_id" name="district_id" value="<?php echo $ad && isset($ad['district_id']) ? $ad['district_id'] : ''; ?>">
                             </div>
@@ -433,8 +476,24 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         const scopeIlce = document.getElementById('scope_ilce').checked;
         const scopeIlIlce = document.getElementById('scope_ililce').checked;
         
-        document.getElementById('city_field').style.display = (scopeIl || scopeIlIlce) ? 'block' : 'none';
+        // Şehir alanını tüm ilgili durumlarda göster
+        document.getElementById('city_field').style.display = (scopeIl || scopeIlce || scopeIlIlce) ? 'block' : 'none';
         document.getElementById('district_field').style.display = (scopeIlce || scopeIlIlce) ? 'block' : 'none';
+        
+        // İlçe seçeneği için, şehir seçildiğinde ilçe seçme alanını göster
+        if (scopeIlce) {
+            // İlçe seçildiğinde önce şehir seçilmeli
+            const citySelect = document.getElementById('city');
+            if (citySelect.value) {
+                // Şehir seçiliyse ilçeleri yükle
+                const cityId = citySelect.options[citySelect.selectedIndex].getAttribute('data-id');
+                loadDistrictsForCity(cityId);
+            } else {
+                // Şehir seçili değilse ilçe listesini temizle
+                const districtSelect = document.getElementById('district');
+                districtSelect.innerHTML = '<option value="">Önce şehir seçin</option>';
+            }
+        }
     }
     
     // Şehir ID'sini güncelle
@@ -482,10 +541,87 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         button.closest('.input-group').remove();
     }
     
+    // Şehire göre ilçeleri yükle
+    function loadDistrictsForCity(cityId) {
+        if (!cityId) {
+            return;
+        }
+        
+        // Yükleme göstergesini göster
+        document.getElementById('city_loading').style.display = 'flex';
+        
+        // İlçe seçimini devre dışı bırak
+        const districtSelect = document.getElementById('district');
+        districtSelect.disabled = true;
+        
+        // AJAX isteği oluştur
+        const xhr = new XMLHttpRequest();
+        xhr.open('GET', 'views/get_districts.php?city_id=' + encodeURIComponent(cityId), true);
+        
+        xhr.onload = function() {
+            if (xhr.status === 200) {
+                try {
+                    const response = JSON.parse(xhr.responseText);
+                    
+                    // İlçe listesini temizle
+                    districtSelect.innerHTML = '<option value="">İlçe Seçin</option>';
+                    
+                    // Yeni ilçeleri ekle
+                    if (response.districts && response.districts.length > 0) {
+                        response.districts.forEach(function(district) {
+                            const option = document.createElement('option');
+                            option.value = district.name;
+                            option.setAttribute('data-id', district.id);
+                            option.textContent = district.name;
+                            districtSelect.appendChild(option);
+                        });
+                        
+                        // İlçe seçimi etkinleştir
+                        districtSelect.disabled = false;
+                    } else {
+                        // İlçe yoksa mesaj göster
+                        districtSelect.innerHTML = '<option value="">Bu şehirde ilçe bulunamadı</option>';
+                    }
+                } catch (e) {
+                    console.error('İlçeleri ayrıştırma hatası:', e);
+                    districtSelect.innerHTML = '<option value="">İlçeler yüklenemedi</option>';
+                }
+            } else {
+                console.error('İlçeleri yükleme hatası:', xhr.status);
+                districtSelect.innerHTML = '<option value="">İlçeler yüklenemedi</option>';
+            }
+            
+            // Yükleme göstergesini gizle
+            document.getElementById('city_loading').style.display = 'none';
+            
+            // İlçe etkinleştir
+            districtSelect.disabled = false;
+        };
+        
+        xhr.onerror = function() {
+            console.error('Bağlantı hatası');
+            document.getElementById('city_loading').style.display = 'none';
+            districtSelect.disabled = false;
+            districtSelect.innerHTML = '<option value="">Bağlantı hatası</option>';
+        };
+        
+        xhr.send();
+    }
+    
     // Form yüklendiğinde
     document.addEventListener('DOMContentLoaded', function() {
         // ID değerlerini güncelle
         updateCityId();
         updateDistrictId();
+        
+        // İlçe seçimi aktifse ve bir şehir seçiliyse ilçeleri yükle
+        const scopeIlce = document.getElementById('scope_ilce').checked;
+        const scopeIlIlce = document.getElementById('scope_ililce').checked;
+        const citySelect = document.getElementById('city');
+        
+        if ((scopeIlce || scopeIlIlce) && citySelect.value) {
+            const cityId = citySelect.options[citySelect.selectedIndex].getAttribute('data-id');
+            loadDistrictsForCity(cityId);
+        }
     });
 </script>
