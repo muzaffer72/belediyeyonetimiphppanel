@@ -319,7 +319,7 @@ if (!empty($error_message)) {
         </div>
         <div class="card-body">
             <div class="table-responsive">
-                <table class="table table-striped table-hover" id="officials-table">
+                <table class="table table-striped" id="officials-table">
                     <thead>
                         <tr>
                             <th>ID</th>
@@ -371,7 +371,8 @@ if (!empty($error_message)) {
 <?php echo $districts_js; ?>
 
 document.addEventListener('DOMContentLoaded', function() {
-    // DataTable'ı başlat
+    // DataTable hatası aldığımız için devre dışı bıraktık
+    /*
     if (typeof $.fn.DataTable !== 'undefined') {
         $('#officials-table').DataTable({
             language: {
@@ -380,6 +381,7 @@ document.addEventListener('DOMContentLoaded', function() {
             order: [[0, 'desc']]
         });
     }
+    */
     
     // Şehir seçildiğinde ilçeleri getir
     const citySelect = document.getElementById('city_id');
