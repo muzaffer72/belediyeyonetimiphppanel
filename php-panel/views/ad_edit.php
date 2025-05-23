@@ -657,7 +657,24 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     
     // Resim URL'sini listeye ekle
     function addImageUrlToList(url) {
+        if (!url || typeof url !== 'string' || url.trim() === '') {
+            console.error('Geçersiz URL eklenemedi:', url);
+            return;
+        }
+        
+        // URL'yi temizle
+        url = url.trim();
+        
         const container = document.getElementById('imageUrlsContainer');
+        
+        // URL zaten eklenmiş mi kontrol et
+        const inputs = container.querySelectorAll('input[name="image_urls[]"]');
+        for (let i = 0; i < inputs.length; i++) {
+            if (inputs[i].value === url) {
+                console.log('Bu URL zaten eklenmiş:', url);
+                return; // Aynı URL'yi tekrar ekleme
+            }
+        }
         
         // Yeni input elementi oluştur
         const input = document.createElement('input');
@@ -667,28 +684,76 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         
         // Container'a ekle
         container.appendChild(input);
+        console.log('URL başarıyla listeye eklendi:', url);
     }
     
     // Görsel önizlemeye resim ekle
     function addImageToPreview(url) {
+        if (!url || typeof url !== 'string' || url.trim() === '') {
+            console.error('Geçersiz URL:', url);
+            return;
+        }
+        
+        // Konsola URL'yi yazdır (debug için)
+        console.log('Önizlemeye eklenecek resim URL:', url);
+        
         const previewContainer = document.getElementById('image_preview');
+        
+        // Aynı URL ile zaten bir resim var mı kontrol et
+        const existingImages = previewContainer.querySelectorAll('img');
+        for (let i = 0; i < existingImages.length; i++) {
+            if (existingImages[i].src === url) {
+                console.log('Bu resim zaten eklenmiş:', url);
+                return; // Aynı resmi tekrar ekleme
+            }
+        }
         
         // Yeni kart oluştur
         const col = document.createElement('div');
         col.className = 'col-md-4 mb-2';
-        col.innerHTML = `
-            <div class="card h-100">
-                <img src="${url}" class="card-img-top" alt="Reklam görseli" style="height: 120px; object-fit: cover;">
-                <div class="card-body p-2 text-center">
-                    <button type="button" class="btn btn-sm btn-danger" onclick="removeImageFromPreview('${url}')">
-                        <i class="fas fa-trash"></i> Kaldır
-                    </button>
-                </div>
-            </div>
-        `;
+        
+        // Resim yüklenememe hatasını yakalamak için resmi manuel oluştur
+        const imgElement = document.createElement('img');
+        imgElement.src = url;
+        imgElement.className = 'card-img-top';
+        imgElement.alt = 'Reklam görseli';
+        imgElement.style.height = '120px';
+        imgElement.style.objectFit = 'cover';
+        
+        // Resim yüklenme hatası durumunda
+        imgElement.onerror = function() {
+            console.error('Resim yüklenemedi:', url);
+            imgElement.src = 'https://via.placeholder.com/300x200?text=Resim+Y%C3%BCklenemedi';
+            // Hata mesajı göster
+            document.getElementById('upload_status').innerHTML = 
+                `<div class="alert alert-warning">Resim yüklenemedi: ${url}</div>`;
+        };
+        
+        // Kart oluşturma
+        const cardDiv = document.createElement('div');
+        cardDiv.className = 'card h-100';
+        
+        const cardBody = document.createElement('div');
+        cardBody.className = 'card-body p-2 text-center';
+        
+        const removeButton = document.createElement('button');
+        removeButton.type = 'button';
+        removeButton.className = 'btn btn-sm btn-danger';
+        removeButton.innerHTML = '<i class="fas fa-trash"></i> Kaldır';
+        removeButton.onclick = function() {
+            removeImageFromPreview(url);
+        };
+        
+        // Elemanları birleştir
+        cardBody.appendChild(removeButton);
+        cardDiv.appendChild(imgElement);
+        cardDiv.appendChild(cardBody);
+        col.appendChild(cardDiv);
         
         // Önizleme containerına ekle
         previewContainer.appendChild(col);
+        
+        console.log('Resim başarıyla önizlemeye eklendi');
     }
     
     // Manuel URL ekleme
