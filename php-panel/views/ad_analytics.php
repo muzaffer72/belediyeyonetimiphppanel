@@ -11,13 +11,18 @@ if (!isset($_GET['id']) || empty($_GET['id'])) {
 
 // Reklam bilgilerini al
 $ad_id = $_GET['id'];
-$ad = getDataById('sponsored_ads', $ad_id);
+$ad_result = getDataById('sponsored_ads', $ad_id);
 
-if (!$ad) {
-    $_SESSION['message'] = 'Reklam bulunamadı';
+// Dönen sonucu kontrol et
+if (!$ad_result || $ad_result['error'] || !isset($ad_result['data'])) {
+    $_SESSION['message'] = 'Reklam bulunamadı: ' . ($ad_result['message'] ?? 'Bilinmeyen hata');
     $_SESSION['message_type'] = 'danger';
-    safeRedirect('index.php?page=advertisements');
+    redirect('index.php?page=advertisements');
+    exit;
 }
+
+// Reklam verisini al
+$ad = $ad_result['data'];
 
 // Reklamın etkileşimlerini al
 $interactions_result = getData('ad_interactions', [
@@ -157,26 +162,45 @@ unset($user);
                 <table class="table">
                     <tr>
                         <th style="width: 150px;">Başlık:</th>
-                        <td><?php echo escape($ad['title']); ?></td>
+                        <td><?php echo escape($ad['title'] ?? 'Başlık Belirtilmemiş'); ?></td>
                     </tr>
                     <tr>
                         <th>Kampanya Süresi:</th>
                         <td>
                             <?php
-                            $start_date = date('d.m.Y', strtotime($ad['start_date']));
-                            $end_date = date('d.m.Y', strtotime($ad['end_date']));
+                            // Tarih alanları boş olabilir, o yüzden kontrol edelim
+                            $start_date_str = isset($ad['start_date']) && !empty($ad['start_date']) ? $ad['start_date'] : null;
+                            $end_date_str = isset($ad['end_date']) && !empty($ad['end_date']) ? $ad['end_date'] : null;
+                            
+                            if ($start_date_str) {
+                                $start_date = date('d.m.Y', strtotime($start_date_str));
+                            } else {
+                                $start_date = 'Belirtilmemiş';
+                            }
+                            
+                            if ($end_date_str) {
+                                $end_date = date('d.m.Y', strtotime($end_date_str));
+                            } else {
+                                $end_date = 'Belirtilmemiş';
+                            }
+                            
                             echo $start_date . ' - ' . $end_date;
                             
                             // Kalan süreyi göster
                             $now = time();
-                            $end = strtotime($ad['end_date']);
                             
-                            if ($end > $now) {
-                                $diff = $end - $now;
-                                $days = floor($diff / (60 * 60 * 24));
-                                echo ' <span class="badge bg-info">' . $days . ' gün kaldı</span>';
+                            if ($end_date_str) {
+                                $end = strtotime($end_date_str);
+                                
+                                if ($end > $now) {
+                                    $diff = $end - $now;
+                                    $days = floor($diff / (60 * 60 * 24));
+                                    echo ' <span class="badge bg-info">' . $days . ' gün kaldı</span>';
+                                } else {
+                                    echo ' <span class="badge bg-secondary">Süresi Dolmuş</span>';
+                                }
                             } else {
-                                echo ' <span class="badge bg-secondary">Süresi Dolmuş</span>';
+                                echo ' <span class="badge bg-warning">Tanımlanmamış</span>';
                             }
                             ?>
                         </td>
@@ -184,9 +208,12 @@ unset($user);
                     <tr>
                         <th>Durum:</th>
                         <td>
-                            <?php if ($ad['status'] === 'active'): ?>
+                            <?php
+                            $status = isset($ad['status']) ? $ad['status'] : '';
+                            
+                            if ($status === 'active'): ?>
                                 <span class="badge bg-success">Aktif</span>
-                            <?php elseif ($ad['status'] === 'paused'): ?>
+                            <?php elseif ($status === 'paused'): ?>
                                 <span class="badge bg-warning text-dark">Duraklatıldı</span>
                             <?php else: ?>
                                 <span class="badge bg-secondary">Pasif</span>
@@ -197,7 +224,9 @@ unset($user);
                         <th>Kapsam:</th>
                         <td>
                             <?php
-                            switch ($ad['ad_display_scope']) {
+                            $ad_display_scope = isset($ad['ad_display_scope']) ? $ad['ad_display_scope'] : '';
+                            
+                            switch ($ad_display_scope) {
                                 case 'il':
                                     echo '<span class="badge bg-primary">İl: ' . escape($ad['city'] ?? 'Tümü') . '</span>';
                                     break;
