@@ -25,6 +25,9 @@
     <!-- Chart.js -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.0.1/dist/chart.umd.js"></script>
     
+    <!-- DataTables Düzeltmesi -->
+    <script src="/php-panel/assets/js/datatables-fix.js"></script>
+    
     <!-- Custom JS -->
     <script>
         // Sidebar Toggle

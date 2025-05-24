@@ -406,7 +406,7 @@ endif;
     </div>
     <div class="card-body">
         <div class="table-responsive">
-            <table class="table table-bordered table-striped table-hover">
+            <table id="posts-table" class="table table-bordered table-striped table-hover data-table">
                 <thead>
                     <tr>
                         <th>Başlık</th>
