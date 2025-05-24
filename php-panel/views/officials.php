@@ -314,19 +314,13 @@ function getDistricts(cityId, targetElement, selectedDistrictId = null) {
                             debugInfo.className = 'alert alert-info mt-2 mb-2';
                             debugInfo.innerHTML = 'Yerel veri kullanıldı: ' + defaultDistricts[cityId].length + ' ilçe yüklendi.';
                         } 
-                        // Yerel veri yoksa tüm şehir seçeneklerinin ilçe ID'lerini al
+                        // Yerel veri yoksa sadece "Tüm İlçeler" seçeneğini göster
                         else {
-                            const cityOptions = Array.from(document.querySelectorAll('#city_id option'));
-                            for (let i = 0; i < cityOptions.length; i++) {
-                                if (cityOptions[i].value) {
-                                    const option = document.createElement('option');
-                                    option.value = 'district_' + i;
-                                    option.textContent = cityOptions[i].textContent + ' İlçesi';
-                                    districtSelect.appendChild(option);
-                                }
-                            }
+                            // Sadece "Tüm İlçeler" seçeneğini koruyalım
+                            districtSelect.innerHTML = '<option value="">Tüm İlçeler</option>';
                             
-                            debugInfo.innerHTML = 'Şehir isimlerine göre ilçe seçenekleri oluşturuldu.';
+                            debugInfo.className = 'alert alert-warning mt-2 mb-2';
+                            debugInfo.innerHTML = 'Bu şehir için ilçe bulunamadı. Tüm ilçeler otomatik olarak seçilecektir.';
                         }
                     }
                 } catch (e) {
