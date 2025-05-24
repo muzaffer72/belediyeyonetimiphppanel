@@ -423,6 +423,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                                         Belirli Bir İl ve İlçe
                                     </label>
                                 </div>
+                                <div class="form-check">
+                                    <input class="form-check-input" type="radio" name="ad_display_scope" id="scope_splash" value="splash" 
+                                           <?php echo ($ad && $ad['ad_display_scope'] === 'splash') ? 'checked' : ''; ?> 
+                                           onchange="toggleScopeFields()">
+                                    <label class="form-check-label" for="scope_splash">
+                                        Açılış Sayfası
+                                    </label>
+                                </div>
                             </div>
                             
                             <div id="city_field" class="mb-3" style="display: <?php echo ($ad && ($ad['ad_display_scope'] === 'il' || $ad['ad_display_scope'] === 'ilce' || $ad['ad_display_scope'] === 'ililce')) ? 'block' : 'none'; ?>;">
