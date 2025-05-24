@@ -23,24 +23,29 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (empty($email) || empty($password)) {
         $error = 'E-posta ve şifre gereklidir';
     } else {
-        // TEST AMAÇLI: Herhangi bir e-posta ve '123456' şifresi ile giriş yapabilme (geliştirme modu)
-        // NOT: Bu kod sadece test amaçlıdır, gerçek ortamda kaldırılmalıdır
+        // TEST AMAÇLI: Gerçek veritabanı yapısına uygun test girişi (geliştirme modu)
+        // NOT: Bu kod sadece test amaçlıdır, gerçek ortamda API bağlantısı kullanılmalıdır
         if ($password === '123456') {
-            // Temel görevli bilgilerini oluştur
-            $official_id = 'test_official_' . rand(1000, 9999);
-            $city_id = 1; // Varsayılan şehir ID
-            $district_id = 1; // Varsayılan ilçe ID
+            // Veritabanındaki örnek belediye görevlisi verilerine göre giriş yapılıyor
+            // Gerçek veritabanı yapısına uygun olarak UUID formatında veriler kullanılıyor
+            
+            // officials tablosundan alınan örnek veri:
+            // id, user_id, city_id, district_id, title, notes, created_at, updated_at
+            $official_id = '4'; // Officials tablosundaki ID
+            $user_id = '83190944-98d5-41be-ac3a-178676faf017'; // User ID (UUID formatında)
+            $city_id = '550e8400-e29b-41d4-a716-446655440072'; // City ID (UUID formatında)
+            $district_id = '660e8400-e29b-41d4-a716-446655593166'; // District ID (UUID formatında)
             
             // Session'a görevli bilgilerini kaydet
-            $_SESSION['user_id'] = 'test_user_' . rand(1000, 9999);
+            $_SESSION['user_id'] = $user_id;
             $_SESSION['email'] = $email;
             $_SESSION['is_admin'] = false;
             $_SESSION['is_official'] = true;
             $_SESSION['official_id'] = $official_id;
             $_SESSION['city_id'] = $city_id;
             $_SESSION['district_id'] = $district_id;
-            $_SESSION['city_name'] = 'İstanbul'; // Örnek şehir adı
-            $_SESSION['district_name'] = 'Kadıköy'; // Örnek ilçe adı
+            $_SESSION['city_name'] = 'İstanbul'; // Normalde veritabanından çekilecek
+            $_SESSION['district_name'] = 'Kadıköy'; // Normalde veritabanından çekilecek
             
             // Görevli paneline yönlendir
             redirect('index.php?page=official_dashboard');
