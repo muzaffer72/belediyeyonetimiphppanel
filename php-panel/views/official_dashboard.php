@@ -92,54 +92,98 @@ if ($action == 'update_status' && $post_id > 0 && isset($_POST['new_status'])) {
     }
 }
 
-// Görevlinin sorumlu olduğu gönderileri al
-$posts_query = [
-    'select' => '*',
-    'order' => 'created_at.desc'
+// TEST VERİLERİ: Görevlinin sorumlu olduğu gönderileri al
+// Not: Gerçek ortamda getData() fonksiyonu ile veritabanından çekilecek
+$posts = [
+    [
+        'id' => '1',
+        'title' => 'Parkta Tamirat Gerekiyor',
+        'type' => 'complaint',
+        'content' => 'Merkez parkındaki çocuk oyun alanı hasarlı ve tehlikeli durumda.',
+        'user_id' => 'user-1',
+        'city_id' => $city_id,
+        'district_id' => $district_id,
+        'status' => 'pending',
+        'is_resolved' => false,
+        'is_hidden' => false,
+        'solution_note' => '',
+        'evidence_url' => '',
+        'like_count' => 24,
+        'comment_count' => 5,
+        'created_at' => date('Y-m-d H:i:s', strtotime('-2 days'))
+    ],
+    [
+        'id' => '2',
+        'title' => 'Sokak Lambası Arızası',
+        'type' => 'complaint',
+        'content' => 'Atatürk caddesindeki sokak lambaları çalışmıyor, akşamları çok karanlık oluyor.',
+        'user_id' => 'user-2',
+        'city_id' => $city_id,
+        'district_id' => $district_id,
+        'status' => 'in_progress',
+        'is_resolved' => false,
+        'is_hidden' => false,
+        'solution_note' => 'Arıza tespit edildi, tamir ekibi yönlendirildi.',
+        'evidence_url' => 'https://example.com/evidence/123.jpg',
+        'like_count' => 18,
+        'comment_count' => 3,
+        'created_at' => date('Y-m-d H:i:s', strtotime('-5 days'))
+    ],
+    [
+        'id' => '3',
+        'title' => 'Daha Fazla Bisiklet Yolu Önerisi',
+        'type' => 'suggestion',
+        'content' => 'Sahil boyunca bisiklet yolunun uzatılması vatandaşlarımız için faydalı olacaktır.',
+        'user_id' => 'user-3',
+        'city_id' => $city_id,
+        'district_id' => $district_id,
+        'status' => 'pending',
+        'is_resolved' => false,
+        'is_hidden' => false,
+        'solution_note' => '',
+        'evidence_url' => '',
+        'like_count' => 42,
+        'comment_count' => 7,
+        'created_at' => date('Y-m-d H:i:s', strtotime('-1 days'))
+    ],
+    [
+        'id' => '4',
+        'title' => 'Su Kesintisi Ne Zaman Bitecek?',
+        'type' => 'question',
+        'content' => 'Yeni mahallemizdeki su kesintisi ne zaman sona erecek?',
+        'user_id' => 'user-5',
+        'city_id' => $city_id,
+        'district_id' => $district_id,
+        'status' => 'solved',
+        'is_resolved' => true,
+        'is_hidden' => false,
+        'solution_note' => 'Su kesintisi tamir çalışmaları tamamlandı, servis aktif edildi.',
+        'evidence_url' => 'https://example.com/evidence/456.jpg',
+        'like_count' => 15,
+        'comment_count' => 8,
+        'created_at' => date('Y-m-d H:i:s', strtotime('-10 days'))
+    ]
 ];
 
-// Şehir veya ilçeye göre filtrele
-if ($district_id) {
-    $posts_query['filters']['district_id'] = 'eq.' . $district_id;
-} elseif ($city_id) {
-    $posts_query['filters']['city_id'] = 'eq.' . $city_id;
-}
-
-$posts_result = getData('posts', $posts_query);
-$posts = $posts_result['error'] ? [] : $posts_result['data'];
-
-// Şehir ve ilçe adlarına göre eşleştir
-if (!empty($posts)) {
-    $city_ids = array_unique(array_column($posts, 'city_id'));
-    $district_ids = array_unique(array_column($posts, 'district_id'));
+// TEST VERİLERİ: Şehir ve ilçe bilgilerini doğrudan atayalım
+// Not: Gerçek ortamda getData() fonksiyonu ile veritabanından çekilecek
+foreach ($posts as &$post) {
+    // Her gönderiye şehir ve ilçe adını ekle
+    $post['city_name'] = $city_name;
+    $post['district_name'] = $district_name;
     
-    // Şehirleri al
-    $cities_result = getData('cities', [
-        'select' => 'id,name'
-    ]);
-    $cities = $cities_result['error'] ? [] : $cities_result['data'];
-    $city_names = [];
+    // Her gönderiye kullanıcı bilgilerini ekle
+    $post['username'] = match($post['user_id']) {
+        'user-1' => 'ahmet.yilmaz',
+        'user-2' => 'ayse.demir',
+        'user-3' => 'mehmet.kaya',
+        'user-4' => 'fatma.celik',
+        'user-5' => 'mustafa.sahin',
+        default => 'bilinmeyen_kullanici'
+    };
     
-    foreach ($cities as $city) {
-        $city_names[$city['id']] = $city['name'];
-    }
-    
-    // İlçeleri al
-    $districts_result = getData('districts', [
-        'select' => 'id,name'
-    ]);
-    $districts = $districts_result['error'] ? [] : $districts_result['data'];
-    $district_names = [];
-    
-    foreach ($districts as $district) {
-        $district_names[$district['id']] = $district['name'];
-    }
-    
-    // Şehir ve ilçe adlarını gönderilere ekle
-    foreach ($posts as &$post) {
-        $post['city_name'] = $city_names[$post['city_id']] ?? 'Bilinmiyor';
-        $post['district_name'] = $district_names[$post['district_id']] ?? 'Bilinmiyor';
-    }
+    $post['user_email'] = str_replace('.', '@', $post['username']) . '.com';
+    $post['profile_image_url'] = '';
 }
 
 // Uyarı ve bilgilendirme mesajları

@@ -36,6 +36,39 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $city_id = '550e8400-e29b-41d4-a716-446655440072'; // City ID (UUID formatında)
             $district_id = '660e8400-e29b-41d4-a716-446655593166'; // District ID (UUID formatında)
             
+            // Örnek şehir ve ilçe verileri (gerçek ortamda veritabanından çekilecek)
+            $city_name = 'İstanbul';
+            $district_name = 'Kadıköy';
+            
+            // TEST VERİSİ: Belediye bilgileri
+            $city_info = [
+                'id' => $city_id,
+                'name' => $city_name,
+                'population' => 15840900,
+                'website' => 'https://www.istanbul.bel.tr',
+                'mayor' => 'Örnek İsim',
+                'description' => 'İstanbul, Türkiye\'nin en büyük şehridir.',
+                'logo_url' => 'https://upload.wikimedia.org/wikipedia/commons/5/52/Istanbul_Metropolitan_Municipality_logo.png',
+                'founded_at' => '1984-01-01',
+                'contact_email' => 'info@ibb.gov.tr',
+                'contact_phone' => '153'
+            ];
+            
+            // TEST VERİSİ: İlçe bilgileri
+            $district_info = [
+                'id' => $district_id,
+                'city_id' => $city_id,
+                'name' => $district_name,
+                'population' => 482713,
+                'mayor' => 'Örnek İlçe Belediye Başkanı',
+                'website' => 'https://www.kadikoy.bel.tr',
+                'description' => 'Kadıköy, İstanbul\'un en eski yerleşim yerlerinden biridir.',
+                'logo_url' => 'https://upload.wikimedia.org/wikipedia/tr/4/4e/Kad%C4%B1k%C3%B6y_Belediyesi_logosu.png',
+                'founded_at' => '1984-01-01',
+                'contact_email' => 'info@kadikoy.bel.tr',
+                'contact_phone' => '444 55 22'
+            ];
+            
             // Session'a görevli bilgilerini kaydet
             $_SESSION['user_id'] = $user_id;
             $_SESSION['email'] = $email;
@@ -44,8 +77,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $_SESSION['official_id'] = $official_id;
             $_SESSION['city_id'] = $city_id;
             $_SESSION['district_id'] = $district_id;
-            $_SESSION['city_name'] = 'İstanbul'; // Normalde veritabanından çekilecek
-            $_SESSION['district_name'] = 'Kadıköy'; // Normalde veritabanından çekilecek
+            $_SESSION['city_name'] = $city_name;
+            $_SESSION['district_name'] = $district_name;
+            
+            // Session'a detaylı belediye bilgilerini de kaydet
+            $_SESSION['city_info'] = $city_info;
+            $_SESSION['district_info'] = $district_info;
             
             // Görevli paneline yönlendir
             redirect('index.php?page=official_dashboard');

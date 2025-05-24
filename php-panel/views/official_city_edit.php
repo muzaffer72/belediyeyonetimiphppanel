@@ -18,27 +18,36 @@ $district_name = $_SESSION['district_name'] ?? 'Bilinmiyor';
 $success_message = '';
 $error_message = '';
 
-// Şehir veya ilçe verilerini al
+// Oturum değişkenlerinden şehir veya ilçe bilgilerini al
 if ($district_id) {
-    // İlçe bilgilerini al
-    $district_result = getData('districts', [
-        'select' => '*',
-        'filters' => ['id' => 'eq.' . $district_id]
-    ]);
-    
-    $district = !$district_result['error'] && !empty($district_result['data']) 
-              ? $district_result['data'][0] 
-              : null;
+    // İlçe bilgilerini session'dan al (test verileri)
+    $district = isset($_SESSION['district_info']) ? $_SESSION['district_info'] : [
+        'id' => $district_id,
+        'city_id' => $city_id,
+        'name' => $district_name,
+        'population' => 482713,
+        'mayor' => 'Örnek İlçe Belediye Başkanı',
+        'website' => 'https://www.kadikoy.bel.tr',
+        'description' => 'Kadıköy, İstanbul\'un en eski yerleşim yerlerinden biridir.',
+        'logo_url' => 'https://upload.wikimedia.org/wikipedia/tr/4/4e/Kad%C4%B1k%C3%B6y_Belediyesi_logosu.png',
+        'founded_at' => '1984-01-01',
+        'contact_email' => 'info@kadikoy.bel.tr',
+        'contact_phone' => '444 55 22'
+    ];
 } elseif ($city_id) {
-    // Şehir bilgilerini al
-    $city_result = getData('cities', [
-        'select' => '*',
-        'filters' => ['id' => 'eq.' . $city_id]
-    ]);
-    
-    $city = !$city_result['error'] && !empty($city_result['data']) 
-          ? $city_result['data'][0] 
-          : null;
+    // Şehir bilgilerini session'dan al (test verileri)
+    $city = isset($_SESSION['city_info']) ? $_SESSION['city_info'] : [
+        'id' => $city_id,
+        'name' => $city_name,
+        'population' => 15840900,
+        'website' => 'https://www.istanbul.bel.tr',
+        'mayor' => 'Örnek İsim',
+        'description' => 'İstanbul, Türkiye\'nin en büyük şehridir.',
+        'logo_url' => 'https://upload.wikimedia.org/wikipedia/commons/5/52/Istanbul_Metropolitan_Municipality_logo.png',
+        'founded_at' => '1984-01-01',
+        'contact_email' => 'info@ibb.gov.tr',
+        'contact_phone' => '153'
+    ];
 }
 
 // Formu işle
