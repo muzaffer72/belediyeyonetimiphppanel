@@ -89,6 +89,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['update_user'])) {
     $district = isset($_POST['district']) ? trim($_POST['district']) : '';
     $role = isset($_POST['role']) ? trim($_POST['role']) : 'user';
     
+    // Otomatik onay durumu - checkbox işaretliyse true, değilse false
+    $auto_approve = isset($_POST['auto_approve']) ? true : false;
+    
     // Telefon numarası boş ise null olarak ayarla, aksi halde değeri al
     $phone_number = isset($_POST['phone_number']) && trim($_POST['phone_number']) !== '' ? 
         trim($_POST['phone_number']) : null;
@@ -123,6 +126,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['update_user'])) {
         'username' => $username,
         'email' => $email,
         'role' => $role,
+        'auto_approve' => $auto_approve,
         'updated_at' => date('Y-m-d H:i:s')
     ];
     
@@ -251,6 +255,25 @@ endif;
                                     </option>
                                 <?php endforeach; ?>
                             </select>
+                        </div>
+                        
+                        <div class="col-md-6">
+                            <label class="form-label d-block">Otomatik Onay</label>
+                            <div class="form-check form-switch mt-2">
+                                <?php
+                                // Kullanıcının otomatik onay durumunu kontrol et
+                                $auto_approve = isset($user['auto_approve']) ? (bool)$user['auto_approve'] : false;
+                                ?>
+                                <input class="form-check-input" type="checkbox" role="switch" 
+                                       id="autoApprove" name="auto_approve" value="1"
+                                       <?php echo $auto_approve ? 'checked' : ''; ?>>
+                                <label class="form-check-label" for="autoApprove">
+                                    Paylaşımları otomatik olarak onayla
+                                </label>
+                                <div class="form-text">
+                                    Etkinleştirildiğinde, bu kullanıcının paylaşımları otomatik olarak onaylanır.
+                                </div>
+                            </div>
                         </div>
                         
                         <div class="col-md-6">
