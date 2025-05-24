@@ -237,6 +237,9 @@ unset($user);
                                     echo '<span class="badge bg-primary">İl: ' . escape($ad['city'] ?? 'Tümü') . '</span> ';
                                     echo '<span class="badge bg-info">İlçe: ' . escape($ad['district'] ?? 'Tümü') . '</span>';
                                     break;
+                                case 'splash':
+                                    echo '<span class="badge bg-warning">Açılış Sayfası</span>';
+                                    break;
                                 default:
                                     echo '<span class="badge bg-success">Tüm Kullanıcılar</span>';
                             }

@@ -232,9 +232,6 @@ if (isset($_GET['status']) && !empty($_GET['status']) && isset($_GET['id']) && !
                                                     echo '<span class="badge bg-primary">İl: ' . escape($ad['city'] ?? 'Tümü') . '</span> ';
                                                     echo '<span class="badge bg-info">İlçe: ' . escape($ad['district'] ?? 'Tümü') . '</span>';
                                                     break;
-                                                case 'splash':
-                                                    echo '<span class="badge bg-warning">Açılış Sayfası</span>';
-                                                    break;
                                                 default:
                                                     echo '<span class="badge bg-success">Tüm Kullanıcılar</span>';
                                             }
@@ -356,9 +353,6 @@ if (isset($_GET['status']) && !empty($_GET['status']) && isset($_GET['id']) && !
                                                     echo '<span class="badge bg-primary">İl: ' . escape($ad['city'] ?? 'Tümü') . '</span> ';
                                                     echo '<span class="badge bg-info">İlçe: ' . escape($ad['district'] ?? 'Tümü') . '</span>';
                                                     break;
-                                                case 'splash':
-                                                    echo '<span class="badge bg-warning">Açılış Sayfası</span>';
-                                                    break;
                                                 default:
                                                     echo '<span class="badge bg-success">Tüm Kullanıcılar</span>';
                                             }
@@ -461,9 +455,6 @@ if (isset($_GET['status']) && !empty($_GET['status']) && isset($_GET['id']) && !
                                                 case 'ililce':
                                                     echo '<span class="badge bg-primary">İl: ' . escape($ad['city'] ?? 'Tümü') . '</span> ';
                                                     echo '<span class="badge bg-info">İlçe: ' . escape($ad['district'] ?? 'Tümü') . '</span>';
-                                                    break;
-                                                case 'splash':
-                                                    echo '<span class="badge bg-warning">Açılış Sayfası</span>';
                                                     break;
                                                 default:
                                                     echo '<span class="badge bg-success">Tüm Kullanıcılar</span>';
