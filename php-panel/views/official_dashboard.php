@@ -157,6 +157,23 @@ if (!empty($error_message)) {
         <i class="fas fa-user-tie me-2"></i> Belediye Görevlisi Paneli
     </h1>
     
+    <!-- Yönetim Menüsü -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-body d-flex flex-wrap gap-2">
+                    <a href="index.php?page=official_city_edit" class="btn btn-primary">
+                        <i class="fas fa-building me-1"></i> Belediye Bilgilerini Düzenle
+                    </a>
+                    
+                    <a href="index.php?page=official_announcements" class="btn btn-info">
+                        <i class="fas fa-bullhorn me-1"></i> Duyuruları Yönet
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+    
     <div class="row">
         <div class="col-xl-3 col-md-6">
             <div class="card bg-primary text-white mb-4">
