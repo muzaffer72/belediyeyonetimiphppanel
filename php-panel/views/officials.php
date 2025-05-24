@@ -244,9 +244,32 @@ function getDistricts(cityId, targetElement, selectedDistrictId = null) {
     const districtSelect = document.getElementById(targetElement);
     districtSelect.innerHTML = '<option value="">Tüm İlçeler</option>';
     
+    // Seçilen "cityId" bir şehir adı olabilir (form elemanından)
+    // Bu durumda şehir adını kullanarak ilçeleri getir
+    let cityElement = document.getElementById('city_id');
+    let cityName = cityId;
+    
+    // Eğer city_id bir select elemanı ise, seçilen opsiyonun adını al
+    if (cityElement && cityElement.tagName === 'SELECT') {
+        const selectedOption = cityElement.options[cityElement.selectedIndex];
+        if (selectedOption) {
+            cityName = selectedOption.text; // Şehir adını seçilen opsiyonun metni olarak al
+        }
+    }
+    
+    console.log('Şehir ID/Adı:', cityId, 'Şehir Element Adı:', cityName);
+    
+    // URL'yi oluştur: Önce şehir ID'yi dene, sonra şehir adını
+    let url = 'views/get_districts.php?city_id=' + encodeURIComponent(cityId);
+    
+    // Şehir ID rakam olarak görünmüyorsa, muhtemelen bir şehir adıdır
+    if (isNaN(parseInt(cityId))) {
+        url = 'views/get_districts.php?city_name=' + encodeURIComponent(cityName);
+    }
+    
     // Doğrudan özel sayfayı çağır (API yerine)
     const xhr = new XMLHttpRequest();
-    xhr.open('GET', 'views/get_districts.php?city_id=' + encodeURIComponent(cityId), true);
+    xhr.open('GET', url, true);
     
     xhr.onreadystatechange = function() {
         if (xhr.readyState === 4) {

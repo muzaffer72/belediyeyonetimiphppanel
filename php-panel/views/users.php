@@ -190,7 +190,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['delete_user'])) {
     <h1 class="h3">Kullanıcı Yönetimi</h1>
     
     <div>
-        <!-- İleride kullanıcı ekleme butonu eklenebilir -->
+        <a href="index.php?page=user_create" class="btn btn-primary">
+            <i class="fas fa-user-plus me-1"></i> Yeni Kullanıcı Ekle
+        </a>
     </div>
 </div>
 
