@@ -307,6 +307,7 @@ endif;
                             <th>Şehir/İlçe</th>
                             <th>Kayıt Tarihi</th>
                             <th>Durum</th>
+                            <th>Otomatik Onay</th>
                             <th>İşlemler</th>
                         </tr>
                     </thead>
@@ -382,6 +383,22 @@ endif;
                                             <i class="fas fa-check-circle me-1"></i> Aktif
                                         </span>
                                     <?php endif; ?>
+                                </td>
+                                <td>
+                                    <!-- Otomatik Onay Düğmesi -->
+                                    <div class="form-check form-switch">
+                                        <?php
+                                        // Kullanıcının otomatik onay durumunu kontrol et
+                                        $auto_approve = isset($user['auto_approve']) ? $user['auto_approve'] : false;
+                                        ?>
+                                        <input class="form-check-input auto-approve-toggle" type="checkbox" role="switch" 
+                                               id="autoApprove_<?php echo $user['id']; ?>" 
+                                               data-user-id="<?php echo $user['id']; ?>"
+                                               <?php echo $auto_approve ? 'checked' : ''; ?>>
+                                        <label class="form-check-label" for="autoApprove_<?php echo $user['id']; ?>">
+                                            <?php echo $auto_approve ? 'Açık' : 'Kapalı'; ?>
+                                        </label>
+                                    </div>
                                 </td>
                                 <td>
                                     <div class="dropdown">
@@ -682,6 +699,90 @@ document.getElementById('filterCity').addEventListener('change', function() {
                 }
             })
             .catch(error => console.error('İlçeler alınırken bir hata oluştu:', error));
+    }
+});
+
+// Otomatik onay düğmesi işlevselliği
+document.addEventListener('DOMContentLoaded', function() {
+    // Toggle butonlarına olay dinleyicisi ekle
+    document.querySelectorAll('.auto-approve-toggle').forEach(function(toggle) {
+        toggle.addEventListener('change', function() {
+            const userId = this.getAttribute('data-user-id');
+            const isChecked = this.checked;
+            const label = this.nextElementSibling;
+            
+            // Görsel geri bildirim için düğme etiketini güncelle
+            label.textContent = isChecked ? 'Açık' : 'Kapalı';
+            
+            // AJAX isteği için FormData oluştur
+            const formData = new FormData();
+            formData.append('user_id', userId);
+            formData.append('auto_approve', isChecked ? '1' : '0');
+            formData.append('action', 'update_auto_approve');
+            
+            // API isteği yap
+            fetch('index.php?page=api', {
+                method: 'POST',
+                body: formData
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    // Başarılı mesajı göster
+                    showNotification('Otomatik onay ayarı güncellendi', 'success');
+                } else {
+                    // Hata durumunda göstergeyi eski haline getir
+                    this.checked = !isChecked;
+                    label.textContent = !isChecked ? 'Açık' : 'Kapalı';
+                    showNotification(data.message || 'Bir hata oluştu', 'error');
+                }
+            })
+            .catch(error => {
+                // Hata durumunda göstergeyi eski haline getir
+                this.checked = !isChecked;
+                label.textContent = !isChecked ? 'Açık' : 'Kapalı';
+                showNotification('Sunucu hatası: ' + error.message, 'error');
+                console.error('Hata:', error);
+            });
+        });
+    });
+    
+    // Bildirim gösterme fonksiyonu
+    function showNotification(message, type) {
+        const alertClass = type === 'success' ? 'alert-success' : 'alert-danger';
+        const alertIcon = type === 'success' ? 'fa-check-circle' : 'fa-exclamation-circle';
+        
+        const alertHtml = `
+            <div class="alert ${alertClass} alert-dismissible fade show" role="alert">
+                <i class="fas ${alertIcon} me-2"></i> ${message}
+                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Kapat"></button>
+            </div>
+        `;
+        
+        // Bildirim alanı oluştur veya var olanı kullan
+        let notificationArea = document.getElementById('notificationArea');
+        if (!notificationArea) {
+            notificationArea = document.createElement('div');
+            notificationArea.id = 'notificationArea';
+            notificationArea.style.position = 'fixed';
+            notificationArea.style.top = '20px';
+            notificationArea.style.right = '20px';
+            notificationArea.style.zIndex = '9999';
+            document.body.appendChild(notificationArea);
+        }
+        
+        // Bildirimi ekle
+        const alertDiv = document.createElement('div');
+        alertDiv.innerHTML = alertHtml;
+        notificationArea.appendChild(alertDiv.firstElementChild);
+        
+        // 5 saniye sonra otomatik kapat
+        setTimeout(() => {
+            const alerts = notificationArea.getElementsByClassName('alert');
+            if (alerts.length > 0) {
+                alerts[0].remove();
+            }
+        }, 5000);
     }
 });
 </script>

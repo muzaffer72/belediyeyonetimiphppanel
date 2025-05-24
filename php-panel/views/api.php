@@ -27,6 +27,10 @@ switch ($action) {
     case 'update_post':
         updatePost();
         break;
+    
+    case 'update_auto_approve':
+        updateUserAutoApprove();
+        break;
         
     default:
         header('Content-Type: application/json');
