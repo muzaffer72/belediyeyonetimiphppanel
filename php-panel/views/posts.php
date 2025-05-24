@@ -1,7 +1,122 @@
 <?php
 // Fonksiyonları dahil et
 require_once(__DIR__ . '/../includes/functions.php');
-// Gönderi verilerini al
+// Test verileri kullanımı (geliştirme modu)
+// Gerçek ortamda "getData" fonksiyonu kullanılmalıdır
+// Örnek veri yapısı - gerçek API verileri ile değiştirilmelidir
+$posts = [
+    [
+        'id' => '1',
+        'title' => 'Parkta Tamirat Gerekiyor',
+        'type' => 'complaint',
+        'content' => 'Merkez parkındaki çocuk oyun alanı hasarlı ve tehlikeli durumda.',
+        'user_id' => 'user-1',
+        'city' => 'İstanbul',
+        'district' => 'Kadıköy',
+        'city_id' => '1',
+        'district_id' => '1',
+        'status' => 'pending',
+        'is_resolved' => false,
+        'is_hidden' => false,
+        'is_featured' => true,
+        'like_count' => 24,
+        'comment_count' => 5,
+        'created_at' => date('Y-m-d H:i:s', strtotime('-2 days'))
+    ],
+    [
+        'id' => '2',
+        'title' => 'Sokak Lambası Arızası',
+        'type' => 'complaint',
+        'content' => 'Atatürk caddesindeki sokak lambaları çalışmıyor, akşamları çok karanlık oluyor.',
+        'user_id' => 'user-2',
+        'city' => 'İstanbul',
+        'district' => 'Beşiktaş',
+        'city_id' => '1',
+        'district_id' => '2',
+        'status' => 'in_progress',
+        'is_resolved' => false,
+        'is_hidden' => false,
+        'is_featured' => false,
+        'like_count' => 18,
+        'comment_count' => 3,
+        'created_at' => date('Y-m-d H:i:s', strtotime('-5 days'))
+    ],
+    [
+        'id' => '3',
+        'title' => 'Daha Fazla Bisiklet Yolu Önerisi',
+        'type' => 'suggestion',
+        'content' => 'Sahil boyunca bisiklet yolunun uzatılması vatandaşlarımız için faydalı olacaktır.',
+        'user_id' => 'user-3',
+        'city' => 'İstanbul',
+        'district' => 'Kadıköy',
+        'city_id' => '1',
+        'district_id' => '1',
+        'status' => 'pending',
+        'is_resolved' => false,
+        'is_hidden' => false,
+        'is_featured' => true,
+        'like_count' => 42,
+        'comment_count' => 7,
+        'created_at' => date('Y-m-d H:i:s', strtotime('-1 days'))
+    ],
+    [
+        'id' => '4',
+        'title' => 'Geri Dönüşüm Kutularına Teşekkür',
+        'type' => 'thanks',
+        'content' => 'Mahallemize yerleştirilen geri dönüşüm kutuları için teşekkürler, çevre temizliği açısından çok faydalı oldu.',
+        'user_id' => 'user-4',
+        'city' => 'İstanbul',
+        'district' => 'Şişli',
+        'city_id' => '1',
+        'district_id' => '3',
+        'status' => 'solved',
+        'is_resolved' => true,
+        'is_hidden' => false,
+        'is_featured' => false,
+        'like_count' => 31,
+        'comment_count' => 2,
+        'created_at' => date('Y-m-d H:i:s', strtotime('-7 days'))
+    ],
+    [
+        'id' => '5',
+        'title' => 'Su Kesintisi Ne Zaman Bitecek?',
+        'type' => 'question',
+        'content' => 'Bahçelievler mahallesindeki su kesintisi ne zaman sona erecek?',
+        'user_id' => 'user-5',
+        'city' => 'Ankara',
+        'district' => 'Çankaya',
+        'city_id' => '2',
+        'district_id' => '4',
+        'status' => 'solved',
+        'is_resolved' => true,
+        'is_hidden' => false,
+        'is_featured' => false,
+        'like_count' => 15,
+        'comment_count' => 8,
+        'created_at' => date('Y-m-d H:i:s', strtotime('-10 days'))
+    ]
+];
+
+// Şehir verileri
+$cities = [
+    ['id' => '1', 'name' => 'İstanbul'],
+    ['id' => '2', 'name' => 'Ankara'],
+    ['id' => '3', 'name' => 'İzmir'],
+    ['id' => '4', 'name' => 'Bursa'],
+    ['id' => '5', 'name' => 'Antalya']
+];
+
+// Kullanıcı verileri
+$users = [
+    ['id' => 'user-1', 'username' => 'ahmet.yilmaz', 'email' => 'ahmet@example.com', 'profile_image_url' => ''],
+    ['id' => 'user-2', 'username' => 'ayse.demir', 'email' => 'ayse@example.com', 'profile_image_url' => ''],
+    ['id' => 'user-3', 'username' => 'mehmet.kaya', 'email' => 'mehmet@example.com', 'profile_image_url' => ''],
+    ['id' => 'user-4', 'username' => 'fatma.celik', 'email' => 'fatma@example.com', 'profile_image_url' => ''],
+    ['id' => 'user-5', 'username' => 'mustafa.sahin', 'email' => 'mustafa@example.com', 'profile_image_url' => '']
+];
+
+// Gerçek veri çekme - şu an devre dışı 
+/*
 $posts_result = getData('posts');
 $posts = $posts_result['data'];
 
@@ -12,6 +127,7 @@ $cities = $cities_result['data'];
 // Kullanıcı verilerini al (filtre için)
 $users_result = getData('users');
 $users = $users_result['data'];
+*/
 
 // Gönderi kategori tipleri
 $post_types = [
@@ -488,7 +604,8 @@ endif;
                                 <td>
                                     <?php 
                                     if(isset($post['created_at'])) {
-                                        echo formatDate($post['created_at'], 'd.m.Y H:i');
+                                        // formatDate fonksiyonu yoksa doğrudan date() kullan
+                                        echo date('d.m.Y H:i', strtotime($post['created_at']));
                                     }
                                     ?>
                                 </td>

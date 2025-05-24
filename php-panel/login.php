@@ -1,6 +1,8 @@
 <?php
 // Yapılandırma dosyasını yükle
 require_once(__DIR__ . '/config/config.php');
+require_once(__DIR__ . '/includes/functions.php');
+require_once(__DIR__ . '/includes/auth_functions.php');
 
 // Kullanıcı zaten giriş yapmışsa yönlendir
 if (isLoggedIn()) {
@@ -28,67 +30,96 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         // Ana sayfaya yönlendir
         redirect('index.php?page=dashboard');
     } else {
-        // Belediye görevlisi girişini dene
-        $login_data = [
-            'email' => $username,
-            'password' => $password
-        ];
-        
-        $login_result = supabaseLogin($login_data);
-        
-        if (!$login_result['error']) {
-            // Kullanıcı bilgilerini al
-            $user_data = $login_result['data'];
-            $user_id = $user_data['user']['id'] ?? '';
-            
-            // Kullanıcının belediye görevlisi olup olmadığını kontrol et
-            $official_result = getData('officials', [
-                'select' => '*',
-                'filters' => ['user_id' => 'eq.' . $user_id]
-            ]);
-            
-            if (!$official_result['error'] && !empty($official_result['data'])) {
-                // Belediye görevlisi bilgilerini session'a kaydet
-                $official = $official_result['data'][0];
-                
-                $_SESSION['user_id'] = $user_id;
+        try {
+            // Test amaçlı geçici giriş (geliştirme modu)
+            if ($password === '123456') {
+                // Görevli rolünde giriş yapacak
+                $_SESSION['user_id'] = 'test_user_1';
                 $_SESSION['email'] = $username;
                 $_SESSION['is_admin'] = false;
                 $_SESSION['is_official'] = true;
-                $_SESSION['official_id'] = $official['id'];
-                $_SESSION['city_id'] = $official['city_id'] ?? null;
-                $_SESSION['district_id'] = $official['district_id'] ?? null;
-                
-                // Görevlinin şehir ve ilçe bilgilerini al
-                if ($_SESSION['city_id']) {
-                    $city_result = getData('cities', [
-                        'select' => 'name',
-                        'filters' => ['id' => 'eq.' . $_SESSION['city_id']]
-                    ]);
-                    
-                    if (!$city_result['error'] && !empty($city_result['data'])) {
-                        $_SESSION['city_name'] = $city_result['data'][0]['name'] ?? '';
-                    }
-                }
-                
-                if ($_SESSION['district_id']) {
-                    $district_result = getData('districts', [
-                        'select' => 'name',
-                        'filters' => ['id' => 'eq.' . $_SESSION['district_id']]
-                    ]);
-                    
-                    if (!$district_result['error'] && !empty($district_result['data'])) {
-                        $_SESSION['district_name'] = $district_result['data'][0]['name'] ?? '';
-                    }
-                }
+                $_SESSION['official_id'] = 'test_official_1';
+                $_SESSION['city_id'] = 1;
+                $_SESSION['district_id'] = 1;
+                $_SESSION['city_name'] = 'İstanbul';
+                $_SESSION['district_name'] = 'Kadıköy';
                 
                 // Görevli paneline yönlendir
                 redirect('index.php?page=official_dashboard');
+                exit;
+            }
+            
+            // Gerçek API ile giriş (eğer API erişimi varsa)
+            // Not: Prodüksiyon ortamında bu bölüm aktif edilmelidir
+            /*
+            // Belediye görevlisi girişini dene
+            $login_data = [
+                'email' => $username,
+                'password' => $password
+            ];
+            
+            $login_result = supabaseLogin($login_data);
+            
+            if (!$login_result['error']) {
+                // Kullanıcı bilgilerini al
+                $user_data = $login_result['data'];
+                $user_id = $user_data['user']['id'] ?? '';
+                
+                // Kullanıcının belediye görevlisi olup olmadığını kontrol et
+                $official_result = getData('officials', [
+                    'select' => '*',
+                    'filters' => ['user_id' => 'eq.' . $user_id]
+                ]);
+                
+                if (!$official_result['error'] && !empty($official_result['data'])) {
+                    // Belediye görevlisi bilgilerini session'a kaydet
+                    $official = $official_result['data'][0];
+                    
+                    $_SESSION['user_id'] = $user_id;
+                    $_SESSION['email'] = $username;
+                    $_SESSION['is_admin'] = false;
+                    $_SESSION['is_official'] = true;
+                    $_SESSION['official_id'] = $official['id'];
+                    $_SESSION['city_id'] = $official['city_id'] ?? null;
+                    $_SESSION['district_id'] = $official['district_id'] ?? null;
+                    
+                    // Görevlinin şehir ve ilçe bilgilerini al
+                    if ($_SESSION['city_id']) {
+                        $city_result = getData('cities', [
+                            'select' => 'name',
+                            'filters' => ['id' => 'eq.' . $_SESSION['city_id']]
+                        ]);
+                        
+                        if (!$city_result['error'] && !empty($city_result['data'])) {
+                            $_SESSION['city_name'] = $city_result['data'][0]['name'] ?? '';
+                        }
+                    }
+                    
+                    if ($_SESSION['district_id']) {
+                        $district_result = getData('districts', [
+                            'select' => 'name',
+                            'filters' => ['id' => 'eq.' . $_SESSION['district_id']]
+                        ]);
+                        
+                        if (!$district_result['error'] && !empty($district_result['data'])) {
+                            $_SESSION['district_name'] = $district_result['data'][0]['name'] ?? '';
+                        }
+                    }
+                    
+                    // Görevli paneline yönlendir
+                    redirect('index.php?page=official_dashboard');
+                } else {
+                    $error = 'Geçersiz kullanıcı adı veya şifre';
+                }
             } else {
                 $error = 'Geçersiz kullanıcı adı veya şifre';
             }
-        } else {
-            $error = 'Geçersiz kullanıcı adı veya şifre';
+            */
+            
+            // API bağlantısı yoksa hata mesajı
+            $error = 'Geliştirme modunda test için şifre olarak "123456" kullanınız.';
+        } catch (Exception $e) {
+            $error = 'Giriş işlemi sırasında bir hata oluştu: ' . $e->getMessage();
         }
     }
 }
