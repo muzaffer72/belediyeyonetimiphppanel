@@ -17,7 +17,7 @@ if (!isset($_FILES['image']) || empty($_FILES['image']['name'])) {
 
 // Yükleme klasörü - ana dizindeki uploads klasörü
 // Projenin köküne göre yolu düzenliyoruz
-$upload_dir = __DIR__ . '/../../uploads/ads/';
+$upload_dir = __DIR__ . '/../uploads/ads/';
 
 // Klasör yoksa oluştur
 if (!is_dir($upload_dir)) {
