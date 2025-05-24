@@ -8,6 +8,62 @@ $ads_result = getData('sponsored_ads', [
 ]);
 $ads = $ads_result['data'];
 
+// Tüm reklam ID'lerini topla
+$ad_ids = array_map(function($ad) {
+    return $ad['id'];
+}, $ads);
+
+// Boş ad_ids array kontrolü
+if (!empty($ad_ids)) {
+    // Daha verimli şekilde, tüm reklam etkileşimlerini tek bir sorguda al
+    $all_interactions_result = getData('ad_interactions', [
+        'ad_id' => 'in.(' . implode(',', $ad_ids) . ')'
+    ]);
+    
+    $all_interactions = $all_interactions_result['data'] ?? [];
+    
+    // Etkileşimleri reklam ID'sine ve tipine göre grupla
+    $grouped_interactions = [];
+    foreach ($all_interactions as $interaction) {
+        $ad_id = $interaction['ad_id'];
+        $type = $interaction['interaction_type'];
+        
+        if (!isset($grouped_interactions[$ad_id])) {
+            $grouped_interactions[$ad_id] = [
+                'impression' => 0,
+                'click' => 0
+            ];
+        }
+        
+        if ($type === 'impression') {
+            $grouped_interactions[$ad_id]['impression']++;
+        } elseif ($type === 'click') {
+            $grouped_interactions[$ad_id]['click']++;
+        }
+    }
+    
+    // Reklam verilerine etkileşim sayılarını ekle
+    foreach ($ads as &$ad) {
+        $ad_id = $ad['id'];
+        
+        if (isset($grouped_interactions[$ad_id])) {
+            $ad['impressions'] = $grouped_interactions[$ad_id]['impression'];
+            $ad['clicks'] = $grouped_interactions[$ad_id]['click'];
+        } else {
+            $ad['impressions'] = 0;
+            $ad['clicks'] = 0;
+        }
+    }
+    unset($ad);
+} else {
+    // Eğer hiç reklam yoksa, varsayılan değerleri atama
+    foreach ($ads as &$ad) {
+        $ad['impressions'] = 0;
+        $ad['clicks'] = 0;
+    }
+    unset($ad);
+}
+
 // Aktif, bekleyen ve süresi dolmuş reklamları ayır
 $active_ads = [];
 $pending_ads = [];
