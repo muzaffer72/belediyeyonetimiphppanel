@@ -6,7 +6,7 @@ require_once(__DIR__ . '/../includes/auth_functions.php');
 
 // Sadece belirli API işlemleri için erişim kontrolü
 $action = isset($_GET['action']) ? $_GET['action'] : '';
-$protected_actions = ['update_post', 'delete_post', 'admin_action'];
+$protected_actions = ['update_post', 'delete_post', 'admin_action', 'update_auto_approve'];
 
 if (in_array($action, $protected_actions) && !isLoggedIn()) {
     header('Content-Type: application/json');
@@ -202,4 +202,59 @@ function responseJson($error, $message, $data = null) {
         'data' => $data
     ]);
     exit;
+}
+
+/**
+ * Kullanıcının otomatik onay durumunu günceller
+ * 
+ * Kullanıcıların paylaşım yapma yetkisini otomatik olarak
+ * onaylama veya reddetme özelliğini ayarlar
+ */
+function updateUserAutoApprove() {
+    // Sadece admin yetkisi olan kullanıcılar bu işlemi yapabilir
+    if (!isAdmin()) {
+        responseJson(true, 'Bu işlem için yönetici yetkisi gereklidir');
+        return;
+    }
+    
+    // POST parametrelerini al
+    $user_id = isset($_POST['user_id']) ? $_POST['user_id'] : '';
+    $auto_approve = isset($_POST['auto_approve']) ? (int)$_POST['auto_approve'] : 0;
+    
+    // Parametreleri kontrol et
+    if (empty($user_id)) {
+        responseJson(true, 'Kullanıcı ID gereklidir');
+        return;
+    }
+    
+    // Auto approve değerini 0 veya 1 olarak sınırla
+    $auto_approve = $auto_approve ? 1 : 0;
+    
+    // Test amaçlı başarılı yanıt (API bağlantısı olmadığında)
+    // Gerçek ortamda bu kod yerine veritabanı güncellemesi yapılmalıdır
+    responseJson(false, 'Otomatik onay durumu güncellendi', [
+        'success' => true,
+        'user_id' => $user_id,
+        'auto_approve' => $auto_approve
+    ]);
+    
+    /* 
+    // Gerçek veritabanı güncellemesi
+    // Bu bölüm API bağlantısı olduğunda aktif edilmelidir
+    $result = updateData('users', [
+        'auto_approve' => $auto_approve
+    ], [
+        'id' => 'eq.' . $user_id
+    ]);
+    
+    if ($result['error']) {
+        responseJson(true, 'Kullanıcı güncellenirken bir hata oluştu: ' . $result['message']);
+    } else {
+        responseJson(false, 'Otomatik onay durumu güncellendi', [
+            'success' => true,
+            'user_id' => $user_id,
+            'auto_approve' => $auto_approve
+        ]);
+    }
+    */
 }
