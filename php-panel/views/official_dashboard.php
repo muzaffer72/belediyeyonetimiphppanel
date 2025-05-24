@@ -173,14 +173,25 @@ foreach ($posts as &$post) {
     $post['district_name'] = $district_name;
     
     // Her gönderiye kullanıcı bilgilerini ekle
-    $post['username'] = match($post['user_id']) {
-        'user-1' => 'ahmet.yilmaz',
-        'user-2' => 'ayse.demir',
-        'user-3' => 'mehmet.kaya',
-        'user-4' => 'fatma.celik',
-        'user-5' => 'mustafa.sahin',
-        default => 'bilinmeyen_kullanici'
-    };
+    switch($post['user_id']) {
+        case 'user-1':
+            $post['username'] = 'ahmet.yilmaz';
+            break;
+        case 'user-2':
+            $post['username'] = 'ayse.demir';
+            break;
+        case 'user-3':
+            $post['username'] = 'mehmet.kaya';
+            break;
+        case 'user-4':
+            $post['username'] = 'fatma.celik';
+            break;
+        case 'user-5':
+            $post['username'] = 'mustafa.sahin';
+            break;
+        default:
+            $post['username'] = 'bilinmeyen_kullanici';
+    }
     
     $post['user_email'] = str_replace('.', '@', $post['username']) . '.com';
     $post['profile_image_url'] = '';
