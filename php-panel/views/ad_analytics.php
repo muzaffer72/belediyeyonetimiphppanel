@@ -415,7 +415,8 @@ unset($user);
                 <table class="table table-striped">
                     <thead>
                         <tr>
-                            <th>Kullanıcı</th>
+                            <th>Kullanıcı Adı</th>
+                            <th>E-posta</th>
                             <th>Gösterimler</th>
                             <th>Tıklamalar</th>
                             <th>CTR</th>
@@ -432,16 +433,30 @@ unset($user);
                                     break;
                                 }
                             }
+                            
+                            // E-posta bilgisini getir
+                            $user_email = 'N/A';
+                            if ($user['user_id'] !== 'anonymous') {
+                                // Kullanıcı detaylarını getir
+                                $user_details = getDataById('users', $user['user_id']);
+                                if ($user_details && isset($user_details['data']) && isset($user_details['data']['email'])) {
+                                    $user_email = $user_details['data']['email'];
+                                }
+                            }
                         ?>
                             <tr>
                                 <td>
                                     <?php if ($user['user_id'] === 'anonymous'): ?>
                                         <span class="text-muted">Anonim Kullanıcılar</span>
                                     <?php else: ?>
-                                        <?php echo escape($user['username']); ?>
-                                        <?php if (isset($user['name']) && !empty($user['name'])): ?>
-                                            <small class="text-muted">(<?php echo escape($user['name']); ?>)</small>
-                                        <?php endif; ?>
+                                        <strong><?php echo escape($user['username']); ?></strong>
+                                    <?php endif; ?>
+                                </td>
+                                <td>
+                                    <?php if ($user['user_id'] === 'anonymous'): ?>
+                                        <span class="text-muted">-</span>
+                                    <?php else: ?>
+                                        <a href="mailto:<?php echo escape($user_email); ?>"><?php echo escape($user_email); ?></a>
                                     <?php endif; ?>
                                 </td>
                                 <td><?php echo number_format($user['impressions']); ?></td>
