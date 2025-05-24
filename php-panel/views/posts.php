@@ -522,9 +522,30 @@ endif;
     </div>
     <div class="card-body">
         <div class="table-responsive">
+            <!-- Toplu İşlem Butonları -->
+            <div class="mb-3">
+                <button id="bulkApproveBtn" class="btn btn-success btn-sm me-2" disabled>
+                    <i class="fas fa-check-circle me-1"></i> Seçilenleri Onayla
+                </button>
+                <button id="bulkHideBtn" class="btn btn-warning btn-sm me-2" disabled>
+                    <i class="fas fa-eye-slash me-1"></i> Seçilenleri Gizle
+                </button>
+                <button id="selectAllBtn" class="btn btn-outline-secondary btn-sm">
+                    <i class="fas fa-check-square me-1"></i> Tümünü Seç
+                </button>
+                <span id="selectedCount" class="ms-3 text-muted" style="display: none;">
+                    <span id="selectedCountNumber">0</span> gönderi seçildi
+                </span>
+            </div>
+            
             <table id="posts-table" class="table table-bordered table-striped table-hover data-table">
                 <thead>
                     <tr>
+                        <th style="width: 40px;">
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" id="selectAllCheckbox">
+                            </div>
+                        </th>
                         <th>Başlık</th>
                         <th>Tip</th>
                         <th>Kullanıcı</th>
@@ -538,7 +559,7 @@ endif;
                 <tbody>
                     <?php if(empty($filtered_posts)): ?>
                         <tr>
-                            <td colspan="8" class="text-center">Gönderi bulunamadı.</td>
+                            <td colspan="9" class="text-center">Gönderi bulunamadı.</td>
                         </tr>
                     <?php else: ?>
                         <?php foreach($filtered_posts as $post): ?>
@@ -563,6 +584,14 @@ endif;
                             $is_featured = isset($post['is_featured']) && $post['is_featured'];
                             ?>
                             <tr <?php echo $is_hidden ? 'class="table-secondary"' : ''; ?>>
+                                <td>
+                                    <div class="form-check">
+                                        <input class="form-check-input post-checkbox" type="checkbox" 
+                                               data-post-id="<?php echo $post['id']; ?>"
+                                               data-status="<?php echo $post['status']; ?>"
+                                               <?php echo $is_hidden ? 'disabled' : ''; ?>>
+                                    </div>
+                                </td>
                                 <td>
                                     <div class="d-flex align-items-center">
                                         <?php if($is_featured): ?>
@@ -747,3 +776,252 @@ endif;
         </div>
     </div>
 </div>
+
+<!-- Toplu Onay için Modal -->
+<div class="modal fade" id="bulkApproveModal" tabindex="-1" aria-labelledby="bulkApproveModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="bulkApproveModalLabel">Gönderileri Toplu Onayla</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Kapat"></button>
+            </div>
+            <div class="modal-body">
+                <p>Seçtiğiniz <span id="approveCount">0</span> gönderiyi onaylamak istediğinize emin misiniz?</p>
+                <div class="alert alert-info">
+                    <i class="fas fa-info-circle me-1"></i> Bu işlem, seçilen gönderileri onaylayacak ve "Aktif" durumuna getirecektir.
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">İptal</button>
+                <button type="button" class="btn btn-success" id="confirmBulkApprove">
+                    <i class="fas fa-check-circle me-1"></i> Onayla
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Toplu Gizleme için Modal -->
+<div class="modal fade" id="bulkHideModal" tabindex="-1" aria-labelledby="bulkHideModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="bulkHideModalLabel">Gönderileri Toplu Gizle</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Kapat"></button>
+            </div>
+            <div class="modal-body">
+                <p>Seçtiğiniz <span id="hideCount">0</span> gönderiyi gizlemek istediğinize emin misiniz?</p>
+                <div class="alert alert-warning">
+                    <i class="fas fa-exclamation-triangle me-1"></i> Gizlenen gönderiler kullanıcılar tarafından görüntülenemez.
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">İptal</button>
+                <button type="button" class="btn btn-warning" id="confirmBulkHide">
+                    <i class="fas fa-eye-slash me-1"></i> Gizle
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Toplu İşlem JavaScript Kodu -->
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Gerekli elemanları seç
+    const selectAllCheckbox = document.getElementById('selectAllCheckbox');
+    const selectAllBtn = document.getElementById('selectAllBtn');
+    const bulkApproveBtn = document.getElementById('bulkApproveBtn');
+    const bulkHideBtn = document.getElementById('bulkHideBtn');
+    const postCheckboxes = document.querySelectorAll('.post-checkbox');
+    const selectedCount = document.getElementById('selectedCount');
+    const selectedCountNumber = document.getElementById('selectedCountNumber');
+    
+    // Toplu onay modal elemanları
+    const bulkApproveModal = new bootstrap.Modal(document.getElementById('bulkApproveModal'));
+    const bulkHideModal = new bootstrap.Modal(document.getElementById('bulkHideModal'));
+    const approveCount = document.getElementById('approveCount');
+    const hideCount = document.getElementById('hideCount');
+    const confirmBulkApprove = document.getElementById('confirmBulkApprove');
+    const confirmBulkHide = document.getElementById('confirmBulkHide');
+    
+    // Seçili gönderi sayısını güncelle
+    function updateSelectedCount() {
+        const checkedCount = document.querySelectorAll('.post-checkbox:checked').length;
+        selectedCountNumber.textContent = checkedCount;
+        selectedCount.style.display = checkedCount > 0 ? 'inline' : 'none';
+        
+        // Toplu işlem butonlarını etkinleştir/devre dışı bırak
+        bulkApproveBtn.disabled = checkedCount === 0;
+        bulkHideBtn.disabled = checkedCount === 0;
+        
+        // Hepsini seç kutusunu güncelle
+        if (checkedCount === 0) {
+            selectAllCheckbox.checked = false;
+            selectAllCheckbox.indeterminate = false;
+        } else if (checkedCount === postCheckboxes.length) {
+            selectAllCheckbox.checked = true;
+            selectAllCheckbox.indeterminate = false;
+        } else {
+            selectAllCheckbox.indeterminate = true;
+        }
+    }
+    
+    // Her bir gönderi onay kutusuna olay dinleyicisi ekle
+    postCheckboxes.forEach(checkbox => {
+        checkbox.addEventListener('change', updateSelectedCount);
+    });
+    
+    // Tümünü seç onay kutusu
+    selectAllCheckbox.addEventListener('change', function() {
+        postCheckboxes.forEach(checkbox => {
+            if (!checkbox.disabled) {
+                checkbox.checked = selectAllCheckbox.checked;
+            }
+        });
+        updateSelectedCount();
+    });
+    
+    // Tümünü seç butonu
+    selectAllBtn.addEventListener('click', function() {
+        const anyChecked = Array.from(postCheckboxes).some(checkbox => checkbox.checked && !checkbox.disabled);
+        
+        postCheckboxes.forEach(checkbox => {
+            if (!checkbox.disabled) {
+                checkbox.checked = !anyChecked;
+            }
+        });
+        
+        updateSelectedCount();
+    });
+    
+    // Toplu onay butonuna tıklandığında
+    bulkApproveBtn.addEventListener('click', function() {
+        const checkedCount = document.querySelectorAll('.post-checkbox:checked').length;
+        approveCount.textContent = checkedCount;
+        bulkApproveModal.show();
+    });
+    
+    // Toplu gizle butonuna tıklandığında
+    bulkHideBtn.addEventListener('click', function() {
+        const checkedCount = document.querySelectorAll('.post-checkbox:checked').length;
+        hideCount.textContent = checkedCount;
+        bulkHideModal.show();
+    });
+    
+    // Toplu onay işlemini onayla
+    confirmBulkApprove.addEventListener('click', function() {
+        // Seçilen gönderilerin ID'lerini topla
+        const selectedPostIds = [];
+        document.querySelectorAll('.post-checkbox:checked').forEach(checkbox => {
+            selectedPostIds.push(checkbox.getAttribute('data-post-id'));
+        });
+        
+        // Toplu onay için API isteği gönder
+        fetch('index.php?page=api&action=bulk_approve_posts', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                post_ids: selectedPostIds
+            })
+        })
+        .then(response => response.json())
+        .then(data => {
+            // İşlem başarılıysa sayfayı yenile
+            if (data.success) {
+                showNotification('Seçilen gönderiler başarıyla onaylandı', 'success');
+                setTimeout(() => {
+                    window.location.reload();
+                }, 1500);
+            } else {
+                showNotification('Hata: ' + (data.message || 'Bilinmeyen bir hata oluştu'), 'error');
+            }
+            bulkApproveModal.hide();
+        })
+        .catch(error => {
+            showNotification('Sunucu hatası: ' + error.message, 'error');
+            bulkApproveModal.hide();
+        });
+    });
+    
+    // Toplu gizleme işlemini onayla
+    confirmBulkHide.addEventListener('click', function() {
+        // Seçilen gönderilerin ID'lerini topla
+        const selectedPostIds = [];
+        document.querySelectorAll('.post-checkbox:checked').forEach(checkbox => {
+            selectedPostIds.push(checkbox.getAttribute('data-post-id'));
+        });
+        
+        // Toplu gizleme için API isteği gönder
+        fetch('index.php?page=api&action=bulk_hide_posts', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                post_ids: selectedPostIds
+            })
+        })
+        .then(response => response.json())
+        .then(data => {
+            // İşlem başarılıysa sayfayı yenile
+            if (data.success) {
+                showNotification('Seçilen gönderiler başarıyla gizlendi', 'success');
+                setTimeout(() => {
+                    window.location.reload();
+                }, 1500);
+            } else {
+                showNotification('Hata: ' + (data.message || 'Bilinmeyen bir hata oluştu'), 'error');
+            }
+            bulkHideModal.hide();
+        })
+        .catch(error => {
+            showNotification('Sunucu hatası: ' + error.message, 'error');
+            bulkHideModal.hide();
+        });
+    });
+    
+    // Bildirim gösterme fonksiyonu
+    function showNotification(message, type) {
+        const alertClass = type === 'success' ? 'alert-success' : 'alert-danger';
+        const alertIcon = type === 'success' ? 'fa-check-circle' : 'fa-exclamation-circle';
+        
+        const alertHtml = `
+            <div class="alert ${alertClass} alert-dismissible fade show" role="alert">
+                <i class="fas ${alertIcon} me-2"></i> ${message}
+                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Kapat"></button>
+            </div>
+        `;
+        
+        // Bildirim alanı oluştur veya var olanı kullan
+        let notificationArea = document.getElementById('notificationArea');
+        if (!notificationArea) {
+            notificationArea = document.createElement('div');
+            notificationArea.id = 'notificationArea';
+            notificationArea.style.position = 'fixed';
+            notificationArea.style.top = '20px';
+            notificationArea.style.right = '20px';
+            notificationArea.style.zIndex = '9999';
+            document.body.appendChild(notificationArea);
+        }
+        
+        // Bildirimi ekle
+        const alertDiv = document.createElement('div');
+        alertDiv.innerHTML = alertHtml;
+        notificationArea.appendChild(alertDiv.firstElementChild);
+        
+        // 5 saniye sonra otomatik kapat
+        setTimeout(() => {
+            const alerts = notificationArea.getElementsByClassName('alert');
+            if (alerts.length > 0) {
+                alerts[0].remove();
+            }
+        }, 5000);
+    }
+    
+    // Sayfa yüklendiğinde seçim sayısını güncelle
+    updateSelectedCount();
+});
+</script>

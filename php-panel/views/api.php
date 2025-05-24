@@ -6,7 +6,7 @@ require_once(__DIR__ . '/../includes/auth_functions.php');
 
 // Sadece belirli API işlemleri için erişim kontrolü
 $action = isset($_GET['action']) ? $_GET['action'] : '';
-$protected_actions = ['update_post', 'delete_post', 'admin_action', 'update_auto_approve'];
+$protected_actions = ['update_post', 'delete_post', 'admin_action', 'update_auto_approve', 'bulk_approve_posts', 'bulk_hide_posts'];
 
 if (in_array($action, $protected_actions) && !isLoggedIn()) {
     header('Content-Type: application/json');
@@ -30,6 +30,14 @@ switch ($action) {
     
     case 'update_auto_approve':
         updateUserAutoApprove();
+        break;
+    
+    case 'bulk_approve_posts':
+        bulkApprovePosts();
+        break;
+        
+    case 'bulk_hide_posts':
+        bulkHidePosts();
         break;
         
     default:
@@ -232,11 +240,14 @@ function updateUserAutoApprove() {
     
     // Test amaçlı başarılı yanıt (API bağlantısı olmadığında)
     // Gerçek ortamda bu kod yerine veritabanı güncellemesi yapılmalıdır
-    responseJson(false, 'Otomatik onay durumu güncellendi', [
+    header('Content-Type: application/json');
+    echo json_encode([
         'success' => true,
+        'message' => 'Otomatik onay durumu güncellendi',
         'user_id' => $user_id,
         'auto_approve' => $auto_approve
     ]);
+    exit;
     
     /* 
     // Gerçek veritabanı güncellemesi
@@ -256,5 +267,155 @@ function updateUserAutoApprove() {
             'auto_approve' => $auto_approve
         ]);
     }
+    */
+}
+
+/**
+ * Seçilen gönderileri toplu olarak onaylar
+ * 
+ * Bu işlem, seçilen gönderilerin status değerini 'approved' yapar
+ * ve is_hidden değerini false olarak ayarlar
+ */
+function bulkApprovePosts() {
+    // Sadece admin yetkisi olan kullanıcılar bu işlemi yapabilir
+    if (!isAdmin()) {
+        header('Content-Type: application/json');
+        echo json_encode([
+            'success' => false,
+            'message' => 'Bu işlem için yönetici yetkisi gereklidir'
+        ]);
+        exit;
+    }
+    
+    // JSON veriyi oku
+    $json = file_get_contents('php://input');
+    $data = json_decode($json, true);
+    
+    // Gönderi ID'lerini kontrol et
+    if (!isset($data['post_ids']) || !is_array($data['post_ids']) || empty($data['post_ids'])) {
+        header('Content-Type: application/json');
+        echo json_encode([
+            'success' => false,
+            'message' => 'Geçersiz gönderi listesi'
+        ]);
+        exit;
+    }
+    
+    $post_ids = $data['post_ids'];
+    
+    // Test amaçlı başarılı yanıt (API bağlantısı olmadığında)
+    header('Content-Type: application/json');
+    echo json_encode([
+        'success' => true,
+        'message' => count($post_ids) . ' gönderi başarıyla onaylandı',
+        'post_ids' => $post_ids
+    ]);
+    exit;
+    
+    /* 
+    // Gerçek veritabanı güncellemesi
+    // Bu bölüm API bağlantısı olduğunda aktif edilmelidir
+    $success_count = 0;
+    $error_count = 0;
+    
+    foreach ($post_ids as $post_id) {
+        $result = updateData('posts', [
+            'status' => 'approved',
+            'is_hidden' => false,
+            'updated_at' => date('Y-m-d H:i:s')
+        ], [
+            'id' => 'eq.' . $post_id
+        ]);
+        
+        if (!$result['error']) {
+            $success_count++;
+        } else {
+            $error_count++;
+        }
+    }
+    
+    header('Content-Type: application/json');
+    echo json_encode([
+        'success' => true,
+        'message' => $success_count . ' gönderi başarıyla onaylandı' . ($error_count > 0 ? ', ' . $error_count . ' gönderi onaylanamadı' : ''),
+        'success_count' => $success_count,
+        'error_count' => $error_count,
+        'post_ids' => $post_ids
+    ]);
+    exit;
+    */
+}
+
+/**
+ * Seçilen gönderileri toplu olarak gizler
+ * 
+ * Bu işlem, seçilen gönderilerin is_hidden değerini true olarak ayarlar
+ */
+function bulkHidePosts() {
+    // Sadece admin yetkisi olan kullanıcılar bu işlemi yapabilir
+    if (!isAdmin()) {
+        header('Content-Type: application/json');
+        echo json_encode([
+            'success' => false,
+            'message' => 'Bu işlem için yönetici yetkisi gereklidir'
+        ]);
+        exit;
+    }
+    
+    // JSON veriyi oku
+    $json = file_get_contents('php://input');
+    $data = json_decode($json, true);
+    
+    // Gönderi ID'lerini kontrol et
+    if (!isset($data['post_ids']) || !is_array($data['post_ids']) || empty($data['post_ids'])) {
+        header('Content-Type: application/json');
+        echo json_encode([
+            'success' => false,
+            'message' => 'Geçersiz gönderi listesi'
+        ]);
+        exit;
+    }
+    
+    $post_ids = $data['post_ids'];
+    
+    // Test amaçlı başarılı yanıt (API bağlantısı olmadığında)
+    header('Content-Type: application/json');
+    echo json_encode([
+        'success' => true,
+        'message' => count($post_ids) . ' gönderi başarıyla gizlendi',
+        'post_ids' => $post_ids
+    ]);
+    exit;
+    
+    /* 
+    // Gerçek veritabanı güncellemesi
+    // Bu bölüm API bağlantısı olduğunda aktif edilmelidir
+    $success_count = 0;
+    $error_count = 0;
+    
+    foreach ($post_ids as $post_id) {
+        $result = updateData('posts', [
+            'is_hidden' => true,
+            'updated_at' => date('Y-m-d H:i:s')
+        ], [
+            'id' => 'eq.' . $post_id
+        ]);
+        
+        if (!$result['error']) {
+            $success_count++;
+        } else {
+            $error_count++;
+        }
+    }
+    
+    header('Content-Type: application/json');
+    echo json_encode([
+        'success' => true,
+        'message' => $success_count . ' gönderi başarıyla gizlendi' . ($error_count > 0 ? ', ' . $error_count . ' gönderi gizlenemedi' : ''),
+        'success_count' => $success_count,
+        'error_count' => $error_count,
+        'post_ids' => $post_ids
+    ]);
+    exit;
     */
 }
