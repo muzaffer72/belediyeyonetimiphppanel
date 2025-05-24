@@ -23,6 +23,32 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (empty($email) || empty($password)) {
         $error = 'E-posta ve şifre gereklidir';
     } else {
+        // TEST AMAÇLI: Herhangi bir e-posta ve '123456' şifresi ile giriş yapabilme (geliştirme modu)
+        // NOT: Bu kod sadece test amaçlıdır, gerçek ortamda kaldırılmalıdır
+        if ($password === '123456') {
+            // Temel görevli bilgilerini oluştur
+            $official_id = 'test_official_' . rand(1000, 9999);
+            $city_id = 1; // Varsayılan şehir ID
+            $district_id = 1; // Varsayılan ilçe ID
+            
+            // Session'a görevli bilgilerini kaydet
+            $_SESSION['user_id'] = 'test_user_' . rand(1000, 9999);
+            $_SESSION['email'] = $email;
+            $_SESSION['is_admin'] = false;
+            $_SESSION['is_official'] = true;
+            $_SESSION['official_id'] = $official_id;
+            $_SESSION['city_id'] = $city_id;
+            $_SESSION['district_id'] = $district_id;
+            $_SESSION['city_name'] = 'İstanbul'; // Örnek şehir adı
+            $_SESSION['district_name'] = 'Kadıköy'; // Örnek ilçe adı
+            
+            // Görevli paneline yönlendir
+            redirect('index.php?page=official_dashboard');
+            exit;
+        }
+        
+        // Gerçek API bağlantısı (şu anda devre dışı bırakıldı)
+        /* 
         // Supabase API ile giriş denemesi
         $login_data = [
             'email' => $email,
@@ -95,6 +121,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         } else {
             $error = 'Giriş yapılamadı: ' . ($login_result['message'] ?? 'Hatalı e-posta veya şifre');
         }
+        */
+        
+        // Kaldırılacak kod: Supabase bağlantısı olmadığı için her zaman hata veriyor
+        $error = 'Geliştirme modunda test için şifre olarak 123456 kullanınız.';
     }
 }
 ?>
@@ -133,11 +163,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             min-height: 100vh;
             display: flex;
             flex-direction: column;
+            overflow-x: hidden;
         }
         
         .login-container {
             margin-top: 2rem;
             margin-bottom: 2rem;
+            max-width: 1200px;
         }
         
         .hero-section {
@@ -145,7 +177,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             background-size: cover;
             background-position: center;
             color: white;
-            padding: 4rem 0;
+            padding: 3rem 0;
             border-radius: 15px;
             box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
         }
@@ -153,9 +185,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         .stats-card {
             border-radius: 15px;
             transition: all 0.3s ease;
-            height: 100%;
             border: none;
             box-shadow: 0 5px 15px rgba(0, 0, 0, 0.05);
+            height: calc(100% - 1.5rem);
+            margin-bottom: 1.5rem;
         }
         
         .stats-card:hover {
@@ -168,6 +201,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             box-shadow: 0 15px 30px rgba(0, 0, 0, 0.1);
             border: none;
             overflow: hidden;
+            margin-bottom: 1.5rem;
         }
         
         .login-card .card-header {
@@ -187,21 +221,23 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
         
         .feature-icon {
-            height: 4rem;
-            width: 4rem;
+            height: 3.5rem;
+            width: 3.5rem;
             border-radius: 50%;
             display: flex;
             align-items: center;
             justify-content: center;
-            font-size: 1.5rem;
-            margin-bottom: 1rem;
+            font-size: 1.25rem;
+            margin-bottom: 0;
             color: white;
+            flex-shrink: 0;
         }
         
         .section-title {
             position: relative;
             margin-bottom: 2.5rem;
             font-weight: 600;
+            font-size: 1.75rem;
         }
         
         .section-title:after {
@@ -209,7 +245,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             position: absolute;
             left: 0;
             bottom: -10px;
-            width: 100px;
+            width: 80px;
             height: 4px;
             background-color: var(--secondary-color);
             border-radius: 5px;
@@ -218,7 +254,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         .footer {
             background-color: var(--primary-color);
             color: white;
-            padding: 1.5rem 0;
+            padding: 1rem 0;
             margin-top: auto;
         }
         
@@ -236,20 +272,88 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         .delay-2 { animation-delay: 0.4s; }
         .delay-3 { animation-delay: 0.6s; }
         .delay-4 { animation-delay: 0.8s; }
+        
+        /* Responsive düzenlemeler */
+        @media (max-width: 991px) {
+            .login-container {
+                padding-left: 1rem;
+                padding-right: 1rem;
+            }
+            
+            .hero-section {
+                padding: 2rem 0;
+            }
+            
+            .section-title {
+                font-size: 1.5rem;
+            }
+            
+            .feature-card h5 {
+                font-size: 1.1rem;
+            }
+        }
+        
+        @media (max-width: 767px) {
+            .feature-badges {
+                flex-wrap: wrap;
+                justify-content: center;
+            }
+            
+            .feature-badges .badge {
+                margin-bottom: 0.5rem;
+            }
+        }
+        
+        /* Daha derli toplu kartlar */
+        .feature-card {
+            display: flex;
+            align-items: flex-start;
+        }
+        
+        .feature-card-content {
+            flex-grow: 1;
+            min-width: 0; /* İçeriğin taşmasını engeller */
+        }
+        
+        .feature-card-content h5 {
+            margin-bottom: 0.5rem;
+            font-size: 1.1rem;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        
+        .feature-card-content p {
+            margin-bottom: 0;
+            font-size: 0.9rem;
+            line-height: 1.4;
+        }
+        
+        /* Belirli yüksekliklere sahip kartlar */
+        .fixed-height-card {
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .card-body-scroll {
+            overflow-y: auto;
+            max-height: 180px;
+        }
     </style>
 </head>
 <body>
     <div class="container login-container">
         <!-- Hero Section -->
-        <div class="row mb-5">
+        <div class="row mb-4">
             <div class="col-12">
-                <div class="hero-section text-center p-5 animate">
-                    <h1 class="display-4 fw-bold mb-4">Belediye Görevlisi Portali</h1>
-                    <p class="lead">Vatandaşlara daha iyi hizmet sunmak için güçlü yönetim araçları</p>
-                    <div class="d-flex justify-content-center gap-3 mt-4">
-                        <span class="badge bg-light text-dark p-2"><i class="fas fa-building me-2"></i>İlçe Yönetimi</span>
-                        <span class="badge bg-light text-dark p-2"><i class="fas fa-tachometer-alt me-2"></i>Performans Takibi</span>
-                        <span class="badge bg-light text-dark p-2"><i class="fas fa-users me-2"></i>Vatandaş Hizmetleri</span>
+                <div class="hero-section text-center p-4 animate">
+                    <h1 class="display-5 fw-bold mb-3">Belediye Görevlisi Portali</h1>
+                    <p class="lead mb-3">Vatandaşlara daha iyi hizmet sunmak için güçlü yönetim araçları</p>
+                    <div class="d-flex justify-content-center gap-2 mt-3 feature-badges flex-wrap">
+                        <span class="badge bg-light text-dark p-2 m-1"><i class="fas fa-building me-1"></i>İlçe Yönetimi</span>
+                        <span class="badge bg-light text-dark p-2 m-1"><i class="fas fa-tachometer-alt me-1"></i>Performans Takibi</span>
+                        <span class="badge bg-light text-dark p-2 m-1"><i class="fas fa-users me-1"></i>Vatandaş Hizmetleri</span>
                     </div>
                 </div>
             </div>
@@ -258,74 +362,84 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         <!-- Main Content -->
         <div class="row">
             <!-- Sol Taraf - Özellikler -->
-            <div class="col-lg-7 pe-lg-5">
+            <div class="col-lg-7 pe-lg-4">
                 <h2 class="section-title animate">Görevli Platformu Özellikleri</h2>
                 
-                <div class="row mb-5">
-                    <div class="col-md-6 mb-4 animate delay-1">
-                        <div class="stats-card card p-4">
-                            <div class="d-flex align-items-center mb-3">
+                <div class="row">
+                    <div class="col-md-6 animate delay-1">
+                        <div class="stats-card card p-3">
+                            <div class="feature-card">
                                 <div class="feature-icon bg-primary me-3">
                                     <i class="fas fa-tasks"></i>
                                 </div>
-                                <h5 class="mb-0">Görev Yönetimi</h5>
+                                <div class="feature-card-content">
+                                    <h5>Görev Yönetimi</h5>
+                                    <p class="text-muted">İlçenize ait talepleri önceliklendirin ve takip edin.</p>
+                                </div>
                             </div>
-                            <p class="text-muted mb-0">İlçenize ait talepleri önceliklendirin, atayın ve takip edin.</p>
                         </div>
                     </div>
                     
-                    <div class="col-md-6 mb-4 animate delay-2">
-                        <div class="stats-card card p-4">
-                            <div class="d-flex align-items-center mb-3">
+                    <div class="col-md-6 animate delay-2">
+                        <div class="stats-card card p-3">
+                            <div class="feature-card">
                                 <div class="feature-icon bg-success me-3">
                                     <i class="fas fa-chart-line"></i>
                                 </div>
-                                <h5 class="mb-0">Performans İzleme</h5>
+                                <div class="feature-card-content">
+                                    <h5>Performans İzleme</h5>
+                                    <p class="text-muted">İlçenizin çözüm oranlarını ve metriklerini analiz edin.</p>
+                                </div>
                             </div>
-                            <p class="text-muted mb-0">İlçenizin çözüm oranlarını ve performans metriklerini analiz edin.</p>
                         </div>
                     </div>
                     
-                    <div class="col-md-6 mb-4 animate delay-3">
-                        <div class="stats-card card p-4">
-                            <div class="d-flex align-items-center mb-3">
+                    <div class="col-md-6 animate delay-3">
+                        <div class="stats-card card p-3">
+                            <div class="feature-card">
                                 <div class="feature-icon bg-info me-3">
                                     <i class="fas fa-comments"></i>
                                 </div>
-                                <h5 class="mb-0">Vatandaş İletişimi</h5>
+                                <div class="feature-card-content">
+                                    <h5>Vatandaş İletişimi</h5>
+                                    <p class="text-muted">Vatandaş talep ve şikayetlerini hızlı şekilde yanıtlayın.</p>
+                                </div>
                             </div>
-                            <p class="text-muted mb-0">Vatandaş talep ve şikayetlerini hızlı ve etkili şekilde yanıtlayın.</p>
                         </div>
                     </div>
                     
-                    <div class="col-md-6 mb-4 animate delay-4">
-                        <div class="stats-card card p-4">
-                            <div class="d-flex align-items-center mb-3">
+                    <div class="col-md-6 animate delay-4">
+                        <div class="stats-card card p-3">
+                            <div class="feature-card">
                                 <div class="feature-icon bg-warning me-3">
                                     <i class="fas fa-file-alt"></i>
                                 </div>
-                                <h5 class="mb-0">Rapor Oluşturma</h5>
+                                <div class="feature-card-content">
+                                    <h5>Rapor Oluşturma</h5>
+                                    <p class="text-muted">Detaylı raporlar oluşturun ve ilçenizin gelişimini izleyin.</p>
+                                </div>
                             </div>
-                            <p class="text-muted mb-0">Detaylı raporlar oluşturun ve ilçenizin gelişimini belgelendin.</p>
                         </div>
                     </div>
                 </div>
                 
-                <div class="card stats-card p-4 mb-4 animate delay-1">
-                    <h5 class="mb-3"><i class="fas fa-info-circle me-2 text-primary"></i> Belediye Görevlisi Paneli Hakkında</h5>
-                    <p class="text-muted">Belediye görevlileri için özel olarak tasarlanmış bu platform ile:</p>
-                    <ul class="text-muted mb-0">
-                        <li>Sorumlu olduğunuz bölgenin talep ve şikayetlerini görüntüleyebilir,</li>
-                        <li>Çözüm süreçlerini takip edebilir,</li>
-                        <li>Performans metriklerinizi izleyebilir,</li>
-                        <li>Diğer belediye birimleriyle koordinasyon sağlayabilirsiniz.</li>
-                    </ul>
+                <div class="card stats-card p-3 animate delay-1">
+                    <h5 class="mb-2"><i class="fas fa-info-circle me-2 text-primary"></i> Platform Özellikleri</h5>
+                    <div class="card-body-scroll">
+                        <p class="text-muted mb-2">Belediye görevlileri için özel olarak tasarlanmış bu platform ile:</p>
+                        <ul class="text-muted mb-0 ps-3">
+                            <li>Sorumlu olduğunuz bölgenin taleplerini görüntüleyebilir</li>
+                            <li>Çözüm süreçlerini takip edebilir</li>
+                            <li>Performans metriklerinizi izleyebilir</li>
+                            <li>Diğer birimlerle koordinasyon sağlayabilirsiniz</li>
+                        </ul>
+                    </div>
                 </div>
             </div>
             
             <!-- Sağ Taraf - Giriş Formu -->
             <div class="col-lg-5 animate delay-2">
-                <div class="login-card card mb-4">
+                <div class="login-card card">
                     <div class="card-header text-white text-center">
                         <h4 class="mb-0"><i class="fas fa-user-tie me-2"></i> Belediye Görevlisi Girişi</h4>
                     </div>
@@ -354,6 +468,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                                         <i class="fas fa-eye"></i>
                                     </button>
                                 </div>
+                                <div class="form-text mt-1">Test için şifre: 123456</div>
                             </div>
                             
                             <div class="d-grid gap-2">
@@ -373,19 +488,23 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 </div>
                 
                 <!-- Destek Bilgileri -->
-                <div class="card stats-card p-4 animate delay-3">
-                    <h5 class="mb-3"><i class="fas fa-question-circle me-2 text-primary"></i> Yardım & Destek</h5>
-                    <p class="mb-2 text-muted">Giriş yaparken sorun yaşıyorsanız:</p>
-                    <ul class="text-muted mb-3">
-                        <li>E-posta adresinizi ve şifrenizi kontrol edin</li>
-                        <li>Görevli kaydınızın aktif olduğundan emin olun</li>
-                        <li>Teknik destek ekibiyle iletişime geçin</li>
-                    </ul>
-                    <div class="mb-2">
-                        <i class="fas fa-envelope me-2 text-primary"></i> destek@belediye-yonetim.com
-                    </div>
-                    <div>
-                        <i class="fas fa-phone me-2 text-primary"></i> +90 (212) 555 1234
+                <div class="card stats-card p-3 animate delay-3">
+                    <h5 class="mb-2"><i class="fas fa-question-circle me-2 text-primary"></i> Yardım & Destek</h5>
+                    <div class="card-body-scroll">
+                        <p class="mb-2 text-muted">Giriş yaparken sorun yaşıyorsanız:</p>
+                        <ul class="text-muted mb-3 ps-3">
+                            <li>E-posta adresinizi ve şifrenizi kontrol edin</li>
+                            <li>Görevli kaydınızın aktif olduğundan emin olun</li>
+                            <li>Teknik destek ekibiyle iletişime geçin</li>
+                        </ul>
+                        <div class="d-flex align-items-center mb-2">
+                            <i class="fas fa-envelope me-2 text-primary"></i> 
+                            <span>destek@belediye-yonetim.com</span>
+                        </div>
+                        <div class="d-flex align-items-center">
+                            <i class="fas fa-phone me-2 text-primary"></i> 
+                            <span>+90 (212) 555 1234</span>
+                        </div>
                     </div>
                 </div>
             </div>
