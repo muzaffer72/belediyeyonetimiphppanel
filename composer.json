@@ -1,0 +1,8 @@
+{
+    "require": {
+        "supabase/supabase-php": "^0.0.3",
+        "supabase/postgrest-php": "^0.0.3",
+        "blume01/supabase-php-sdk": "^1.0",
+        "rafaelwendel/phpsupabase": "^0.0.8"
+    }
+}
