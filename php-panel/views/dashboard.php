@@ -180,7 +180,7 @@ if ($is_moderator || ($is_official && ($assigned_city_id || $assigned_district_i
                 <div class="d-flex align-items-center">
                     <div class="flex-grow-1">
                         <h5 class="card-title">Toplam Şehir</h5>
-                        <h2 class="mb-0"><?php echo number_format($stats['total_cities']); ?></h2>
+                        <h2 class="mb-0"><?php echo number_format($stats['total_cities'] ?? 0); ?></h2>
                     </div>
                     <div class="ms-3">
                         <i class="fas fa-city fa-2x opacity-75"></i>
@@ -196,7 +196,7 @@ if ($is_moderator || ($is_official && ($assigned_city_id || $assigned_district_i
                 <div class="d-flex align-items-center">
                     <div class="flex-grow-1">
                         <h5 class="card-title">Toplam Kullanıcı</h5>
-                        <h2 class="mb-0"><?php echo number_format($stats['total_users']); ?></h2>
+                        <h2 class="mb-0"><?php echo number_format($stats['total_users'] ?? 0); ?></h2>
                     </div>
                     <div class="ms-3">
                         <i class="fas fa-users fa-2x opacity-75"></i>

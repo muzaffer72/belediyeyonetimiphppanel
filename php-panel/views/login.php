@@ -104,13 +104,21 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         $_SESSION['assigned_city_name'] = $assigned_city['name'] ?? null;
                         $_SESSION['assigned_district_name'] = $assigned_district['name'] ?? null;
                         $_SESSION['official_title'] = $official_data['title'] ?? 'Belediye Personeli';
-                    } else {
-                        // Moderatör için varsayılan değerler
-                        $_SESSION['assigned_city_id'] = null;
-                        $_SESSION['assigned_district_id'] = null;
-                        $_SESSION['assigned_city_name'] = null;
+                    } else if ($is_moderator) {
+                        // Moderatör için - kullanıcının şehir bilgisini al
+                        $user_city_id = $user['city_id'] ?? null;
+                        $user_city_name = $user['city'] ?? null;
+                        
+                        if ($user_city_id) {
+                            $city_result = getDataById('cities', $user_city_id);
+                            $user_city_name = $city_result['data']['name'] ?? $user_city_name;
+                        }
+                        
+                        $_SESSION['assigned_city_id'] = $user_city_id;
+                        $_SESSION['assigned_district_id'] = null; // Moderatör tüm şehri yönetir
+                        $_SESSION['assigned_city_name'] = $user_city_name;
                         $_SESSION['assigned_district_name'] = null;
-                        $_SESSION['official_title'] = 'Moderatör';
+                        $_SESSION['official_title'] = 'Belediye Moderatörü';
                     }
                     
                     $_SESSION['login_time'] = time();
