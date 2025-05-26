@@ -1,16 +1,27 @@
 <?php
 // Fonksiyonları dahil et
 require_once(__DIR__ . '/../includes/functions.php');
-// Şehirler verilerini al
-$cities_result = getData('cities');
-$cities = $cities_result['data'];
+
+// Kullanıcı yetki kontrolü
+$user_type = $_SESSION['user_type'] ?? '';
+$is_admin = $user_type === 'admin';
+$is_moderator = $user_type === 'moderator';
+$assigned_city_id = $_SESSION['assigned_city_id'] ?? null;
+
+// Şehirler verilerini al - moderatör sadece kendi şehrini görebilir
+if ($is_moderator && $assigned_city_id) {
+    $cities_result = getData('cities', ['id' => 'eq.' . $assigned_city_id]);
+} else {
+    $cities_result = getData('cities');
+}
+$cities = $cities_result['data'] ?? [];
 
 // Parti verilerini al
 $parties_result = getData('political_parties');
 $parties = $parties_result['data'];
 
-// Yeni şehir ekle formu gönderildi mi kontrol et
-if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['add_city'])) {
+// Yeni şehir ekle formu gönderildi mi kontrol et - sadece admin
+if ($is_admin && $_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['add_city'])) {
     // Form verilerini al
     $name = trim($_POST['name'] ?? '');
     $email = trim($_POST['email'] ?? '');

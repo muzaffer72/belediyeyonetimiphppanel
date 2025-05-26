@@ -122,11 +122,8 @@ if (empty($users) && empty($error_message)) {
     $error_message = 'Kullanıcı listesi yüklenemedi. Lütfen sayfayı yenileyin veya önce kullanıcı ekleyin.';
 }
 
-// Görevlileri al - moderatör sadece kendi şehrindeki personeli görebilir
+// Görevlileri al - admin tüm personeli görebilir
 $officials_filters = ['select' => '*', 'order' => 'created_at.desc'];
-if ($is_moderator && $assigned_city_id) {
-    $officials_filters['city_id'] = 'eq.' . $assigned_city_id;
-}
 
 $officials_result = getData('officials', $officials_filters);
 $officials = $officials_result['error'] ? [] : $officials_result['data'];

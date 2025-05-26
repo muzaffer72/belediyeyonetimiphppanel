@@ -1,9 +1,27 @@
 <?php
 // Fonksiyonları dahil et
 require_once(__DIR__ . '/../includes/functions.php');
-// İlçeler verilerini al
-$districts_result = getData('districts');
-$districts = $districts_result['data'];
+
+// Kullanıcı yetki kontrolü
+$user_type = $_SESSION['user_type'] ?? '';
+$is_admin = $user_type === 'admin';
+$is_moderator = $user_type === 'moderator';
+$assigned_city_id = $_SESSION['assigned_city_id'] ?? null;
+$assigned_district_id = $_SESSION['assigned_district_id'] ?? null;
+
+// İlçeler verilerini al - moderatör sadece kendi şehir/ilçesini görebilir
+if ($is_moderator && $assigned_city_id) {
+    if ($assigned_district_id) {
+        // Belirli bir ilçeye atanmış moderatör
+        $districts_result = getData('districts', ['id' => 'eq.' . $assigned_district_id]);
+    } else {
+        // Şehir genelinde yetkili moderatör
+        $districts_result = getData('districts', ['city_id' => 'eq.' . $assigned_city_id]);
+    }
+} else {
+    $districts_result = getData('districts');
+}
+$districts = $districts_result['data'] ?? [];
 
 // Şehirler verilerini al (dropdown için)
 $cities_result = getData('cities');
@@ -13,8 +31,8 @@ $cities = $cities_result['data'];
 $parties_result = getData('political_parties');
 $parties = $parties_result['data'];
 
-// Yeni ilçe ekle formu gönderildi mi kontrol et
-if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['add_district'])) {
+// Yeni ilçe ekle formu gönderildi mi kontrol et - sadece admin
+if ($is_admin && $_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['add_district'])) {
     // Form verilerini al
     $name = trim($_POST['name'] ?? '');
     $city_id = trim($_POST['city_id'] ?? '');

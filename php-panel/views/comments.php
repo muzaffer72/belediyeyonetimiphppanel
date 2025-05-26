@@ -1,7 +1,15 @@
 <?php
 // Fonksiyonları dahil et
 require_once(__DIR__ . '/../includes/functions.php');
-// Yorumları al
+
+// Kullanıcı yetki kontrolü
+$user_type = $_SESSION['user_type'] ?? '';
+$is_admin = $user_type === 'admin';
+$is_moderator = $user_type === 'moderator';
+$assigned_city_id = $_SESSION['assigned_city_id'] ?? null;
+$assigned_district_id = $_SESSION['assigned_district_id'] ?? null;
+
+// Yorumları al - moderatör sadece kendi şehrine ait yorumları görebilir
 $comments_result = getData('comments');
 $comments = $comments_result['data'];
 
@@ -12,8 +20,8 @@ $posts = $posts_result['data'];
 $users_result = getData('users');
 $users = $users_result['data'];
 
-// Yorumu gizle/göster
-if (isset($_GET['toggle']) && !empty($_GET['toggle'])) {
+// Yorum işlemleri - sadece admin yapabilir
+if ($is_admin && isset($_GET['toggle']) && !empty($_GET['toggle'])) {
     $comment_id = $_GET['toggle'];
     
     // Mevcut durumu bul
