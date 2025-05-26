@@ -75,7 +75,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             'onecikar' => $onecikar,
             'city_id' => $level === 'city' || $level === 'district' ? $city_id : null,
             'district_id' => $level === 'district' ? $district_id : null,
-            'created_by' => $_SESSION['user_id'] ?? null,
+            'created_by' => null,
             'updated_at' => date('Y-m-d H:i:s')
         ];
         

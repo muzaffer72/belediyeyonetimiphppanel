@@ -69,8 +69,17 @@ if ($poll['created_by']) {
     $creator = $creator_result['data'] ?? null;
 }
 
-// Toplam oy sayısını hesapla
-$total_votes = array_sum(array_column($poll_options, 'vote_count'));
+// Toplam oy sayısını gerçek verilerden hesapla
+$total_votes = 0;
+foreach ($poll_options as $option) {
+    $votes_result = getData('poll_votes', [
+        'option_id' => 'eq.' . $option['id'],
+        'select' => 'count'
+    ]);
+    $vote_count = $votes_result['data'][0]['count'] ?? 0;
+    $option['real_vote_count'] = $vote_count;
+    $total_votes += $vote_count;
+}
 ?>
 
 <div class="d-flex justify-content-between align-items-center mb-4">

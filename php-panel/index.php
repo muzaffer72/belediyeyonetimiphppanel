@@ -28,6 +28,7 @@ if (isLoggedIn() && isOfficial() && !in_array($page, $public_pages) && $page != 
 $action = isset($_GET['action']) ? $_GET['action'] : '';
 
 // Geçerli sayfalar
+// Geçerli sayfalar
 $valid_pages = [
     'dashboard', 'cities', 'districts', 'parties', 'posts', 'comments', 'announcements', 'users', 'not_found',
     'city_edit', 'city_detail', 'district_edit', 'district_detail', 'post_edit', 'post_detail', 'cozumorani',
@@ -35,7 +36,7 @@ $valid_pages = [
     'show_schema', 'trigger_posts', 'custom_sql', 'new_party_scoring', 'advanced_party_scoring', 'trigger_setup',
     'fix_post_sharing', 'use_cron_only', 'notifications', 'official_login', 'official_dashboard', 'officials',
     'district_performance', 'party_performance', 'update_district_performance', 'update_party_performance',
-    'advertisements', 'ad_edit', 'ad_detail', 'ad_analytics', 'login'
+    'advertisements', 'ad_edit', 'ad_detail', 'ad_analytics', 'polls','poll_detail','poll_edit','poll_statistics', 'login'
 ];
 
 // Sayfa geçerli mi kontrol et

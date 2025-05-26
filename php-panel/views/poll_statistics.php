@@ -64,21 +64,16 @@ if ($selected_poll) {
         
         $where_clause = implode(' AND ', $where_conditions);
         
-        // Oy dağılımı
+        // Oy dağılımını gerçek verilerle hesapla
         foreach ($poll_options as &$option) {
-            $votes_query = "
-                SELECT COUNT(*) as vote_count 
-                FROM poll_votes pv 
-                LEFT JOIN users u ON pv.user_id = u.id 
-                WHERE pv.option_id = '{$option['id']}' AND {$where_clause}
-            ";
-            
-            // Bu kısımda gerçek veri çekimi yapılacak
-            // Şimdilik option'daki vote_count'u kullanıyoruz
-            $option['filtered_votes'] = $option['vote_count'] ?? 0;
+            $option_votes_result = getData('poll_votes', [
+                'option_id' => 'eq.' . $option['id'],
+                'select' => 'count'
+            ]);
+            $option['filtered_votes'] = $option_votes_result['data'][0]['count'] ?? 0;
         }
         
-        // Demografik istatistikler
+        // Demografik istatistikler - Gerçek verilerle
         $voting_stats = [
             'gender_stats' => [],
             'age_stats' => [],
@@ -87,11 +82,19 @@ if ($selected_poll) {
             'daily_stats' => []
         ];
         
+        // Anket oylarını kullanıcı bilgileriyle birlikte getir
+        $poll_votes_result = getData('poll_votes', [
+            'poll_id' => 'eq.' . $selected_poll,
+            'select' => '*'
+        ]);
+        $poll_votes = $poll_votes_result['data'] ?? [];
+        
         // Cinsiyet dağılımı
         $gender_stats = [
             'Erkek' => 0,
             'Kadın' => 0,
-            'Belirtmek İstemiyorum' => 0
+            'Belirtmek İstemiyorum' => 0,
+            'Belirtilmemiş' => 0
         ];
         
         // Yaş grupları
@@ -103,17 +106,60 @@ if ($selected_poll) {
             '56+' => 0
         ];
         
-        // İl dağılımı (top 10)
+        // İl dağılımı
         $city_stats = [];
         
-        // Günlük oy dağılımı (son 30 gün)
-        $daily_stats = [];
+        // Her oy için kullanıcı bilgilerini kontrol et
+        foreach ($poll_votes as $vote) {
+            if ($vote['user_id']) {
+                $user_result = getDataById('users', $vote['user_id']);
+                $user = $user_result['data'] ?? null;
+                
+                if ($user) {
+                    // Cinsiyet istatistiği
+                    $gender = $user['gender'] ?? 'Belirtilmemiş';
+                    if (isset($gender_stats[$gender])) {
+                        $gender_stats[$gender]++;
+                    } else {
+                        $gender_stats['Belirtilmemiş']++;
+                    }
+                    
+                    // Yaş grubu istatistiği
+                    $age = intval($user['age'] ?? 0);
+                    if ($age >= 18 && $age <= 25) {
+                        $age_groups['18-25']++;
+                    } elseif ($age >= 26 && $age <= 35) {
+                        $age_groups['26-35']++;
+                    } elseif ($age >= 36 && $age <= 45) {
+                        $age_groups['36-45']++;
+                    } elseif ($age >= 46 && $age <= 55) {
+                        $age_groups['46-55']++;
+                    } elseif ($age > 55) {
+                        $age_groups['56+']++;
+                    }
+                    
+                    // Şehir istatistiği
+                    if ($user['city']) {
+                        $city_name = $user['city'];
+                        if (isset($city_stats[$city_name])) {
+                            $city_stats[$city_name]++;
+                        } else {
+                            $city_stats[$city_name] = 1;
+                        }
+                    }
+                }
+            }
+        }
+        
+        // Şehirleri oy sayısına göre sırala (en çok 10 tanesi)
+        arsort($city_stats);
+        $city_stats = array_slice($city_stats, 0, 10, true);
         
         $voting_stats = [
             'gender_stats' => $gender_stats,
             'age_stats' => $age_groups,
             'city_stats' => $city_stats,
-            'daily_stats' => $daily_stats
+            'daily_stats' => []
         ];
     }
 }
@@ -228,12 +274,14 @@ if ($selected_poll) {
                 
                 <div class="col-md-2">
                     <label class="form-label">İlçe</label>
-                    <select class="form-select" name="district_id">
+                    <select class="form-select" name="district_id" id="district_select">
                         <option value="">Tüm İlçeler</option>
                         <?php foreach ($districts as $district): ?>
-                            <option value="<?php echo $district['id']; ?>" <?php echo $selected_district === $district['id'] ? 'selected' : ''; ?>>
-                                <?php echo escape($district['name']); ?>
-                            </option>
+                            <?php if (!$selected_city || $district['city_id'] === $selected_city): ?>
+                                <option value="<?php echo $district['id']; ?>" <?php echo $selected_district === $district['id'] ? 'selected' : ''; ?>>
+                                    <?php echo escape($district['name']); ?>
+                                </option>
+                            <?php endif; ?>
                         <?php endforeach; ?>
                     </select>
                 </div>
@@ -407,6 +455,19 @@ if ($selected_poll) {
                         </div>
                     <?php endforeach; ?>
                 </div>
+                
+                <!-- Şehir Dağılımı -->
+                <?php if (!empty($voting_stats['city_stats'])): ?>
+                <h6>En Çok Oy Veren Şehirler</h6>
+                <div class="mb-3">
+                    <?php foreach ($voting_stats['city_stats'] as $city => $count): ?>
+                        <div class="d-flex justify-content-between">
+                            <span><?php echo escape($city); ?></span>
+                            <span><?php echo number_format($count); ?></span>
+                        </div>
+                    <?php endforeach; ?>
+                </div>
+                <?php endif; ?>
                 
                 <small class="text-muted">
                     <i class="fas fa-info-circle me-1"></i>
