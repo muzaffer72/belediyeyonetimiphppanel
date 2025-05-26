@@ -18,15 +18,13 @@ function getMenuItems($current_page) {
             ['id' => 'users', 'icon' => 'fas fa-users', 'text' => 'Kullanıcılar'],
         ];
     } elseif ($user_type === 'moderator') {
-        // Moderatör menüsü (şehir bazlı yönetim)
+        // Moderatör menüsü (şehir bazlı sınırlı yönetim)
         $menu_items = [
             ['id' => 'dashboard', 'icon' => 'fas fa-tachometer-alt', 'text' => 'Dashboard'],
             ['id' => 'posts', 'icon' => 'fas fa-clipboard-list', 'text' => 'Gönderiler'],
             ['id' => 'comments', 'icon' => 'fas fa-comments', 'text' => 'Yorumlar'],
             ['id' => 'polls', 'icon' => 'fas fa-poll', 'text' => 'Anketler'],
             ['id' => 'users', 'icon' => 'fas fa-users', 'text' => 'Kullanıcılar'],
-            ['id' => 'officials', 'icon' => 'fas fa-user-tie', 'text' => 'Personel Yönetimi'],
-            ['id' => 'advertisements', 'icon' => 'fas fa-ad', 'text' => 'Reklamlar'],
         ];
     } else {
         // Admin menüsü (tam erişim)

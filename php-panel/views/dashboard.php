@@ -84,6 +84,51 @@ if ($is_moderator || ($is_official && ($assigned_city_id || $assigned_district_i
     ]);
     $recent_posts = $recent_posts_result['data'] ?? [];
 }
+
+// Son aktiviteler - gerçek verilerden oluştur
+$activities = [];
+foreach ($recent_posts as $post) {
+    $activities[] = [
+        'type' => 'post',
+        'username' => $post['full_name'] ?? $post['email'] ?? 'Kullanıcı',
+        'action' => $post['type'] === 'complaint' ? 'Şikayet oluşturdu' : 'Gönderi paylaştı',
+        'target' => truncateText($post['title'] ?? $post['content'] ?? '', 50),
+        'timestamp' => $post['created_at']
+    ];
+}
+
+// Post kategorileri - gerçek verilerden
+$post_categories_result = getData('posts', [
+    'select' => 'type,count(*)',
+    'group' => 'type'
+]);
+$post_categories = [];
+if (!$post_categories_result['error'] && $post_categories_result['data']) {
+    foreach ($post_categories_result['data'] as $cat) {
+        $post_categories[] = [
+            'name' => $cat['type'] === 'complaint' ? 'Şikayetler' : 
+                     ($cat['type'] === 'suggestion' ? 'Öneriler' : 
+                     ($cat['type'] === 'thanks' ? 'Teşekkürler' : ucfirst($cat['type']))),
+            'count' => $cat['count']
+        ];
+    }
+}
+
+// Parti dağılımı - gerçek verilerden  
+$party_distribution_result = getData('political_parties', [
+    'select' => 'name,score',
+    'order' => 'score.desc',
+    'limit' => 5
+]);
+$party_distribution = [];
+if (!$party_distribution_result['error'] && $party_distribution_result['data']) {
+    foreach ($party_distribution_result['data'] as $party) {
+        $party_distribution[] = [
+            'name' => $party['name'],
+            'percentage' => round($party['score'] ?? 0, 1)
+        ];
+    }
+}
 ?>
 
 <?php if ($is_official): ?>

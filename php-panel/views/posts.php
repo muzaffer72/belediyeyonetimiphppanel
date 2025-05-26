@@ -2,6 +2,13 @@
 // Gelişmiş gönderiler yönetimi sayfası
 require_once(__DIR__ . '/../includes/functions.php');
 
+// Kullanıcı yetki kontrolü
+$user_type = $_SESSION['user_type'] ?? '';
+$is_admin = $user_type === 'admin';
+$is_moderator = $user_type === 'moderator';
+$assigned_city_id = $_SESSION['assigned_city_id'] ?? null;
+$assigned_district_id = $_SESSION['assigned_district_id'] ?? null;
+
 // Arama ve filtreleme parametreleri
 $search = $_GET['search'] ?? '';
 $filter_type = $_GET['type'] ?? '';
@@ -19,6 +26,14 @@ $sort_by = $_GET['sort_by'] ?? 'created_at';
 $sort_order = $_GET['sort_order'] ?? 'desc';
 $page = intval($_GET['page_num'] ?? 1);
 $per_page = 20;
+
+// Moderatör için otomatik filtreleme
+if ($is_moderator && $assigned_city_id) {
+    $filter_city = $assigned_city_id; // Moderatör sadece kendi şehrini görebilir
+    if ($assigned_district_id) {
+        $filter_district = $assigned_district_id; // Eğer belirli bir ilçeye atanmışsa
+    }
+}
 
 // Gönderi işlemleri
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
@@ -157,11 +172,13 @@ $districts = $districts_result['data'] ?? [];
 $posts_filters = [];
 $where_conditions = [];
 
-// Personel ise sadece atandığı bölgedeki gönderileri görebilir, moderatör tüm gönderileri görebilir
-if ($is_official && !$is_moderator && ($assigned_city_id || $assigned_district_id)) {
+// Moderatör ve personel için bölgesel filtreleme
+if (($is_moderator || $is_official) && ($assigned_city_id || $assigned_district_id)) {
     if ($assigned_district_id) {
+        // Belirli bir ilçeye atanmış personel/moderatör
         $posts_filters['district_id'] = 'eq.' . $assigned_district_id;
     } elseif ($assigned_city_id) {
+        // Şehir genelinde yetkili moderatör
         $posts_filters['city_id'] = 'eq.' . $assigned_city_id;
     }
 }

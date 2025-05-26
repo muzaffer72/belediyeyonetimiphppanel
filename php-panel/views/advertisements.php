@@ -2,6 +2,16 @@
 // Fonksiyonları dahil et
 require_once(__DIR__ . '/../includes/functions.php');
 
+// Yetki kontrolü - sadece admin erişebilir
+$user_type = $_SESSION['user_type'] ?? '';
+$is_admin = $user_type === 'admin';
+
+if (!$is_admin) {
+    $_SESSION['message'] = 'Bu sayfaya erişim yetkiniz yok. Sadece sistem yöneticileri reklam yönetimi yapabilir.';
+    $_SESSION['message_type'] = 'danger';
+    redirect('index.php?page=dashboard');
+}
+
 // Sponsorlu reklamları al
 $ads_result = getData('sponsored_ads', [
     'order' => 'created_at.desc'

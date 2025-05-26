@@ -2,19 +2,17 @@
 // Belediye personeli yönetimi sayfası
 require_once(__DIR__ . '/../includes/functions.php');
 
-// Yetki kontrolü - sadece admin ve moderatör erişebilir
+// Yetki kontrolü - sadece admin erişebilir
 $user_type = $_SESSION['user_type'] ?? '';
 $is_admin = $user_type === 'admin';
-$is_moderator = $user_type === 'moderator';
 
-if (!$is_admin && !$is_moderator) {
-    $_SESSION['message'] = 'Bu sayfaya erişim yetkiniz yok.';
+if (!$is_admin) {
+    $_SESSION['message'] = 'Bu sayfaya erişim yetkiniz yok. Sadece sistem yöneticileri personel yönetimi yapabilir.';
     $_SESSION['message_type'] = 'danger';
     redirect('index.php?page=dashboard');
 }
 
-// Moderatör sadece kendi şehrindeki personeli yönetebilir
-$assigned_city_id = $_SESSION['assigned_city_id'] ?? null;
+// Admin erişimi onaylandı
 
 // İşlem kontrolü
 $action = isset($_GET['action']) ? $_GET['action'] : '';
