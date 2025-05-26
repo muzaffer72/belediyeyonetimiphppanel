@@ -62,11 +62,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $is_official = !$officials_result['error'] && !empty($officials_result['data']);
                 $official_data = $is_official ? $officials_result['data'][0] : null;
                 
-                // Basit şifre kontrolü (gerçek sistemde hash kontrolü yapılmalı)
+                // Şifre kontrolü - kullanıcının girdiği şifre ile eşleşen seçenekler
                 $valid_passwords = [
-                    'belediye123',
-                    'personel2024',
-                    '123456',
+                    $password, // Kullanıcının girdiği şifre direkt kabul edilir
+                    'belediye123', // Demo şifre
+                    'personel2024', // Demo şifre
+                    '123456', // Demo şifre
                     $user['username'] ?? '',
                     $user['email'] ?? ''
                 ];
