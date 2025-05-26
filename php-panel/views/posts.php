@@ -1,1027 +1,824 @@
 <?php
-// Fonksiyonları dahil et
+// Gelişmiş gönderiler yönetimi sayfası
 require_once(__DIR__ . '/../includes/functions.php');
-// Test verileri kullanımı (geliştirme modu)
-// Gerçek ortamda "getData" fonksiyonu kullanılmalıdır
-// Örnek veri yapısı - gerçek API verileri ile değiştirilmelidir
-$posts = [
-    [
-        'id' => '1',
-        'title' => 'Parkta Tamirat Gerekiyor',
-        'type' => 'complaint',
-        'content' => 'Merkez parkındaki çocuk oyun alanı hasarlı ve tehlikeli durumda.',
-        'user_id' => 'user-1',
-        'city' => 'İstanbul',
-        'district' => 'Kadıköy',
-        'city_id' => '1',
-        'district_id' => '1',
-        'status' => 'pending',
-        'is_resolved' => false,
-        'is_hidden' => false,
-        'is_featured' => true,
-        'like_count' => 24,
-        'comment_count' => 5,
-        'created_at' => date('Y-m-d H:i:s', strtotime('-2 days'))
-    ],
-    [
-        'id' => '2',
-        'title' => 'Sokak Lambası Arızası',
-        'type' => 'complaint',
-        'content' => 'Atatürk caddesindeki sokak lambaları çalışmıyor, akşamları çok karanlık oluyor.',
-        'user_id' => 'user-2',
-        'city' => 'İstanbul',
-        'district' => 'Beşiktaş',
-        'city_id' => '1',
-        'district_id' => '2',
-        'status' => 'in_progress',
-        'is_resolved' => false,
-        'is_hidden' => false,
-        'is_featured' => false,
-        'like_count' => 18,
-        'comment_count' => 3,
-        'created_at' => date('Y-m-d H:i:s', strtotime('-5 days'))
-    ],
-    [
-        'id' => '3',
-        'title' => 'Daha Fazla Bisiklet Yolu Önerisi',
-        'type' => 'suggestion',
-        'content' => 'Sahil boyunca bisiklet yolunun uzatılması vatandaşlarımız için faydalı olacaktır.',
-        'user_id' => 'user-3',
-        'city' => 'İstanbul',
-        'district' => 'Kadıköy',
-        'city_id' => '1',
-        'district_id' => '1',
-        'status' => 'pending',
-        'is_resolved' => false,
-        'is_hidden' => false,
-        'is_featured' => true,
-        'like_count' => 42,
-        'comment_count' => 7,
-        'created_at' => date('Y-m-d H:i:s', strtotime('-1 days'))
-    ],
-    [
-        'id' => '4',
-        'title' => 'Geri Dönüşüm Kutularına Teşekkür',
-        'type' => 'thanks',
-        'content' => 'Mahallemize yerleştirilen geri dönüşüm kutuları için teşekkürler, çevre temizliği açısından çok faydalı oldu.',
-        'user_id' => 'user-4',
-        'city' => 'İstanbul',
-        'district' => 'Şişli',
-        'city_id' => '1',
-        'district_id' => '3',
-        'status' => 'solved',
-        'is_resolved' => true,
-        'is_hidden' => false,
-        'is_featured' => false,
-        'like_count' => 31,
-        'comment_count' => 2,
-        'created_at' => date('Y-m-d H:i:s', strtotime('-7 days'))
-    ],
-    [
-        'id' => '5',
-        'title' => 'Su Kesintisi Ne Zaman Bitecek?',
-        'type' => 'question',
-        'content' => 'Bahçelievler mahallesindeki su kesintisi ne zaman sona erecek?',
-        'user_id' => 'user-5',
-        'city' => 'Ankara',
-        'district' => 'Çankaya',
-        'city_id' => '2',
-        'district_id' => '4',
-        'status' => 'solved',
-        'is_resolved' => true,
-        'is_hidden' => false,
-        'is_featured' => false,
-        'like_count' => 15,
-        'comment_count' => 8,
-        'created_at' => date('Y-m-d H:i:s', strtotime('-10 days'))
-    ]
-];
 
-// Şehir verileri
-$cities = [
-    ['id' => '1', 'name' => 'İstanbul'],
-    ['id' => '2', 'name' => 'Ankara'],
-    ['id' => '3', 'name' => 'İzmir'],
-    ['id' => '4', 'name' => 'Bursa'],
-    ['id' => '5', 'name' => 'Antalya']
-];
+// Arama ve filtreleme parametreleri
+$search = $_GET['search'] ?? '';
+$filter_type = $_GET['type'] ?? '';
+$filter_status = $_GET['status'] ?? '';
+$filter_city = $_GET['city_id'] ?? '';
+$filter_district = $_GET['district_id'] ?? '';
+$filter_user = $_GET['user_id'] ?? '';
+$filter_resolved = $_GET['resolved'] ?? '';
+$filter_featured = $_GET['featured'] ?? '';
+$filter_hidden = $_GET['hidden'] ?? '';
+$filter_category = $_GET['category'] ?? '';
+$date_from = $_GET['date_from'] ?? '';
+$date_to = $_GET['date_to'] ?? '';
+$sort_by = $_GET['sort_by'] ?? 'created_at';
+$sort_order = $_GET['sort_order'] ?? 'desc';
+$page = intval($_GET['page_num'] ?? 1);
+$per_page = 20;
 
-// Kullanıcı verileri
-$users = [
-    ['id' => 'user-1', 'username' => 'ahmet.yilmaz', 'email' => 'ahmet@example.com', 'profile_image_url' => ''],
-    ['id' => 'user-2', 'username' => 'ayse.demir', 'email' => 'ayse@example.com', 'profile_image_url' => ''],
-    ['id' => 'user-3', 'username' => 'mehmet.kaya', 'email' => 'mehmet@example.com', 'profile_image_url' => ''],
-    ['id' => 'user-4', 'username' => 'fatma.celik', 'email' => 'fatma@example.com', 'profile_image_url' => ''],
-    ['id' => 'user-5', 'username' => 'mustafa.sahin', 'email' => 'mustafa@example.com', 'profile_image_url' => '']
-];
-
-// Gerçek veri çekme - şu an devre dışı 
-/*
-$posts_result = getData('posts');
-$posts = $posts_result['data'];
-
-// Şehir verilerini al (filtre için)
-$cities_result = getData('cities');
-$cities = $cities_result['data'];
-
-// Kullanıcı verilerini al (filtre için)
-$users_result = getData('users');
-$users = $users_result['data'];
-*/
-
-// Gönderi kategori tipleri
-$post_types = [
-    'complaint' => ['name' => 'Şikayet', 'color' => 'danger', 'icon' => 'fa-exclamation-circle'],
-    'suggestion' => ['name' => 'Öneri', 'color' => 'primary', 'icon' => 'fa-lightbulb'],
-    'question' => ['name' => 'Soru', 'color' => 'warning', 'icon' => 'fa-question-circle'],
-    'thanks' => ['name' => 'Teşekkür', 'color' => 'success', 'icon' => 'fa-heart']
-];
-
-// Filtreleme
-$filter_city = isset($_GET['city']) ? $_GET['city'] : '';
-$filter_type = isset($_GET['type']) ? $_GET['type'] : '';
-$filter_user = isset($_GET['user']) ? $_GET['user'] : '';
-$filter_user_id = isset($_GET['user_id']) ? $_GET['user_id'] : ''; // Kullanıcı ID ile filtreleme için
-$filter_resolved = isset($_GET['resolved']) ? $_GET['resolved'] : '';
-
-// Filtreleri uygula
-$filtered_posts = $posts;
-if (!empty($filter_city)) {
-    $filtered_posts = array_filter($filtered_posts, function($post) use ($filter_city) {
-        return isset($post['city']) && $post['city'] === $filter_city;
-    });
-}
-if (!empty($filter_type)) {
-    $filtered_posts = array_filter($filtered_posts, function($post) use ($filter_type) {
-        return isset($post['type']) && $post['type'] === $filter_type;
-    });
-}
-if (!empty($filter_user)) {
-    $filtered_posts = array_filter($filtered_posts, function($post) use ($filter_user) {
-        return isset($post['user_id']) && $post['user_id'] === $filter_user;
-    });
-}
-// Kullanıcı ID'ye göre filtreleme (users.php sayfasından yönlendirilen filtreleme için)
-if (!empty($filter_user_id)) {
-    $filtered_posts = array_filter($filtered_posts, function($post) use ($filter_user_id) {
-        return isset($post['user_id']) && $post['user_id'] === $filter_user_id;
-    });
-}
-if ($filter_resolved !== '') {
-    $is_resolved = $filter_resolved === 'true';
-    $filtered_posts = array_filter($filtered_posts, function($post) use ($is_resolved) {
-        return isset($post['is_resolved']) && $post['is_resolved'] == $is_resolved;
-    });
-}
-
-// Gönderiyi öne çıkar/kaldır
-if (isset($_GET['feature']) && !empty($_GET['feature'])) {
-    $post_id = $_GET['feature'];
-    $admin_id = $_SESSION['user_id'] ?? 'admin-01';  // Varsayılan admin ID
+// Gönderi işlemleri
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    $action = $_POST['action'] ?? '';
+    $post_id = $_POST['post_id'] ?? '';
     
-    // Öne çıkarılmış mı kontrol et
-    $is_featured = false;
-    foreach ($posts as $post) {
-        if ($post['id'] === $post_id && isset($post['is_featured']) && $post['is_featured']) {
-            $is_featured = true;
-            break;
-        }
-    }
-    
-    if ($is_featured) {
-        // Öne çıkarma durumunu kaldır
-        $update_data = [
-            'is_featured' => false
-        ];
-        $response = updateData('posts', $post_id, $update_data);
-        
-        if (!$response['error']) {
-            // Öne çıkarılanlar listesinden kaldır
-            $featured_posts_result = getData('featured_posts');
-            $featured_posts = $featured_posts_result['data'];
+    switch ($action) {
+        case 'delete_post':
+            // Gönderiyi güvenli şekilde sil (gizle)
+            $update_result = updateData('posts', $post_id, [
+                'is_hidden' => true,
+                'status' => 'deleted',
+                'updated_at' => date('Y-m-d H:i:s')
+            ]);
             
-            foreach ($featured_posts as $fp) {
-                if ($fp['post_id'] === $post_id) {
-                    deleteData('featured_posts', $fp['id']);
-                    break;
+            if (!$update_result['error']) {
+                $_SESSION['message'] = 'Gönderi başarıyla silindi.';
+                $_SESSION['message_type'] = 'success';
+            } else {
+                $_SESSION['message'] = 'Hata: ' . ($update_result['message'] ?? 'Bilinmeyen hata');
+                $_SESSION['message_type'] = 'danger';
+            }
+            break;
+            
+        case 'toggle_featured':
+            $post_result = getDataById('posts', $post_id);
+            if (!$post_result['error'] && $post_result['data']) {
+                $current_featured = $post_result['data']['is_featured'] ?? false;
+                $new_featured = !$current_featured;
+                
+                $update_result = updateData('posts', $post_id, [
+                    'is_featured' => $new_featured,
+                    'updated_at' => date('Y-m-d H:i:s')
+                ]);
+                
+                if (!$update_result['error']) {
+                    $_SESSION['message'] = $new_featured ? 'Gönderi öne çıkarıldı.' : 'Gönderi öne çıkarma kaldırıldı.';
+                    $_SESSION['message_type'] = 'success';
+                } else {
+                    $_SESSION['message'] = 'Hata: ' . ($update_result['message'] ?? 'Bilinmeyen hata');
+                    $_SESSION['message_type'] = 'danger';
                 }
             }
-            
-            $_SESSION['message'] = 'Gönderi öne çıkarılanlardan kaldırıldı';
-            $_SESSION['message_type'] = 'success';
-        } else {
-            $_SESSION['message'] = 'Gönderi güncellenirken bir hata oluştu: ' . $response['message'];
-            $_SESSION['message_type'] = 'danger';
-        }
-    } else {
-        // Gönderiyi öne çıkar
-        $update_data = [
-            'is_featured' => true,
-            'featured_count' => 1
-        ];
-        $response = updateData('posts', $post_id, $update_data);
-        
-        if (!$response['error']) {
-            // Öne çıkarılanlar listesine ekle
-            $featured_data = [
-                'post_id' => $post_id,
-                'user_id' => $admin_id,
-                'created_at' => date('Y-m-d H:i:s')
-            ];
-            
-            addData('featured_posts', $featured_data);
-            
-            $_SESSION['message'] = 'Gönderi başarıyla öne çıkarıldı';
-            $_SESSION['message_type'] = 'success';
-        } else {
-            $_SESSION['message'] = 'Gönderi güncellenirken bir hata oluştu: ' . $response['message'];
-            $_SESSION['message_type'] = 'danger';
-        }
-    }
-    
-    // Sayfayı yeniden yönlendir
-    if (!headers_sent()) {
-        header('Location: index.php?page=posts');
-        exit;
-    } else {
-        echo '<script>window.location.href = "index.php?page=posts";</script>';
-        exit;
-    }
-}
-
-// Gönderiyi çözüldü/çözülmedi olarak işaretle
-if (isset($_GET['resolve']) && !empty($_GET['resolve'])) {
-    $post_id = $_GET['resolve'];
-    $action = isset($_GET['action']) ? $_GET['action'] : 'toggle';
-    
-    // Mevcut durumu kontrol et
-    $is_resolved = false;
-    foreach ($posts as $post) {
-        if ($post['id'] === $post_id) {
-            $is_resolved = isset($post['is_resolved']) && $post['is_resolved'];
             break;
-        }
-    }
-    
-    // Durumu güncelle
-    $new_status = $action === 'mark' ? true : ($action === 'unmark' ? false : !$is_resolved);
-    
-    $update_data = [
-        'is_resolved' => $new_status
-    ];
-    
-    $response = updateData('posts', $post_id, $update_data);
-    
-    if (!$response['error']) {
-        $_SESSION['message'] = $new_status ? 'Gönderi çözüldü olarak işaretlendi' : 'Gönderi çözülmedi olarak işaretlendi';
-        $_SESSION['message_type'] = 'success';
-    } else {
-        $_SESSION['message'] = 'Gönderi güncellenirken bir hata oluştu: ' . $response['message'];
-        $_SESSION['message_type'] = 'danger';
-    }
-    
-    // Sayfayı yeniden yönlendir
-    if (!headers_sent()) {
-        header('Location: index.php?page=posts');
-        exit;
-    } else {
-        echo '<script>window.location.href = "index.php?page=posts";</script>';
-        exit;
-    }
-}
-
-// Gönderiyi gizle/göster
-if (isset($_GET['visibility']) && !empty($_GET['visibility'])) {
-    $post_id = $_GET['visibility'];
-    $action = isset($_GET['action']) ? $_GET['action'] : 'toggle';
-    
-    // Mevcut durumu kontrol et
-    $is_hidden = false;
-    foreach ($posts as $post) {
-        if ($post['id'] === $post_id) {
-            $is_hidden = isset($post['is_hidden']) && $post['is_hidden'];
+            
+        case 'toggle_hidden':
+            $post_result = getDataById('posts', $post_id);
+            if (!$post_result['error'] && $post_result['data']) {
+                $current_hidden = $post_result['data']['is_hidden'] ?? false;
+                $new_hidden = !$current_hidden;
+                
+                $update_result = updateData('posts', $post_id, [
+                    'is_hidden' => $new_hidden,
+                    'updated_at' => date('Y-m-d H:i:s')
+                ]);
+                
+                if (!$update_result['error']) {
+                    $_SESSION['message'] = $new_hidden ? 'Gönderi gizlendi.' : 'Gönderi görünür yapıldı.';
+                    $_SESSION['message_type'] = 'success';
+                } else {
+                    $_SESSION['message'] = 'Hata: ' . ($update_result['message'] ?? 'Bilinmeyen hata');
+                    $_SESSION['message_type'] = 'danger';
+                }
+            }
             break;
-        }
+            
+        case 'update_status':
+            $new_status = $_POST['new_status'] ?? '';
+            $update_result = updateData('posts', $post_id, [
+                'status' => $new_status,
+                'is_resolved' => in_array($new_status, ['solved', 'completed']),
+                'updated_at' => date('Y-m-d H:i:s')
+            ]);
+            
+            if (!$update_result['error']) {
+                $_SESSION['message'] = 'Gönderi durumu güncellendi.';
+                $_SESSION['message_type'] = 'success';
+            } else {
+                $_SESSION['message'] = 'Hata: ' . ($update_result['message'] ?? 'Bilinmeyen hata');
+                $_SESSION['message_type'] = 'danger';
+            }
+            break;
+            
+        case 'delete_comment':
+            $comment_id = $_POST['comment_id'] ?? '';
+            $update_result = updateData('comments', $comment_id, [
+                'is_hidden' => true,
+                'updated_at' => date('Y-m-d H:i:s')
+            ]);
+            
+            if (!$update_result['error']) {
+                $_SESSION['message'] = 'Yorum silindi.';
+                $_SESSION['message_type'] = 'success';
+            } else {
+                $_SESSION['message'] = 'Hata: ' . ($update_result['message'] ?? 'Bilinmeyen hata');
+                $_SESSION['message_type'] = 'danger';
+            }
+            break;
+            
+        case 'block_user':
+            $user_id = $_POST['user_id'] ?? '';
+            $update_result = updateData('users', $user_id, [
+                'is_blocked' => true,
+                'blocked_at' => date('Y-m-d H:i:s'),
+                'updated_at' => date('Y-m-d H:i:s')
+            ]);
+            
+            if (!$update_result['error']) {
+                $_SESSION['message'] = 'Kullanıcı engellendi.';
+                $_SESSION['message_type'] = 'success';
+            } else {
+                $_SESSION['message'] = 'Hata: ' . ($update_result['message'] ?? 'Bilinmeyen hata');
+                $_SESSION['message_type'] = 'danger';
+            }
+            break;
     }
     
-    // Durumu güncelle
-    $new_status = $action === 'hide' ? true : ($action === 'show' ? false : !$is_hidden);
-    
-    $update_data = [
-        'is_hidden' => $new_status
-    ];
-    
-    $response = updateData('posts', $post_id, $update_data);
-    
-    if (!$response['error']) {
-        $_SESSION['message'] = $new_status ? 'Gönderi gizlendi' : 'Gönderi görünür yapıldı';
-        $_SESSION['message_type'] = 'success';
-    } else {
-        $_SESSION['message'] = 'Gönderi güncellenirken bir hata oluştu: ' . $response['message'];
-        $_SESSION['message_type'] = 'danger';
-    }
-    
-    // Sayfayı yeniden yönlendir
-    if (!headers_sent()) {
-        header('Location: index.php?page=posts');
-        exit;
-    } else {
-        echo '<script>window.location.href = "index.php?page=posts";</script>';
-        exit;
-    }
+    redirect('index.php?page=posts');
 }
 
-// Gönderiyi sil
-if (isset($_GET['delete']) && !empty($_GET['delete'])) {
-    $post_id = $_GET['delete'];
-    $response = deleteData('posts', $post_id);
-    
-    if (!$response['error']) {
-        // İlişkili yorumları ve beğenileri de sil
-        $comments_result = getData('comments');
-        $comments = $comments_result['data'];
-        foreach ($comments as $comment) {
-            if ($comment['post_id'] === $post_id) {
-                deleteData('comments', $comment['id']);
-            }
-        }
-        
-        $likes_result = getData('likes');
-        $likes = $likes_result['data'];
-        foreach ($likes as $like) {
-            if ($like['post_id'] === $post_id) {
-                deleteData('likes', $like['id']);
-            }
-        }
-        
-        $_SESSION['message'] = 'Gönderi ve ilişkili veriler başarıyla silindi';
-        $_SESSION['message_type'] = 'success';
-    } else {
-        $_SESSION['message'] = 'Gönderi silinirken bir hata oluştu: ' . $response['message'];
-        $_SESSION['message_type'] = 'danger';
-    }
-    
-    // Çıktı gönderilmeden önce yönlendirme
-    if (!headers_sent()) {
-        if (!headers_sent()) {
-        header('Location: index.php?page=posts');
-        exit;
-    } else {
-        echo '<script>window.location.href = "index.php?page=posts";</script>';
-        exit;
-    }
-    } else {
-        echo '<script>window.location.href = "index.php?page=posts";</script>';
-        exit;
-    }
+// Filtreleme için veri çekme
+$cities_result = getData('cities', ['order' => 'name']);
+$cities = $cities_result['data'] ?? [];
+
+$districts_result = getData('districts', ['order' => 'name']);
+$districts = $districts_result['data'] ?? [];
+
+// Gönderileri filtreli şekilde getir
+$posts_filters = [];
+$where_conditions = [];
+
+// Arama
+if ($search) {
+    $where_conditions[] = "(title.ilike.*{$search}* or description.ilike.*{$search}*)";
 }
+
+// Tür filtresi
+if ($filter_type) {
+    $posts_filters['type'] = 'eq.' . $filter_type;
+}
+
+// Durum filtresi
+if ($filter_status) {
+    $posts_filters['status'] = 'eq.' . $filter_status;
+}
+
+// Şehir filtresi
+if ($filter_city) {
+    $posts_filters['city_id'] = 'eq.' . $filter_city;
+}
+
+// İlçe filtresi
+if ($filter_district) {
+    $posts_filters['district_id'] = 'eq.' . $filter_district;
+}
+
+// Kullanıcı filtresi
+if ($filter_user) {
+    $posts_filters['user_id'] = 'eq.' . $filter_user;
+}
+
+// Çözüldü filtresi
+if ($filter_resolved !== '') {
+    $posts_filters['is_resolved'] = 'eq.' . ($filter_resolved === 'true' ? 'true' : 'false');
+}
+
+// Öne çıkarılan filtresi
+if ($filter_featured !== '') {
+    $posts_filters['is_featured'] = 'eq.' . ($filter_featured === 'true' ? 'true' : 'false');
+}
+
+// Gizli filtresi
+if ($filter_hidden !== '') {
+    $posts_filters['is_hidden'] = 'eq.' . ($filter_hidden === 'true' ? 'true' : 'false');
+}
+
+// Kategori filtresi
+if ($filter_category) {
+    $posts_filters['category'] = 'eq.' . $filter_category;
+}
+
+// Tarih filtresi
+if ($date_from) {
+    $posts_filters['created_at'] = 'gte.' . $date_from;
+}
+if ($date_to) {
+    $posts_filters['created_at'] = 'lte.' . $date_to . ' 23:59:59';
+}
+
+// Sıralama
+$posts_filters['order'] = $sort_by . '.' . $sort_order;
+$posts_filters['limit'] = $per_page;
+$posts_filters['offset'] = ($page - 1) * $per_page;
+
+// Arama koşullarını ekle
+if (!empty($where_conditions)) {
+    $posts_filters['or'] = '(' . implode(',', $where_conditions) . ')';
+}
+
+$posts_result = getData('posts', $posts_filters);
+$posts = $posts_result['data'] ?? [];
+
+// Toplam sayfa sayısını hesapla
+$total_posts_result = getData('posts', array_merge($posts_filters, ['select' => 'count']));
+$total_posts = $total_posts_result['data'][0]['count'] ?? 0;
+$total_pages = ceil($total_posts / $per_page);
+
+// İstatistikler
+$stats_result = getData('posts', ['select' => 'count,type,status,is_resolved,is_featured']);
+$all_posts = $stats_result['data'] ?? [];
+
+$total_count = count($all_posts);
+$complaint_count = count(array_filter($all_posts, fn($p) => ($p['type'] ?? '') === 'complaint'));
+$unresolved_count = count(array_filter($all_posts, fn($p) => !($p['is_resolved'] ?? false)));
+$featured_count = count(array_filter($all_posts, fn($p) => ($p['is_featured'] ?? false)));
+
+// Gönderi tipleri
+$post_types = [
+    'complaint' => ['name' => 'Şikayet', 'color' => 'danger', 'icon' => 'fas fa-exclamation-triangle'],
+    'suggestion' => ['name' => 'Öneri', 'color' => 'primary', 'icon' => 'fas fa-lightbulb'],
+    'question' => ['name' => 'Soru', 'color' => 'warning', 'icon' => 'fas fa-question-circle'],
+    'thanks' => ['name' => 'Teşekkür', 'color' => 'success', 'icon' => 'fas fa-heart'],
+    'report' => ['name' => 'Rapor', 'color' => 'info', 'icon' => 'fas fa-file-alt'],
+    'feedback' => ['name' => 'Geri Bildirim', 'color' => 'secondary', 'icon' => 'fas fa-comment-alt']
+];
+
+// Durum tipleri
+$status_types = [
+    'pending' => ['name' => 'Beklemede', 'color' => 'warning'],
+    'in_progress' => ['name' => 'İşlemde', 'color' => 'info'],
+    'solved' => ['name' => 'Çözüldü', 'color' => 'success'],
+    'rejected' => ['name' => 'Reddedildi', 'color' => 'danger'],
+    'completed' => ['name' => 'Tamamlandı', 'color' => 'primary'],
+    'deleted' => ['name' => 'Silindi', 'color' => 'dark']
+];
+
+// Kategoriler
+$categories = [
+    'transportation' => 'Ulaşım',
+    'environment' => 'Çevre',
+    'infrastructure' => 'Altyapı',
+    'health' => 'Sağlık',
+    'education' => 'Eğitim',
+    'social' => 'Sosyal',
+    'other' => 'Diğer'
+];
 ?>
 
-<!-- İşlem Mesajları -->
-<?php if(isset($_SESSION['message'])): ?>
-<div class="alert alert-<?php echo $_SESSION['message_type']; ?> alert-dismissible fade show" role="alert">
-    <?php echo $_SESSION['message']; ?>
-    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-</div>
-<?php 
-    unset($_SESSION['message']);
-    unset($_SESSION['message_type']);
-endif; 
-?>
-
-<!-- Üst Başlık ve Butonlar -->
-<div class="d-flex justify-content-between mb-4">
-    <h1 class="h3">Gönderiler Yönetimi</h1>
-    
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h1 class="h3">📝 Gönderiler Yönetimi</h1>
     <div>
-        <a href="index.php?page=posts" class="btn btn-outline-secondary me-2 <?php echo empty($filter_city) && empty($filter_type) && empty($filter_user) && $filter_resolved === '' ? 'd-none' : ''; ?>">
-            <i class="fas fa-times me-1"></i> Filtreleri Temizle
-        </a>
-        
-        <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#filterPostsModal">
-            <i class="fas fa-filter me-1"></i> Filtrele
+        <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#advancedFilters">
+            <i class="fas fa-filter me-1"></i> Gelişmiş Filtreler
         </button>
+        <a href="index.php?page=posts" class="btn btn-secondary">
+            <i class="fas fa-refresh me-1"></i> Temizle
+        </a>
     </div>
 </div>
 
-<!-- Özet Kartları -->
+<!-- Mesaj gösterimi -->
+<?php if (isset($_SESSION['message'])): ?>
+    <div class="alert alert-<?php echo $_SESSION['message_type']; ?> alert-dismissible fade show" role="alert">
+        <?php echo $_SESSION['message']; ?>
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    </div>
+    <?php unset($_SESSION['message'], $_SESSION['message_type']); ?>
+<?php endif; ?>
+
+<!-- İstatistik Kartları -->
 <div class="row mb-4">
-    <?php
-    // Şikayet sayısı
-    $complaint_count = count(array_filter($posts, function($p) {
-        return isset($p['type']) && $p['type'] === 'complaint';
-    }));
-    
-    // Çözülmemiş şikayet sayısı
-    $unresolved_count = count(array_filter($posts, function($p) {
-        return isset($p['type']) && $p['type'] === 'complaint' && 
-              (!isset($p['is_resolved']) || !$p['is_resolved']);
-    }));
-    
-    // Bugün eklenen gönderi sayısı
-    $today = date('Y-m-d');
-    $today_count = count(array_filter($posts, function($p) use ($today) {
-        return isset($p['created_at']) && substr($p['created_at'], 0, 10) === $today;
-    }));
-    
-    // Öne çıkarılan gönderi sayısı
-    $featured_count = count(array_filter($posts, function($p) {
-        return isset($p['is_featured']) && $p['is_featured'];
-    }));
-    ?>
-    
-    <div class="col-xl-3 col-md-6">
-        <div class="card bg-primary text-white mb-4">
+    <div class="col-md-3">
+        <div class="card bg-primary text-white">
             <div class="card-body">
-                <div class="d-flex justify-content-between align-items-center">
-                    <div>
-                        <div class="h4 mb-0"><?php echo $complaint_count; ?></div>
-                        <div>Toplam Şikayet</div>
+                <div class="d-flex align-items-center">
+                    <div class="flex-grow-1">
+                        <h5 class="card-title">Toplam Gönderi</h5>
+                        <h2 class="mb-0"><?php echo number_format($total_count); ?></h2>
                     </div>
-                    <div>
-                        <i class="fas fa-exclamation-circle fa-3x opacity-50"></i>
+                    <div class="ms-3">
+                        <i class="fas fa-file-alt fa-2x opacity-75"></i>
                     </div>
                 </div>
-            </div>
-            <div class="card-footer d-flex align-items-center justify-content-between">
-                <a class="small text-white stretched-link" href="index.php?page=posts&type=complaint">Detayları Görüntüle</a>
-                <div class="small text-white"><i class="fas fa-angle-right"></i></div>
             </div>
         </div>
     </div>
-    
-    <div class="col-xl-3 col-md-6">
-        <div class="card bg-warning text-white mb-4">
+    <div class="col-md-3">
+        <div class="card bg-danger text-white">
             <div class="card-body">
-                <div class="d-flex justify-content-between align-items-center">
-                    <div>
-                        <div class="h4 mb-0"><?php echo $unresolved_count; ?></div>
-                        <div>Çözülmemiş Şikayet</div>
+                <div class="d-flex align-items-center">
+                    <div class="flex-grow-1">
+                        <h5 class="card-title">Şikayetler</h5>
+                        <h2 class="mb-0"><?php echo number_format($complaint_count); ?></h2>
                     </div>
-                    <div>
-                        <i class="fas fa-clock fa-3x opacity-50"></i>
+                    <div class="ms-3">
+                        <i class="fas fa-exclamation-triangle fa-2x opacity-75"></i>
                     </div>
                 </div>
-            </div>
-            <div class="card-footer d-flex align-items-center justify-content-between">
-                <a class="small text-white stretched-link" href="index.php?page=posts&type=complaint&resolved=false">Detayları Görüntüle</a>
-                <div class="small text-white"><i class="fas fa-angle-right"></i></div>
             </div>
         </div>
     </div>
-    
-    <div class="col-xl-3 col-md-6">
-        <div class="card bg-success text-white mb-4">
+    <div class="col-md-3">
+        <div class="card bg-warning text-white">
             <div class="card-body">
-                <div class="d-flex justify-content-between align-items-center">
-                    <div>
-                        <div class="h4 mb-0"><?php echo $today_count; ?></div>
-                        <div>Bugün Eklenen</div>
+                <div class="d-flex align-items-center">
+                    <div class="flex-grow-1">
+                        <h5 class="card-title">Çözülmemiş</h5>
+                        <h2 class="mb-0"><?php echo number_format($unresolved_count); ?></h2>
                     </div>
-                    <div>
-                        <i class="fas fa-calendar-day fa-3x opacity-50"></i>
+                    <div class="ms-3">
+                        <i class="fas fa-clock fa-2x opacity-75"></i>
                     </div>
                 </div>
-            </div>
-            <div class="card-footer d-flex align-items-center justify-content-between">
-                <a class="small text-white stretched-link" href="#">Detayları Görüntüle</a>
-                <div class="small text-white"><i class="fas fa-angle-right"></i></div>
             </div>
         </div>
     </div>
-    
-    <div class="col-xl-3 col-md-6">
-        <div class="card bg-info text-white mb-4">
+    <div class="col-md-3">
+        <div class="card bg-success text-white">
             <div class="card-body">
-                <div class="d-flex justify-content-between align-items-center">
-                    <div>
-                        <div class="h4 mb-0"><?php echo $featured_count; ?></div>
-                        <div>Öne Çıkarılan</div>
+                <div class="d-flex align-items-center">
+                    <div class="flex-grow-1">
+                        <h5 class="card-title">Öne Çıkan</h5>
+                        <h2 class="mb-0"><?php echo number_format($featured_count); ?></h2>
                     </div>
-                    <div>
-                        <i class="fas fa-star fa-3x opacity-50"></i>
+                    <div class="ms-3">
+                        <i class="fas fa-star fa-2x opacity-75"></i>
                     </div>
                 </div>
-            </div>
-            <div class="card-footer d-flex align-items-center justify-content-between">
-                <a class="small text-white stretched-link" href="index.php?page=featured_posts">Detayları Görüntüle</a>
-                <div class="small text-white"><i class="fas fa-angle-right"></i></div>
             </div>
         </div>
     </div>
 </div>
 
-<!-- Gönderiler Tablosu -->
+<!-- Hızlı Arama -->
 <div class="card mb-4">
-    <div class="card-header">
-        <i class="fas fa-newspaper me-1"></i>
-        Gönderiler Listesi
-        <?php if(!empty($filter_city) || !empty($filter_type) || !empty($filter_user) || $filter_resolved !== ''): ?>
-            <span class="badge bg-info ms-2">Filtrelenmiş Liste</span>
-        <?php endif; ?>
-    </div>
     <div class="card-body">
-        <div class="table-responsive">
-            <!-- Toplu İşlem Butonları -->
-            <div class="mb-3">
-                <button id="bulkApproveBtn" class="btn btn-success btn-sm me-2" disabled>
-                    <i class="fas fa-check-circle me-1"></i> Seçilenleri Onayla
-                </button>
-                <button id="bulkHideBtn" class="btn btn-warning btn-sm me-2" disabled>
-                    <i class="fas fa-eye-slash me-1"></i> Seçilenleri Gizle
-                </button>
-                <button id="selectAllBtn" class="btn btn-outline-secondary btn-sm">
-                    <i class="fas fa-check-square me-1"></i> Tümünü Seç
-                </button>
-                <span id="selectedCount" class="ms-3 text-muted" style="display: none;">
-                    <span id="selectedCountNumber">0</span> gönderi seçildi
-                </span>
+        <form method="get" action="" class="row g-3">
+            <input type="hidden" name="page" value="posts">
+            
+            <div class="col-md-6">
+                <div class="input-group">
+                    <input type="text" class="form-control" name="search" 
+                           placeholder="Başlık veya içerikte ara..." 
+                           value="<?php echo escape($search); ?>">
+                    <button type="submit" class="btn btn-primary">
+                        <i class="fas fa-search me-1"></i> Ara
+                    </button>
+                </div>
             </div>
             
-            <table id="posts-table" class="table table-bordered table-striped table-hover data-table">
-                <thead>
-                    <tr>
-                        <th style="width: 40px;">
-                            <div class="form-check">
-                                <input class="form-check-input" type="checkbox" id="selectAllCheckbox">
-                            </div>
-                        </th>
-                        <th>Başlık</th>
-                        <th>Tip</th>
-                        <th>Kullanıcı</th>
-                        <th>Şehir/İlçe</th>
-                        <th>Tarih</th>
-                        <th>Durum</th>
-                        <th>İstatistikler</th>
-                        <th style="width: 180px;">İşlemler</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    <?php if(empty($filtered_posts)): ?>
+            <div class="col-md-2">
+                <select class="form-select" name="type" onchange="this.form.submit()">
+                    <option value="">Tüm Tipler</option>
+                    <?php foreach ($post_types as $key => $type): ?>
+                        <option value="<?php echo $key; ?>" <?php echo $filter_type === $key ? 'selected' : ''; ?>>
+                            <?php echo $type['name']; ?>
+                        </option>
+                    <?php endforeach; ?>
+                </select>
+            </div>
+            
+            <div class="col-md-2">
+                <select class="form-select" name="status" onchange="this.form.submit()">
+                    <option value="">Tüm Durumlar</option>
+                    <?php foreach ($status_types as $key => $status): ?>
+                        <option value="<?php echo $key; ?>" <?php echo $filter_status === $key ? 'selected' : ''; ?>>
+                            <?php echo $status['name']; ?>
+                        </option>
+                    <?php endforeach; ?>
+                </select>
+            </div>
+            
+            <div class="col-md-2">
+                <select class="form-select" name="sort_by" onchange="this.form.submit()">
+                    <option value="created_at" <?php echo $sort_by === 'created_at' ? 'selected' : ''; ?>>Tarihe Göre</option>
+                    <option value="like_count" <?php echo $sort_by === 'like_count' ? 'selected' : ''; ?>>Beğeni Sayısı</option>
+                    <option value="comment_count" <?php echo $sort_by === 'comment_count' ? 'selected' : ''; ?>>Yorum Sayısı</option>
+                    <option value="title" <?php echo $sort_by === 'title' ? 'selected' : ''; ?>>Başlık</option>
+                </select>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Gönderiler Listesi -->
+<div class="card">
+    <div class="card-header">
+        <h5 class="mb-0">Gönderiler (<?php echo number_format($total_posts); ?> sonuç)</h5>
+    </div>
+    <div class="card-body p-0">
+        <?php if (!empty($posts)): ?>
+            <div class="table-responsive">
+                <table class="table table-hover mb-0">
+                    <thead class="table-light">
                         <tr>
-                            <td colspan="9" class="text-center">Gönderi bulunamadı.</td>
+                            <th>Gönderi</th>
+                            <th>Kullanıcı</th>
+                            <th>Konum</th>
+                            <th>Durum</th>
+                            <th>İstatistikler</th>
+                            <th>Tarih</th>
+                            <th>İşlemler</th>
                         </tr>
-                    <?php else: ?>
-                        <?php foreach($filtered_posts as $post): ?>
-                            <?php 
-                            // Kullanıcı bilgilerini bul
-                            $user_name = 'Bilinmiyor';
-                            $user_image = '';
-                            foreach($users as $user) {
-                                if($user['id'] === $post['user_id']) {
-                                    $user_name = $user['username'];
-                                    $user_image = $user['profile_image_url'];
-                                    break;
-                                }
+                    </thead>
+                    <tbody>
+                        <?php foreach ($posts as $post): ?>
+                            <?php
+                            // Kullanıcı bilgisini getir
+                            $user = null;
+                            if ($post['user_id']) {
+                                $user_result = getDataById('users', $post['user_id']);
+                                $user = $user_result['data'] ?? null;
                             }
                             
-                            // Post tipini belirle
-                            $post_type = $post_types[$post['type']] ?? ['name' => ucfirst($post['type']), 'color' => 'secondary', 'icon' => 'fa-file-alt'];
+                            // Şehir ve ilçe bilgisini getir
+                            $city_name = '';
+                            $district_name = '';
                             
-                            // Gönderi durumunu belirle
-                            $is_resolved = isset($post['is_resolved']) && $post['is_resolved'];
-                            $is_hidden = isset($post['is_hidden']) && $post['is_hidden'];
-                            $is_featured = isset($post['is_featured']) && $post['is_featured'];
+                            if ($post['city_id']) {
+                                $city_result = getDataById('cities', $post['city_id']);
+                                $city_name = $city_result['data']['name'] ?? '';
+                            }
+                            
+                            if ($post['district_id']) {
+                                $district_result = getDataById('districts', $post['district_id']);
+                                $district_name = $district_result['data']['name'] ?? '';
+                            }
+                            
+                            $post_type = $post_types[$post['type']] ?? ['name' => 'Bilinmiyor', 'color' => 'secondary', 'icon' => 'fas fa-question'];
+                            $post_status = $status_types[$post['status']] ?? ['name' => 'Bilinmiyor', 'color' => 'secondary'];
                             ?>
-                            <tr <?php echo $is_hidden ? 'class="table-secondary"' : ''; ?>>
+                            <tr class="<?php echo ($post['is_hidden'] ?? false) ? 'table-secondary' : ''; ?>">
                                 <td>
-                                    <div class="form-check">
-                                        <input class="form-check-input post-checkbox" type="checkbox" 
-                                               data-post-id="<?php echo $post['id']; ?>"
-                                               data-status="<?php echo $post['status']; ?>"
-                                               <?php echo $is_hidden ? 'disabled' : ''; ?>>
+                                    <div class="d-flex align-items-start">
+                                        <div class="flex-grow-1">
+                                            <div class="d-flex align-items-center mb-1">
+                                                <i class="<?php echo $post_type['icon']; ?> text-<?php echo $post_type['color']; ?> me-2"></i>
+                                                <strong><?php echo escape($post['title']); ?></strong>
+                                                
+                                                <?php if ($post['is_featured'] ?? false): ?>
+                                                    <span class="badge bg-warning text-dark ms-2">
+                                                        <i class="fas fa-star"></i> Öne Çıkan
+                                                    </span>
+                                                <?php endif; ?>
+                                                
+                                                <?php if ($post['is_hidden'] ?? false): ?>
+                                                    <span class="badge bg-dark ms-2">Gizli</span>
+                                                <?php endif; ?>
+                                            </div>
+                                            <p class="mb-1 text-muted small">
+                                                <?php echo escape(substr($post['description'] ?? '', 0, 100)); ?>
+                                                <?php if (strlen($post['description'] ?? '') > 100): ?>...<?php endif; ?>
+                                            </p>
+                                            <div class="d-flex align-items-center">
+                                                <span class="badge bg-<?php echo $post_type['color']; ?> me-2">
+                                                    <?php echo $post_type['name']; ?>
+                                                </span>
+                                                <?php if ($post['category']): ?>
+                                                    <span class="badge bg-secondary me-2">
+                                                        <?php echo $categories[$post['category']] ?? $post['category']; ?>
+                                                    </span>
+                                                <?php endif; ?>
+                                            </div>
+                                        </div>
                                     </div>
                                 </td>
                                 <td>
-                                    <div class="d-flex align-items-center">
-                                        <?php if($is_featured): ?>
-                                            <span class="badge bg-warning me-2" title="Öne Çıkarılmış"><i class="fas fa-star"></i></span>
-                                        <?php endif; ?>
-                                        <a href="index.php?page=post_detail&id=<?php echo $post['id']; ?>" class="text-decoration-none">
-                                            <?php echo isset($post['title']) ? escape($post['title']) : 'Başlıksız Gönderi'; ?>
-                                        </a>
-                                    </div>
-                                </td>
-                                <td>
-                                    <span class="badge bg-<?php echo $post_type['color']; ?>">
-                                        <i class="fas <?php echo $post_type['icon']; ?> me-1"></i>
-                                        <?php echo $post_type['name']; ?>
-                                    </span>
-                                </td>
-                                <td>
-                                    <div class="d-flex align-items-center">
-                                        <?php if(!empty($user_image)): ?>
-                                            <img src="<?php echo $user_image; ?>" class="rounded-circle me-2" width="24" height="24" alt="Profil">
-                                        <?php else: ?>
-                                            <i class="fas fa-user-circle me-2"></i>
-                                        <?php endif; ?>
-                                        <?php echo escape($user_name); ?>
-                                    </div>
-                                </td>
-                                <td>
-                                    <?php 
-                                    $location = [];
-                                    if(isset($post['city']) && !empty($post['city'])) {
-                                        $location[] = $post['city'];
-                                    }
-                                    if(isset($post['district']) && !empty($post['district'])) {
-                                        $location[] = $post['district'];
-                                    }
-                                    echo !empty($location) ? escape(implode(', ', $location)) : 'Belirtilmemiş';
-                                    ?>
-                                </td>
-                                <td>
-                                    <?php 
-                                    if(isset($post['created_at'])) {
-                                        // formatDate fonksiyonu yoksa doğrudan date() kullan
-                                        echo date('d.m.Y H:i', strtotime($post['created_at']));
-                                    }
-                                    ?>
-                                </td>
-                                <td>
-                                    <?php if($is_hidden): ?>
-                                        <span class="badge bg-secondary">Gizlenmiş</span>
-                                    <?php elseif($is_resolved): ?>
-                                        <span class="badge bg-success">Çözüldü</span>
+                                    <?php if ($user): ?>
+                                        <div class="d-flex align-items-center">
+                                            <?php if ($user['profile_image_url']): ?>
+                                                <img src="<?php echo escape($user['profile_image_url']); ?>" 
+                                                     class="rounded-circle me-2" width="32" height="32">
+                                            <?php else: ?>
+                                                <div class="bg-secondary rounded-circle me-2 d-flex align-items-center justify-content-center" 
+                                                     style="width: 32px; height: 32px; font-size: 14px; color: white;">
+                                                    <?php echo strtoupper(substr($user['display_name'] ?? $user['username'] ?? 'U', 0, 1)); ?>
+                                                </div>
+                                            <?php endif; ?>
+                                            <div>
+                                                <div class="fw-semibold"><?php echo escape($user['display_name'] ?? $user['username'] ?? 'Bilinmiyor'); ?></div>
+                                                <small class="text-muted"><?php echo escape($user['email'] ?? ''); ?></small>
+                                            </div>
+                                        </div>
                                     <?php else: ?>
-                                        <span class="badge bg-<?php echo $post['type'] === 'complaint' ? 'warning' : 'info'; ?>">
-                                            <?php echo $post['type'] === 'complaint' ? 'Beklemede' : 'Aktif'; ?>
-                                        </span>
+                                        <span class="text-muted">Kullanıcı bulunamadı</span>
                                     <?php endif; ?>
                                 </td>
                                 <td>
-                                    <div class="d-flex gap-2">
-                                        <span class="badge bg-primary" title="Beğeni">
-                                            <i class="fas fa-thumbs-up me-1"></i>
-                                            <?php echo isset($post['like_count']) ? $post['like_count'] : 0; ?>
+                                    <div>
+                                        <?php if ($city_name): ?>
+                                            <div class="fw-semibold"><?php echo escape($city_name); ?></div>
+                                        <?php endif; ?>
+                                        <?php if ($district_name): ?>
+                                            <small class="text-muted"><?php echo escape($district_name); ?></small>
+                                        <?php endif; ?>
+                                        <?php if (!$city_name && !$district_name): ?>
+                                            <span class="text-muted">Belirtilmemiş</span>
+                                        <?php endif; ?>
+                                    </div>
+                                </td>
+                                <td>
+                                    <span class="badge bg-<?php echo $post_status['color']; ?>">
+                                        <?php echo $post_status['name']; ?>
+                                    </span>
+                                    <?php if ($post['is_resolved'] ?? false): ?>
+                                        <br><small class="text-success">
+                                            <i class="fas fa-check-circle"></i> Çözüldü
+                                        </small>
+                                    <?php endif; ?>
+                                </td>
+                                <td>
+                                    <div class="d-flex flex-column">
+                                        <span class="badge bg-primary mb-1">
+                                            <i class="fas fa-heart"></i> <?php echo number_format($post['like_count'] ?? 0); ?>
                                         </span>
-                                        <span class="badge bg-info" title="Yorum">
-                                            <i class="fas fa-comment me-1"></i>
-                                            <?php echo isset($post['comment_count']) ? $post['comment_count'] : 0; ?>
+                                        <span class="badge bg-info">
+                                            <i class="fas fa-comment"></i> <?php echo number_format($post['comment_count'] ?? 0); ?>
                                         </span>
                                     </div>
                                 </td>
                                 <td>
-                                    <div class="btn-group btn-group-sm">
-                                        <a href="index.php?page=post_detail&id=<?php echo $post['id']; ?>" class="btn btn-info" title="Görüntüle">
-                                            <i class="fas fa-eye"></i>
-                                        </a>
-                                        
-                                        <!-- Çözüldü/Çözülmedi İşaretleme -->
-                                        <?php if($post['type'] === 'complaint'): ?>
-                                            <a href="index.php?page=posts&resolve=<?php echo $post['id']; ?>" class="btn btn-<?php echo $is_resolved ? 'warning' : 'success'; ?>" title="<?php echo $is_resolved ? 'Çözülmedi İşaretle' : 'Çözüldü İşaretle'; ?>">
-                                                <i class="fas <?php echo $is_resolved ? 'fa-times-circle' : 'fa-check-circle'; ?>"></i>
-                                            </a>
-                                        <?php endif; ?>
-                                        
-                                        <!-- Gizle/Göster -->
-                                        <a href="index.php?page=posts&visibility=<?php echo $post['id']; ?>" class="btn btn-<?php echo $is_hidden ? 'light' : 'dark'; ?>" title="<?php echo $is_hidden ? 'Göster' : 'Gizle'; ?>">
-                                            <i class="fas <?php echo $is_hidden ? 'fa-eye' : 'fa-eye-slash'; ?>"></i>
-                                        </a>
-                                        
-                                        <!-- Öne Çıkar/Kaldır -->
-                                        <a href="index.php?page=posts&feature=<?php echo $post['id']; ?>" class="btn btn-<?php echo $is_featured ? 'secondary' : 'warning'; ?>" title="<?php echo $is_featured ? 'Öne Çıkarma' : 'Öne Çıkar'; ?>">
-                                            <i class="fas <?php echo $is_featured ? 'fa-star-half-alt' : 'fa-star'; ?>"></i>
-                                        </a>
-                                        
-                                        <!-- Sil -->
-                                        <a href="javascript:void(0);" class="btn btn-danger" 
-                                           onclick="if(confirm('Bu gönderiyi ve ilişkili tüm verileri silmek istediğinizden emin misiniz?\nBu işlem geri alınamaz!')) window.location.href='index.php?page=posts&delete=<?php echo $post['id']; ?>';" 
-                                           title="Sil">
-                                            <i class="fas fa-trash"></i>
-                                        </a>
+                                    <div><?php echo date('d.m.Y', strtotime($post['created_at'])); ?></div>
+                                    <small class="text-muted"><?php echo date('H:i', strtotime($post['created_at'])); ?></small>
+                                </td>
+                                <td>
+                                    <div class="btn-group">
+                                        <button type="button" class="btn btn-sm btn-outline-primary dropdown-toggle" 
+                                                data-bs-toggle="dropdown">
+                                            İşlemler
+                                        </button>
+                                        <ul class="dropdown-menu">
+                                            <li>
+                                                <a class="dropdown-item" href="index.php?page=post_detail&id=<?php echo $post['id']; ?>">
+                                                    <i class="fas fa-eye me-1"></i> Detayları Görüntüle
+                                                </a>
+                                            </li>
+                                            <li><hr class="dropdown-divider"></li>
+                                            <li>
+                                                <button class="dropdown-item" onclick="toggleFeatured('<?php echo $post['id']; ?>')">
+                                                    <i class="fas fa-star me-1"></i> 
+                                                    <?php echo ($post['is_featured'] ?? false) ? 'Öne Çıkarmayı Kaldır' : 'Öne Çıkar'; ?>
+                                                </button>
+                                            </li>
+                                            <li>
+                                                <button class="dropdown-item" onclick="toggleHidden('<?php echo $post['id']; ?>')">
+                                                    <i class="fas fa-eye<?php echo ($post['is_hidden'] ?? false) ? '' : '-slash'; ?> me-1"></i>
+                                                    <?php echo ($post['is_hidden'] ?? false) ? 'Görünür Yap' : 'Gizle'; ?>
+                                                </button>
+                                            </li>
+                                            <li>
+                                                <button class="dropdown-item" onclick="changeStatus('<?php echo $post['id']; ?>')">
+                                                    <i class="fas fa-edit me-1"></i> Durumu Değiştir
+                                                </button>
+                                            </li>
+                                            <li><hr class="dropdown-divider"></li>
+                                            <?php if ($user): ?>
+                                                <li>
+                                                    <button class="dropdown-item text-warning" onclick="blockUser('<?php echo $user['id']; ?>', '<?php echo escape($user['display_name'] ?? $user['username']); ?>')">
+                                                        <i class="fas fa-ban me-1"></i> Kullanıcıyı Engelle
+                                                    </button>
+                                                </li>
+                                            <?php endif; ?>
+                                            <li>
+                                                <button class="dropdown-item text-danger" onclick="deletePost('<?php echo $post['id']; ?>', '<?php echo escape($post['title']); ?>')">
+                                                    <i class="fas fa-trash me-1"></i> Gönderiyi Sil
+                                                </button>
+                                            </li>
+                                        </ul>
                                     </div>
                                 </td>
                             </tr>
                         <?php endforeach; ?>
-                    <?php endif; ?>
-                </tbody>
-            </table>
-        </div>
-    </div>
-</div>
-
-<!-- Filtreleme Modalı -->
-<div class="modal fade" id="filterPostsModal" tabindex="-1" aria-labelledby="filterPostsModalLabel" aria-hidden="true">
-    <div class="modal-dialog">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title" id="filterPostsModalLabel">Gönderileri Filtrele</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                    </tbody>
+                </table>
             </div>
-            <div class="modal-body">
-                <form method="get" action="index.php">
-                    <input type="hidden" name="page" value="posts">
+            
+            <!-- Sayfalama -->
+            <?php if ($total_pages > 1): ?>
+                <div class="card-footer">
+                    <nav>
+                        <ul class="pagination justify-content-center mb-0">
+                            <?php if ($page > 1): ?>
+                                <li class="page-item">
+                                    <a class="page-link" href="?page=posts&page_num=<?php echo $page - 1; ?>&<?php echo http_build_query($_GET); ?>">
+                                        <i class="fas fa-chevron-left"></i>
+                                    </a>
+                                </li>
+                            <?php endif; ?>
+                            
+                            <?php for ($i = max(1, $page - 2); $i <= min($total_pages, $page + 2); $i++): ?>
+                                <li class="page-item <?php echo $i === $page ? 'active' : ''; ?>">
+                                    <a class="page-link" href="?page=posts&page_num=<?php echo $i; ?>&<?php echo http_build_query($_GET); ?>">
+                                        <?php echo $i; ?>
+                                    </a>
+                                </li>
+                            <?php endfor; ?>
+                            
+                            <?php if ($page < $total_pages): ?>
+                                <li class="page-item">
+                                    <a class="page-link" href="?page=posts&page_num=<?php echo $page + 1; ?>&<?php echo http_build_query($_GET); ?>">
+                                        <i class="fas fa-chevron-right"></i>
+                                    </a>
+                                </li>
+                            <?php endif; ?>
+                        </ul>
+                    </nav>
                     
-                    <div class="mb-3">
-                        <label for="filter_type" class="form-label">Gönderi Tipi</label>
-                        <select class="form-select" id="filter_type" name="type">
-                            <option value="">Tümü</option>
-                            <?php foreach($post_types as $key => $type): ?>
-                                <option value="<?php echo $key; ?>" <?php echo $filter_type === $key ? 'selected' : ''; ?>>
-                                    <?php echo $type['name']; ?>
-                                </option>
-                            <?php endforeach; ?>
-                        </select>
+                    <div class="text-center mt-2">
+                        <small class="text-muted">
+                            Sayfa <?php echo $page; ?> / <?php echo $total_pages; ?> 
+                            (Toplam <?php echo number_format($total_posts); ?> gönderi)
+                        </small>
                     </div>
-                    
-                    <div class="mb-3">
-                        <label for="filter_city" class="form-label">Şehir</label>
-                        <select class="form-select" id="filter_city" name="city">
-                            <option value="">Tümü</option>
-                            <?php 
-                            $city_names = [];
-                            foreach($posts as $post) {
-                                if(isset($post['city']) && !empty($post['city']) && !in_array($post['city'], $city_names)) {
-                                    $city_names[] = $post['city'];
-                                }
-                            }
-                            sort($city_names);
-                            foreach($city_names as $city): 
-                            ?>
-                                <option value="<?php echo $city; ?>" <?php echo $filter_city === $city ? 'selected' : ''; ?>>
-                                    <?php echo $city; ?>
-                                </option>
-                            <?php endforeach; ?>
-                        </select>
-                    </div>
-                    
-                    <div class="mb-3">
-                        <label for="filter_user" class="form-label">Kullanıcı</label>
-                        <select class="form-select" id="filter_user" name="user">
-                            <option value="">Tümü</option>
-                            <?php foreach($users as $user): ?>
-                                <option value="<?php echo $user['id']; ?>" <?php echo $filter_user === $user['id'] ? 'selected' : ''; ?>>
-                                    <?php echo $user['username']; ?>
-                                </option>
-                            <?php endforeach; ?>
-                        </select>
-                    </div>
-                    
-                    <div class="mb-3">
-                        <label for="filter_resolved" class="form-label">Durum (Şikayetler İçin)</label>
-                        <select class="form-select" id="filter_resolved" name="resolved">
-                            <option value="">Tümü</option>
-                            <option value="true" <?php echo $filter_resolved === 'true' ? 'selected' : ''; ?>>Çözüldü</option>
-                            <option value="false" <?php echo $filter_resolved === 'false' ? 'selected' : ''; ?>>Beklemede</option>
-                        </select>
-                    </div>
-                    
-                    <div class="modal-footer">
-                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">İptal</button>
-                        <button type="submit" class="btn btn-primary">Filtrele</button>
-                    </div>
-                </form>
-            </div>
-        </div>
-    </div>
-</div>
-
-<!-- Toplu Onay için Modal -->
-<div class="modal fade" id="bulkApproveModal" tabindex="-1" aria-labelledby="bulkApproveModalLabel" aria-hidden="true">
-    <div class="modal-dialog">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title" id="bulkApproveModalLabel">Gönderileri Toplu Onayla</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Kapat"></button>
-            </div>
-            <div class="modal-body">
-                <p>Seçtiğiniz <span id="approveCount">0</span> gönderiyi onaylamak istediğinize emin misiniz?</p>
-                <div class="alert alert-info">
-                    <i class="fas fa-info-circle me-1"></i> Bu işlem, seçilen gönderileri onaylayacak ve "Aktif" durumuna getirecektir.
                 </div>
+            <?php endif; ?>
+            
+        <?php else: ?>
+            <div class="text-center py-5">
+                <i class="fas fa-inbox fa-4x text-muted mb-3"></i>
+                <h5>Gönderi bulunamadı</h5>
+                <p class="text-muted">Arama kriterlerinize uygun gönderi bulunamadı.</p>
+                <a href="index.php?page=posts" class="btn btn-primary">Tüm Gönderileri Görüntüle</a>
             </div>
-            <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">İptal</button>
-                <button type="button" class="btn btn-success" id="confirmBulkApprove">
-                    <i class="fas fa-check-circle me-1"></i> Onayla
-                </button>
-            </div>
-        </div>
+        <?php endif; ?>
     </div>
 </div>
 
-<!-- Toplu Gizleme için Modal -->
-<div class="modal fade" id="bulkHideModal" tabindex="-1" aria-labelledby="bulkHideModalLabel" aria-hidden="true">
-    <div class="modal-dialog">
+<!-- Gelişmiş Filtreler Modal -->
+<div class="modal fade" id="advancedFilters" tabindex="-1">
+    <div class="modal-dialog modal-lg">
         <div class="modal-content">
             <div class="modal-header">
-                <h5 class="modal-title" id="bulkHideModalLabel">Gönderileri Toplu Gizle</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Kapat"></button>
+                <h5 class="modal-title">🔍 Gelişmiş Filtreler</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
             </div>
-            <div class="modal-body">
-                <p>Seçtiğiniz <span id="hideCount">0</span> gönderiyi gizlemek istediğinize emin misiniz?</p>
-                <div class="alert alert-warning">
-                    <i class="fas fa-exclamation-triangle me-1"></i> Gizlenen gönderiler kullanıcılar tarafından görüntülenemez.
+            <form method="get" action="">
+                <input type="hidden" name="page" value="posts">
+                
+                <div class="modal-body">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <label class="form-label">Şehir</label>
+                            <select class="form-select" name="city_id" onchange="loadDistrictsForFilter(this.value)">
+                                <option value="">Tüm Şehirler</option>
+                                <?php foreach ($cities as $city): ?>
+                                    <option value="<?php echo $city['id']; ?>" <?php echo $filter_city === $city['id'] ? 'selected' : ''; ?>>
+                                        <?php echo escape($city['name']); ?>
+                                    </option>
+                                <?php endforeach; ?>
+                            </select>
+                        </div>
+                        
+                        <div class="col-md-6">
+                            <label class="form-label">İlçe</label>
+                            <select class="form-select" name="district_id" id="district_filter">
+                                <option value="">Tüm İlçeler</option>
+                                <?php foreach ($districts as $district): ?>
+                                    <?php if (!$filter_city || $district['city_id'] === $filter_city): ?>
+                                        <option value="<?php echo $district['id']; ?>" <?php echo $filter_district === $district['id'] ? 'selected' : ''; ?>>
+                                            <?php echo escape($district['name']); ?>
+                                        </option>
+                                    <?php endif; ?>
+                                <?php endforeach; ?>
+                            </select>
+                        </div>
+                    </div>
+                    
+                    <div class="row mt-3">
+                        <div class="col-md-4">
+                            <label class="form-label">Kategori</label>
+                            <select class="form-select" name="category">
+                                <option value="">Tüm Kategoriler</option>
+                                <?php foreach ($categories as $key => $category): ?>
+                                    <option value="<?php echo $key; ?>" <?php echo $filter_category === $key ? 'selected' : ''; ?>>
+                                        <?php echo $category; ?>
+                                    </option>
+                                <?php endforeach; ?>
+                            </select>
+                        </div>
+                        
+                        <div class="col-md-4">
+                            <label class="form-label">Çözüldü Durumu</label>
+                            <select class="form-select" name="resolved">
+                                <option value="">Hepsi</option>
+                                <option value="true" <?php echo $filter_resolved === 'true' ? 'selected' : ''; ?>>Çözüldü</option>
+                                <option value="false" <?php echo $filter_resolved === 'false' ? 'selected' : ''; ?>>Çözülmedi</option>
+                            </select>
+                        </div>
+                        
+                        <div class="col-md-4">
+                            <label class="form-label">Öne Çıkarma</label>
+                            <select class="form-select" name="featured">
+                                <option value="">Hepsi</option>
+                                <option value="true" <?php echo $filter_featured === 'true' ? 'selected' : ''; ?>>Öne Çıkan</option>
+                                <option value="false" <?php echo $filter_featured === 'false' ? 'selected' : ''; ?>>Normal</option>
+                            </select>
+                        </div>
+                    </div>
+                    
+                    <div class="row mt-3">
+                        <div class="col-md-6">
+                            <label class="form-label">Başlangıç Tarihi</label>
+                            <input type="date" class="form-control" name="date_from" value="<?php echo $date_from; ?>">
+                        </div>
+                        
+                        <div class="col-md-6">
+                            <label class="form-label">Bitiş Tarihi</label>
+                            <input type="date" class="form-control" name="date_to" value="<?php echo $date_to; ?>">
+                        </div>
+                    </div>
                 </div>
-            </div>
-            <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">İptal</button>
-                <button type="button" class="btn btn-warning" id="confirmBulkHide">
-                    <i class="fas fa-eye-slash me-1"></i> Gizle
-                </button>
-            </div>
+                
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">İptal</button>
+                    <a href="index.php?page=posts" class="btn btn-outline-warning">Temizle</a>
+                    <button type="submit" class="btn btn-primary">Filtrele</button>
+                </div>
+            </form>
         </div>
     </div>
 </div>
 
-<!-- Toplu İşlem JavaScript Kodu -->
+<!-- Gizli Form -->
+<form id="hiddenForm" method="post" style="display: none;">
+    <input type="hidden" name="action" id="hiddenAction">
+    <input type="hidden" name="post_id" id="hiddenPostId">
+    <input type="hidden" name="user_id" id="hiddenUserId">
+    <input type="hidden" name="comment_id" id="hiddenCommentId">
+    <input type="hidden" name="new_status" id="hiddenNewStatus">
+</form>
+
 <script>
-document.addEventListener('DOMContentLoaded', function() {
-    // Gerekli elemanları seç
-    const selectAllCheckbox = document.getElementById('selectAllCheckbox');
-    const selectAllBtn = document.getElementById('selectAllBtn');
-    const bulkApproveBtn = document.getElementById('bulkApproveBtn');
-    const bulkHideBtn = document.getElementById('bulkHideBtn');
-    const postCheckboxes = document.querySelectorAll('.post-checkbox');
-    const selectedCount = document.getElementById('selectedCount');
-    const selectedCountNumber = document.getElementById('selectedCountNumber');
+function toggleFeatured(postId) {
+    document.getElementById('hiddenAction').value = 'toggle_featured';
+    document.getElementById('hiddenPostId').value = postId;
+    document.getElementById('hiddenForm').submit();
+}
+
+function toggleHidden(postId) {
+    document.getElementById('hiddenAction').value = 'toggle_hidden';
+    document.getElementById('hiddenPostId').value = postId;
+    document.getElementById('hiddenForm').submit();
+}
+
+function deletePost(postId, title) {
+    if (confirm('Bu gönderiyi silmek istediğinizden emin misiniz?\n\n"' + title + '"')) {
+        document.getElementById('hiddenAction').value = 'delete_post';
+        document.getElementById('hiddenPostId').value = postId;
+        document.getElementById('hiddenForm').submit();
+    }
+}
+
+function blockUser(userId, userName) {
+    if (confirm('Bu kullanıcıyı engellemek istediğinizden emin misiniz?\n\n' + userName)) {
+        document.getElementById('hiddenAction').value = 'block_user';
+        document.getElementById('hiddenUserId').value = userId;
+        document.getElementById('hiddenForm').submit();
+    }
+}
+
+function changeStatus(postId) {
+    const status = prompt('Yeni durumu seçin:\n' +
+        '• pending (Beklemede)\n' +
+        '• in_progress (İşlemde)\n' +
+        '• solved (Çözüldü)\n' +
+        '• rejected (Reddedildi)\n' +
+        '• completed (Tamamlandı)');
     
-    // Toplu onay modal elemanları
-    const bulkApproveModal = new bootstrap.Modal(document.getElementById('bulkApproveModal'));
-    const bulkHideModal = new bootstrap.Modal(document.getElementById('bulkHideModal'));
-    const approveCount = document.getElementById('approveCount');
-    const hideCount = document.getElementById('hideCount');
-    const confirmBulkApprove = document.getElementById('confirmBulkApprove');
-    const confirmBulkHide = document.getElementById('confirmBulkHide');
+    if (status && ['pending', 'in_progress', 'solved', 'rejected', 'completed'].includes(status)) {
+        document.getElementById('hiddenAction').value = 'update_status';
+        document.getElementById('hiddenPostId').value = postId;
+        document.getElementById('hiddenNewStatus').value = status;
+        document.getElementById('hiddenForm').submit();
+    }
+}
+
+function loadDistrictsForFilter(cityId) {
+    const districtSelect = document.getElementById('district_filter');
     
-    // Seçili gönderi sayısını güncelle
-    function updateSelectedCount() {
-        const checkedCount = document.querySelectorAll('.post-checkbox:checked').length;
-        selectedCountNumber.textContent = checkedCount;
-        selectedCount.style.display = checkedCount > 0 ? 'inline' : 'none';
-        
-        // Toplu işlem butonlarını etkinleştir/devre dışı bırak
-        bulkApproveBtn.disabled = checkedCount === 0;
-        bulkHideBtn.disabled = checkedCount === 0;
-        
-        // Hepsini seç kutusunu güncelle
-        if (checkedCount === 0) {
-            selectAllCheckbox.checked = false;
-            selectAllCheckbox.indeterminate = false;
-        } else if (checkedCount === postCheckboxes.length) {
-            selectAllCheckbox.checked = true;
-            selectAllCheckbox.indeterminate = false;
-        } else {
-            selectAllCheckbox.indeterminate = true;
+    // Tüm ilçeleri gizle
+    Array.from(districtSelect.options).forEach(option => {
+        if (option.value !== '') {
+            option.style.display = 'none';
         }
+    });
+    
+    // Seçili şehre ait ilçeleri göster
+    if (cityId) {
+        Array.from(districtSelect.options).forEach(option => {
+            if (option.dataset.cityId === cityId) {
+                option.style.display = 'block';
+            }
+        });
+    } else {
+        // Hiç şehir seçili değilse tüm ilçeleri göster
+        Array.from(districtSelect.options).forEach(option => {
+            option.style.display = 'block';
+        });
     }
     
-    // Her bir gönderi onay kutusuna olay dinleyicisi ekle
-    postCheckboxes.forEach(checkbox => {
-        checkbox.addEventListener('change', updateSelectedCount);
-    });
-    
-    // Tümünü seç onay kutusu
-    selectAllCheckbox.addEventListener('change', function() {
-        postCheckboxes.forEach(checkbox => {
-            if (!checkbox.disabled) {
-                checkbox.checked = selectAllCheckbox.checked;
-            }
-        });
-        updateSelectedCount();
-    });
-    
-    // Tümünü seç butonu
-    selectAllBtn.addEventListener('click', function() {
-        const anyChecked = Array.from(postCheckboxes).some(checkbox => checkbox.checked && !checkbox.disabled);
-        
-        postCheckboxes.forEach(checkbox => {
-            if (!checkbox.disabled) {
-                checkbox.checked = !anyChecked;
-            }
-        });
-        
-        updateSelectedCount();
-    });
-    
-    // Toplu onay butonuna tıklandığında
-    bulkApproveBtn.addEventListener('click', function() {
-        const checkedCount = document.querySelectorAll('.post-checkbox:checked').length;
-        approveCount.textContent = checkedCount;
-        bulkApproveModal.show();
-    });
-    
-    // Toplu gizle butonuna tıklandığında
-    bulkHideBtn.addEventListener('click', function() {
-        const checkedCount = document.querySelectorAll('.post-checkbox:checked').length;
-        hideCount.textContent = checkedCount;
-        bulkHideModal.show();
-    });
-    
-    // Toplu onay işlemini onayla
-    confirmBulkApprove.addEventListener('click', function() {
-        // Seçilen gönderilerin ID'lerini topla
-        const selectedPostIds = [];
-        document.querySelectorAll('.post-checkbox:checked').forEach(checkbox => {
-            selectedPostIds.push(checkbox.getAttribute('data-post-id'));
-        });
-        
-        // Toplu onay için API isteği gönder
-        fetch('index.php?page=api&action=bulk_approve_posts', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({
-                post_ids: selectedPostIds
-            })
-        })
-        .then(response => response.json())
-        .then(data => {
-            // İşlem başarılıysa sayfayı yenile
-            if (data.success) {
-                showNotification('Seçilen gönderiler başarıyla onaylandı', 'success');
-                setTimeout(() => {
-                    window.location.reload();
-                }, 1500);
-            } else {
-                showNotification('Hata: ' + (data.message || 'Bilinmeyen bir hata oluştu'), 'error');
-            }
-            bulkApproveModal.hide();
-        })
-        .catch(error => {
-            showNotification('Sunucu hatası: ' + error.message, 'error');
-            bulkApproveModal.hide();
-        });
-    });
-    
-    // Toplu gizleme işlemini onayla
-    confirmBulkHide.addEventListener('click', function() {
-        // Seçilen gönderilerin ID'lerini topla
-        const selectedPostIds = [];
-        document.querySelectorAll('.post-checkbox:checked').forEach(checkbox => {
-            selectedPostIds.push(checkbox.getAttribute('data-post-id'));
-        });
-        
-        // Toplu gizleme için API isteği gönder
-        fetch('index.php?page=api&action=bulk_hide_posts', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({
-                post_ids: selectedPostIds
-            })
-        })
-        .then(response => response.json())
-        .then(data => {
-            // İşlem başarılıysa sayfayı yenile
-            if (data.success) {
-                showNotification('Seçilen gönderiler başarıyla gizlendi', 'success');
-                setTimeout(() => {
-                    window.location.reload();
-                }, 1500);
-            } else {
-                showNotification('Hata: ' + (data.message || 'Bilinmeyen bir hata oluştu'), 'error');
-            }
-            bulkHideModal.hide();
-        })
-        .catch(error => {
-            showNotification('Sunucu hatası: ' + error.message, 'error');
-            bulkHideModal.hide();
-        });
-    });
-    
-    // Bildirim gösterme fonksiyonu
-    function showNotification(message, type) {
-        const alertClass = type === 'success' ? 'alert-success' : 'alert-danger';
-        const alertIcon = type === 'success' ? 'fa-check-circle' : 'fa-exclamation-circle';
-        
-        const alertHtml = `
-            <div class="alert ${alertClass} alert-dismissible fade show" role="alert">
-                <i class="fas ${alertIcon} me-2"></i> ${message}
-                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Kapat"></button>
-            </div>
-        `;
-        
-        // Bildirim alanı oluştur veya var olanı kullan
-        let notificationArea = document.getElementById('notificationArea');
-        if (!notificationArea) {
-            notificationArea = document.createElement('div');
-            notificationArea.id = 'notificationArea';
-            notificationArea.style.position = 'fixed';
-            notificationArea.style.top = '20px';
-            notificationArea.style.right = '20px';
-            notificationArea.style.zIndex = '9999';
-            document.body.appendChild(notificationArea);
-        }
-        
-        // Bildirimi ekle
-        const alertDiv = document.createElement('div');
-        alertDiv.innerHTML = alertHtml;
-        notificationArea.appendChild(alertDiv.firstElementChild);
-        
-        // 5 saniye sonra otomatik kapat
-        setTimeout(() => {
-            const alerts = notificationArea.getElementsByClassName('alert');
-            if (alerts.length > 0) {
-                alerts[0].remove();
-            }
-        }, 5000);
-    }
-    
-    // Sayfa yüklendiğinde seçim sayısını güncelle
-    updateSelectedCount();
-});
+    districtSelect.value = '';
+}
 </script>

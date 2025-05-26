@@ -1,429 +1,523 @@
 <?php
-// Fonksiyonları dahil et
+// Gönderi detay sayfası
 require_once(__DIR__ . '/../includes/functions.php');
 
-// ID kontrolü
 if (!isset($_GET['id']) || empty($_GET['id'])) {
-    $_SESSION['message'] = 'Geçersiz gönderi ID\'si';
+    $_SESSION['message'] = 'Geçersiz gönderi ID';
     $_SESSION['message_type'] = 'danger';
-    
-    // Ana sayfaya yönlendir
-    if (!headers_sent()) {
-        header('Location: index.php?page=posts');
-        exit;
-    } else {
-        echo '<script>window.location.href = "index.php?page=posts";</script>';
-        exit;
-    }
+    redirect('index.php?page=posts');
 }
 
-// Gönderi bilgilerini al
 $post_id = $_GET['id'];
-$post = getDataById('posts', $post_id);
 
-if (!$post) {
+// Gönderi bilgilerini getir
+$post_result = getDataById('posts', $post_id);
+if ($post_result['error'] || !$post_result['data']) {
     $_SESSION['message'] = 'Gönderi bulunamadı';
     $_SESSION['message_type'] = 'danger';
+    redirect('index.php?page=posts');
+}
+
+$post = $post_result['data'];
+
+// Yorum işlemleri
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    $action = $_POST['action'] ?? '';
     
-    // Ana sayfaya yönlendir
-    if (!headers_sent()) {
-        header('Location: index.php?page=posts');
-        exit;
-    } else {
-        echo '<script>window.location.href = "index.php?page=posts";</script>';
-        exit;
+    switch ($action) {
+        case 'delete_comment':
+            $comment_id = $_POST['comment_id'] ?? '';
+            $update_result = updateData('comments', $comment_id, [
+                'is_hidden' => true,
+                'updated_at' => date('Y-m-d H:i:s')
+            ]);
+            
+            if (!$update_result['error']) {
+                $_SESSION['message'] = 'Yorum silindi.';
+                $_SESSION['message_type'] = 'success';
+            } else {
+                $_SESSION['message'] = 'Hata: ' . ($update_result['message'] ?? 'Bilinmeyen hata');
+                $_SESSION['message_type'] = 'danger';
+            }
+            break;
+            
+        case 'block_user':
+            $user_id = $_POST['user_id'] ?? '';
+            $update_result = updateData('users', $user_id, [
+                'is_blocked' => true,
+                'blocked_at' => date('Y-m-d H:i:s'),
+                'updated_at' => date('Y-m-d H:i:s')
+            ]);
+            
+            if (!$update_result['error']) {
+                $_SESSION['message'] = 'Kullanıcı engellendi.';
+                $_SESSION['message_type'] = 'success';
+            } else {
+                $_SESSION['message'] = 'Hata: ' . ($update_result['message'] ?? 'Bilinmeyen hata');
+                $_SESSION['message_type'] = 'danger';
+            }
+            break;
     }
+    
+    redirect("index.php?page=post_detail&id={$post_id}");
 }
 
-// Gönderi sahibi bilgilerini al
+// Kullanıcı bilgisini getir
 $user = null;
-if (isset($post['user_id'])) {
-    $user = getDataById('users', $post['user_id']);
+if ($post['user_id']) {
+    $user_result = getDataById('users', $post['user_id']);
+    $user = $user_result['data'] ?? null;
 }
 
-// Gönderi yorumlarını al
-$comments_result = getData('comments', ['post_id' => 'eq.' . $post_id]);
-$comments = $comments_result['data'];
+// Şehir ve ilçe bilgilerini getir
+$city_name = '';
+$district_name = '';
 
-// Gönderi kategori tipleri
+if ($post['city_id']) {
+    $city_result = getDataById('cities', $post['city_id']);
+    $city_name = $city_result['data']['name'] ?? '';
+}
+
+if ($post['district_id']) {
+    $district_result = getDataById('districts', $post['district_id']);
+    $district_name = $district_result['data']['name'] ?? '';
+}
+
+// Yorumları getir
+$comments_result = getData('comments', [
+    'post_id' => 'eq.' . $post_id,
+    'order' => 'created_at.desc'
+]);
+$comments = $comments_result['data'] ?? [];
+
+// Beğenileri getir
+$likes_result = getData('likes', [
+    'post_id' => 'eq.' . $post_id,
+    'order' => 'created_at.desc'
+]);
+$likes = $likes_result['data'] ?? [];
+
+// Gönderi tipleri
 $post_types = [
-    'complaint' => ['name' => 'Şikayet', 'color' => 'danger', 'icon' => 'fa-exclamation-circle'],
-    'suggestion' => ['name' => 'Öneri', 'color' => 'primary', 'icon' => 'fa-lightbulb'],
-    'question' => ['name' => 'Soru', 'color' => 'warning', 'icon' => 'fa-question-circle'],
-    'thanks' => ['name' => 'Teşekkür', 'color' => 'success', 'icon' => 'fa-heart']
+    'complaint' => ['name' => 'Şikayet', 'color' => 'danger', 'icon' => 'fas fa-exclamation-triangle'],
+    'suggestion' => ['name' => 'Öneri', 'color' => 'primary', 'icon' => 'fas fa-lightbulb'],
+    'question' => ['name' => 'Soru', 'color' => 'warning', 'icon' => 'fas fa-question-circle'],
+    'thanks' => ['name' => 'Teşekkür', 'color' => 'success', 'icon' => 'fas fa-heart'],
+    'report' => ['name' => 'Rapor', 'color' => 'info', 'icon' => 'fas fa-file-alt'],
+    'feedback' => ['name' => 'Geri Bildirim', 'color' => 'secondary', 'icon' => 'fas fa-comment-alt']
 ];
 
-// Gönderi tipi rengini belirle
-$type_color = 'secondary';
-$type_name = 'Gönderi';
-$type_icon = 'fa-file-alt';
+$status_types = [
+    'pending' => ['name' => 'Beklemede', 'color' => 'warning'],
+    'in_progress' => ['name' => 'İşlemde', 'color' => 'info'],
+    'solved' => ['name' => 'Çözüldü', 'color' => 'success'],
+    'rejected' => ['name' => 'Reddedildi', 'color' => 'danger'],
+    'completed' => ['name' => 'Tamamlandı', 'color' => 'primary'],
+    'deleted' => ['name' => 'Silindi', 'color' => 'dark']
+];
 
-if (isset($post['type']) && isset($post_types[$post['type']])) {
-    $type_color = $post_types[$post['type']]['color'];
-    $type_name = $post_types[$post['type']]['name'];
-    $type_icon = $post_types[$post['type']]['icon'];
-}
-
-// Gönderi çözülme durumu
-$is_resolved = isset($post['is_resolved']) && $post['is_resolved'] === 'true';
-$is_hidden = isset($post['is_hidden']) && $post['is_hidden'] === 'true';
-$is_featured = isset($post['is_featured']) && $post['is_featured'] === 'true';
+$post_type = $post_types[$post['type']] ?? ['name' => 'Bilinmiyor', 'color' => 'secondary', 'icon' => 'fas fa-question'];
+$post_status = $status_types[$post['status']] ?? ['name' => 'Bilinmiyor', 'color' => 'secondary'];
 ?>
 
-<!-- Üst Başlık ve Butonlar -->
-<div class="d-flex justify-content-between mb-4">
-    <h1 class="h3">Gönderi Detayı</h1>
-    
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h1 class="h3">📄 Gönderi Detayı</h1>
     <div>
-        <a href="index.php?page=post_edit&id=<?php echo $post_id; ?>" class="btn btn-warning me-2">
-            <i class="fas fa-edit me-1"></i> Düzenle
-        </a>
         <a href="index.php?page=posts" class="btn btn-secondary">
             <i class="fas fa-arrow-left me-1"></i> Gönderilere Dön
         </a>
     </div>
 </div>
 
-<!-- Ana İçerik -->
+<!-- Mesaj gösterimi -->
+<?php if (isset($_SESSION['message'])): ?>
+    <div class="alert alert-<?php echo $_SESSION['message_type']; ?> alert-dismissible fade show" role="alert">
+        <?php echo $_SESSION['message']; ?>
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    </div>
+    <?php unset($_SESSION['message'], $_SESSION['message_type']); ?>
+<?php endif; ?>
+
 <div class="row">
-    <!-- Gönderi Detayları -->
     <div class="col-md-8">
+        <!-- Gönderi İçeriği -->
         <div class="card mb-4">
-            <div class="card-header d-flex justify-content-between align-items-center">
-                <div>
-                    <span class="badge bg-<?php echo $type_color; ?> me-2">
-                        <i class="fas <?php echo $type_icon; ?> me-1"></i> 
-                        <?php echo $type_name; ?>
-                    </span>
-                    <?php if ($is_resolved): ?>
-                        <span class="badge bg-success">
-                            <i class="fas fa-check-circle me-1"></i> Çözüldü
-                        </span>
-                    <?php else: ?>
-                        <span class="badge bg-warning text-dark">
-                            <i class="fas fa-clock me-1"></i> Beklemede
-                        </span>
-                    <?php endif; ?>
-                    
-                    <?php if ($is_hidden): ?>
-                        <span class="badge bg-danger">
-                            <i class="fas fa-eye-slash me-1"></i> Gizli
-                        </span>
-                    <?php endif; ?>
-                    
-                    <?php if ($is_featured): ?>
-                        <span class="badge bg-info">
-                            <i class="fas fa-star me-1"></i> Öne Çıkarıldı
-                        </span>
-                    <?php endif; ?>
-                </div>
-                <small class="text-muted">
-                    <?php echo isset($post['created_at']) ? formatDate($post['created_at']) : ''; ?>
-                </small>
-            </div>
-            <div class="card-body">
-                <h4 class="card-title"><?php echo escape($post['title'] ?? ''); ?></h4>
-                <p class="card-text"><?php echo nl2br(escape($post['description'] ?? '')); ?></p>
-                
-                <!-- Konum Bilgisi -->
-                <?php if (isset($post['city']) || isset($post['district'])): ?>
-                <div class="mb-3">
-                    <h6 class="mb-2">Konum</h6>
-                    <p class="mb-0">
-                        <?php if (isset($post['city']) && !empty($post['city'])): ?>
-                            <span class="badge bg-secondary me-2">
-                                <i class="fas fa-city me-1"></i> <?php echo escape($post['city']); ?>
+            <div class="card-header">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div class="d-flex align-items-center">
+                        <i class="<?php echo $post_type['icon']; ?> text-<?php echo $post_type['color']; ?> me-2"></i>
+                        <h5 class="mb-0"><?php echo escape($post['title']); ?></h5>
+                    </div>
+                    <div>
+                        <?php if ($post['is_featured'] ?? false): ?>
+                            <span class="badge bg-warning text-dark me-2">
+                                <i class="fas fa-star"></i> Öne Çıkan
                             </span>
                         <?php endif; ?>
                         
-                        <?php if (isset($post['district']) && !empty($post['district'])): ?>
-                            <span class="badge bg-secondary">
-                                <i class="fas fa-map-marker-alt me-1"></i> <?php echo escape($post['district']); ?>
-                            </span>
+                        <?php if ($post['is_hidden'] ?? false): ?>
+                            <span class="badge bg-dark">Gizli</span>
                         <?php endif; ?>
-                    </p>
-                </div>
-                <?php endif; ?>
-                
-                <!-- Medya Görselleri -->
-                <?php if (isset($post['media_url']) && !empty($post['media_url'])): ?>
-                <div class="mb-3">
-                    <h6 class="mb-2">Medya</h6>
-                    <?php if (isset($post['is_video']) && $post['is_video'] === 'true'): ?>
-                        <div class="ratio ratio-16x9">
-                            <video src="<?php echo escape($post['media_url']); ?>" controls class="rounded"></video>
-                        </div>
-                    <?php else: ?>
-                        <img src="<?php echo escape($post['media_url']); ?>" alt="Gönderi Görseli" class="img-fluid rounded">
-                    <?php endif; ?>
-                </div>
-                <?php endif; ?>
-                
-                <!-- Birden fazla medya görseli -->
-                <?php if (isset($post['media_urls']) && !empty($post['media_urls'])): 
-                    $media_urls = is_array($post['media_urls']) ? $post['media_urls'] : json_decode($post['media_urls'], true);
-                    if (!empty($media_urls)):
-                ?>
-                <div class="mb-4">
-                    <h6 class="mb-2">Ek Görseller</h6>
-                    <div class="row">
-                        <?php foreach ($media_urls as $index => $url): ?>
-                            <div class="col-md-3 col-sm-6 mb-3">
-                                <a href="<?php echo escape($url); ?>" target="_blank">
-                                    <img src="<?php echo escape($url); ?>" alt="Gönderi Görseli <?php echo $index + 1; ?>" class="img-fluid rounded">
-                                </a>
-                            </div>
-                        <?php endforeach; ?>
-                    </div>
-                </div>
-                <?php 
-                    endif;
-                endif; 
-                ?>
-                
-                <!-- İstatistikler -->
-                <div class="mt-4 d-flex">
-                    <div class="me-4">
-                        <i class="fas fa-heart text-danger"></i>
-                        <span><?php echo isset($post['like_count']) ? $post['like_count'] : 0; ?> Beğeni</span>
-                    </div>
-                    <div>
-                        <i class="fas fa-comment text-primary"></i>
-                        <span><?php echo isset($post['comment_count']) ? $post['comment_count'] : 0; ?> Yorum</span>
                     </div>
                 </div>
             </div>
-            <div class="card-footer d-flex justify-content-between">
-                <!-- Durum Değiştirme Butonları -->
-                <div>
-                    <?php if (!$is_resolved): ?>
-                    <a href="index.php?page=posts&resolve=<?php echo $post_id; ?>&action=mark" class="btn btn-sm btn-success me-2">
-                        <i class="fas fa-check-circle me-1"></i> Çözüldü İşaretle
-                    </a>
-                    <?php else: ?>
-                    <a href="index.php?page=posts&resolve=<?php echo $post_id; ?>&action=unmark" class="btn btn-sm btn-warning me-2">
-                        <i class="fas fa-times-circle me-1"></i> Çözülmedi İşaretle
-                    </a>
+            <div class="card-body">
+                <div class="mb-3">
+                    <span class="badge bg-<?php echo $post_type['color']; ?> me-2">
+                        <?php echo $post_type['name']; ?>
+                    </span>
+                    <span class="badge bg-<?php echo $post_status['color']; ?> me-2">
+                        <?php echo $post_status['name']; ?>
+                    </span>
+                    <?php if ($post['is_resolved'] ?? false): ?>
+                        <span class="badge bg-success">
+                            <i class="fas fa-check-circle"></i> Çözüldü
+                        </span>
                     <?php endif; ?>
                 </div>
                 
-                <!-- Diğer Butonlar -->
-                <div>
-                    <?php if (!$is_hidden): ?>
-                    <a href="index.php?page=posts&visibility=<?php echo $post_id; ?>&action=hide" class="btn btn-sm btn-danger me-2">
-                        <i class="fas fa-eye-slash me-1"></i> Gizle
-                    </a>
-                    <?php else: ?>
-                    <a href="index.php?page=posts&visibility=<?php echo $post_id; ?>&action=show" class="btn btn-sm btn-info me-2">
-                        <i class="fas fa-eye me-1"></i> Göster
-                    </a>
-                    <?php endif; ?>
-                    
-                    <?php if (!$is_featured): ?>
-                    <a href="index.php?page=posts&feature=<?php echo $post_id; ?>&action=add" class="btn btn-sm btn-primary me-2">
-                        <i class="fas fa-star me-1"></i> Öne Çıkar
-                    </a>
-                    <?php else: ?>
-                    <a href="index.php?page=posts&feature=<?php echo $post_id; ?>&action=remove" class="btn btn-sm btn-secondary me-2">
-                        <i class="fas fa-star-half-alt me-1"></i> Öne Çıkarmayı Kaldır
-                    </a>
-                    <?php endif; ?>
-                    
-                    <a href="javascript:void(0);" onclick="if(confirm('Bu gönderiyi silmek istediğinizden emin misiniz?')) window.location.href='index.php?page=posts&delete=<?php echo $post_id; ?>';" class="btn btn-sm btn-danger">
-                        <i class="fas fa-trash me-1"></i> Sil
-                    </a>
+                <p class="lead"><?php echo nl2br(escape($post['description'] ?? '')); ?></p>
+                
+                <!-- Medya İçeriği -->
+                <?php if ($post['media_url'] || $post['media_urls']): ?>
+                    <div class="mt-4">
+                        <h6>Ekli Medya</h6>
+                        <?php if ($post['media_url']): ?>
+                            <?php if ($post['is_video'] ?? false): ?>
+                                <video controls class="img-fluid rounded" style="max-height: 400px;">
+                                    <source src="<?php echo escape($post['media_url']); ?>" type="video/mp4">
+                                    Tarayıcınız video etiketini desteklemiyor.
+                                </video>
+                            <?php else: ?>
+                                <img src="<?php echo escape($post['media_url']); ?>" class="img-fluid rounded" style="max-height: 400px;">
+                            <?php endif; ?>
+                        <?php endif; ?>
+                        
+                        <?php if ($post['media_urls']): ?>
+                            <?php 
+                            $media_urls = is_string($post['media_urls']) ? json_decode($post['media_urls'], true) : $post['media_urls'];
+                            $is_video_list = is_string($post['is_video_list']) ? json_decode($post['is_video_list'], true) : ($post['is_video_list'] ?? []);
+                            ?>
+                            <?php if (is_array($media_urls)): ?>
+                                <div class="row g-3">
+                                    <?php foreach ($media_urls as $index => $media_url): ?>
+                                        <div class="col-md-6">
+                                            <?php if (isset($is_video_list[$index]) && $is_video_list[$index]): ?>
+                                                <video controls class="img-fluid rounded" style="max-height: 300px;">
+                                                    <source src="<?php echo escape($media_url); ?>" type="video/mp4">
+                                                    Tarayıcınız video etiketini desteklemiyor.
+                                                </video>
+                                            <?php else: ?>
+                                                <img src="<?php echo escape($media_url); ?>" class="img-fluid rounded" style="max-height: 300px;">
+                                            <?php endif; ?>
+                                        </div>
+                                    <?php endforeach; ?>
+                                </div>
+                            <?php endif; ?>
+                        <?php endif; ?>
+                    </div>
+                <?php endif; ?>
+                
+                <!-- İstatistikler -->
+                <div class="mt-4 d-flex align-items-center text-muted">
+                    <span class="me-3">
+                        <i class="fas fa-heart text-danger"></i> 
+                        <?php echo number_format($post['like_count'] ?? 0); ?> beğeni
+                    </span>
+                    <span class="me-3">
+                        <i class="fas fa-comment text-primary"></i> 
+                        <?php echo number_format($post['comment_count'] ?? 0); ?> yorum
+                    </span>
+                    <span>
+                        <i class="fas fa-calendar"></i> 
+                        <?php echo date('d.m.Y H:i', strtotime($post['created_at'])); ?>
+                    </span>
                 </div>
             </div>
         </div>
-        
-        <!-- Yorumlar Kartı -->
-        <div class="card mb-4">
+
+        <!-- Yorumlar -->
+        <div class="card">
             <div class="card-header">
-                <i class="fas fa-comments me-1"></i>
-                Yorumlar (<?php echo count($comments); ?>)
+                <h5 class="mb-0">💬 Yorumlar (<?php echo count($comments); ?>)</h5>
             </div>
             <div class="card-body">
-                <?php if (empty($comments)): ?>
-                    <p class="text-center text-muted">Bu gönderiye henüz yorum yapılmamış.</p>
-                <?php else: ?>
-                    <?php foreach ($comments as $comment): 
-                        // Yorum sahibi bilgilerini bul
+                <?php if (!empty($comments)): ?>
+                    <?php foreach ($comments as $comment): ?>
+                        <?php
+                        // Yorum sahibi kullanıcı bilgisini getir
                         $comment_user = null;
-                        if (isset($comment['user_id'])) {
-                            foreach ($users_result['data'] as $u) {
-                                if ($u['id'] === $comment['user_id']) {
-                                    $comment_user = $u;
-                                    break;
-                                }
-                            }
+                        if ($comment['user_id']) {
+                            $comment_user_result = getDataById('users', $comment['user_id']);
+                            $comment_user = $comment_user_result['data'] ?? null;
                         }
-                    ?>
-                    <div class="card mb-3">
-                        <div class="card-body">
-                            <div class="d-flex mb-3">
-                                <div class="flex-shrink-0">
-                                    <?php if (isset($comment_user['profile_image_url']) && !empty($comment_user['profile_image_url'])): ?>
-                                        <img src="<?php echo escape($comment_user['profile_image_url']); ?>" alt="<?php echo isset($comment_user['username']) ? escape($comment_user['username']) : 'Kullanıcı'; ?>" class="rounded-circle" width="40" height="40">
+                        ?>
+                        <div class="border-bottom py-3 <?php echo ($comment['is_hidden'] ?? false) ? 'bg-light' : ''; ?>">
+                            <div class="d-flex align-items-start">
+                                <div class="me-3">
+                                    <?php if ($comment_user && $comment_user['profile_image_url']): ?>
+                                        <img src="<?php echo escape($comment_user['profile_image_url']); ?>" 
+                                             class="rounded-circle" width="40" height="40">
                                     <?php else: ?>
-                                        <div class="bg-secondary text-white rounded-circle d-flex align-items-center justify-content-center" style="width: 40px; height: 40px;">
-                                            <i class="fas fa-user"></i>
+                                        <div class="bg-secondary rounded-circle d-flex align-items-center justify-content-center" 
+                                             style="width: 40px; height: 40px; color: white;">
+                                            <?php echo strtoupper(substr($comment_user['display_name'] ?? $comment_user['username'] ?? 'U', 0, 1)); ?>
                                         </div>
                                     <?php endif; ?>
                                 </div>
-                                <div class="flex-grow-1 ms-3">
-                                    <h6 class="mb-0">
-                                        <?php echo isset($comment_user['username']) ? escape($comment_user['username']) : 'Bilinmeyen Kullanıcı'; ?>
-                                    </h6>
-                                    <small class="text-muted">
-                                        <?php echo isset($comment['created_at']) ? formatDate($comment['created_at']) : ''; ?>
-                                    </small>
+                                
+                                <div class="flex-grow-1">
+                                    <div class="d-flex justify-content-between align-items-start">
+                                        <div>
+                                            <h6 class="mb-1">
+                                                <?php echo escape($comment_user['display_name'] ?? $comment_user['username'] ?? 'Anonim Kullanıcı'); ?>
+                                                <?php if ($comment['is_hidden'] ?? false): ?>
+                                                    <span class="badge bg-danger ms-2">Silindi</span>
+                                                <?php endif; ?>
+                                            </h6>
+                                            <small class="text-muted">
+                                                <?php echo date('d.m.Y H:i', strtotime($comment['created_at'])); ?>
+                                            </small>
+                                        </div>
+                                        
+                                        <div class="dropdown">
+                                            <button class="btn btn-sm btn-outline-secondary dropdown-toggle" 
+                                                    type="button" data-bs-toggle="dropdown">
+                                                İşlemler
+                                            </button>
+                                            <ul class="dropdown-menu">
+                                                <?php if (!($comment['is_hidden'] ?? false)): ?>
+                                                    <li>
+                                                        <button class="dropdown-item text-danger" 
+                                                                onclick="deleteComment('<?php echo $comment['id']; ?>')">
+                                                            <i class="fas fa-trash me-1"></i> Yorumu Sil
+                                                        </button>
+                                                    </li>
+                                                <?php endif; ?>
+                                                
+                                                <?php if ($comment_user): ?>
+                                                    <li>
+                                                        <button class="dropdown-item text-warning" 
+                                                                onclick="blockUser('<?php echo $comment_user['id']; ?>', '<?php echo escape($comment_user['display_name'] ?? $comment_user['username']); ?>')">
+                                                            <i class="fas fa-ban me-1"></i> Kullanıcıyı Engelle
+                                                        </button>
+                                                    </li>
+                                                <?php endif; ?>
+                                            </ul>
+                                        </div>
+                                    </div>
+                                    
+                                    <p class="mb-0 mt-2"><?php echo nl2br(escape($comment['content'])); ?></p>
                                 </div>
-                                <?php if (isset($comment['is_hidden']) && $comment['is_hidden'] === 'true'): ?>
-                                    <span class="badge bg-danger ms-2">Gizli</span>
-                                <?php endif; ?>
-                            </div>
-                            
-                            <p class="card-text"><?php echo nl2br(escape($comment['content'] ?? '')); ?></p>
-                            
-                            <div class="d-flex justify-content-end">
-                                <?php if (isset($comment['is_hidden']) && $comment['is_hidden'] === 'true'): ?>
-                                    <a href="index.php?page=comments&visibility=<?php echo $comment['id']; ?>&action=show" class="btn btn-sm btn-info me-2">
-                                        <i class="fas fa-eye me-1"></i> Göster
-                                    </a>
-                                <?php else: ?>
-                                    <a href="index.php?page=comments&visibility=<?php echo $comment['id']; ?>&action=hide" class="btn btn-sm btn-danger me-2">
-                                        <i class="fas fa-eye-slash me-1"></i> Gizle
-                                    </a>
-                                <?php endif; ?>
-                                <a href="javascript:void(0);" onclick="if(confirm('Bu yorumu silmek istediğinizden emin misiniz?')) window.location.href='index.php?page=comments&delete=<?php echo $comment['id']; ?>';" class="btn btn-sm btn-danger">
-                                    <i class="fas fa-trash me-1"></i> Sil
-                                </a>
                             </div>
                         </div>
-                    </div>
                     <?php endforeach; ?>
+                <?php else: ?>
+                    <div class="text-center py-4">
+                        <i class="fas fa-comment-slash fa-3x text-muted mb-3"></i>
+                        <h6>Henüz yorum yapılmamış</h6>
+                        <p class="text-muted">Bu gönderi için henüz yorum bulunmuyor.</p>
+                    </div>
                 <?php endif; ?>
             </div>
         </div>
     </div>
-    
-    <!-- Yan Panel -->
+
     <div class="col-md-4">
-        <!-- Kullanıcı Bilgileri Kartı -->
-        <?php if ($user): ?>
+        <!-- Kullanıcı Bilgileri -->
         <div class="card mb-4">
             <div class="card-header">
-                <i class="fas fa-user me-1"></i>
-                Gönderi Sahibi
+                <h5 class="mb-0">👤 Gönderi Sahibi</h5>
             </div>
             <div class="card-body">
-                <div class="d-flex align-items-center mb-3">
-                    <?php if (isset($user['profile_image_url']) && !empty($user['profile_image_url'])): ?>
-                        <img src="<?php echo escape($user['profile_image_url']); ?>" alt="<?php echo escape($user['username']); ?>" class="rounded-circle me-3" width="64" height="64">
-                    <?php else: ?>
-                        <div class="bg-secondary text-white rounded-circle d-flex align-items-center justify-content-center me-3" style="width: 64px; height: 64px;">
-                            <i class="fas fa-user fa-2x"></i>
+                <?php if ($user): ?>
+                    <div class="d-flex align-items-center mb-3">
+                        <?php if ($user['profile_image_url']): ?>
+                            <img src="<?php echo escape($user['profile_image_url']); ?>" 
+                                 class="rounded-circle me-3" width="60" height="60">
+                        <?php else: ?>
+                            <div class="bg-secondary rounded-circle me-3 d-flex align-items-center justify-content-center" 
+                                 style="width: 60px; height: 60px; font-size: 24px; color: white;">
+                                <?php echo strtoupper(substr($user['display_name'] ?? $user['username'] ?? 'U', 0, 1)); ?>
+                            </div>
+                        <?php endif; ?>
+                        
+                        <div>
+                            <h6 class="mb-1"><?php echo escape($user['display_name'] ?? $user['username'] ?? 'Bilinmiyor'); ?></h6>
+                            <small class="text-muted"><?php echo escape($user['email'] ?? ''); ?></small>
                         </div>
-                    <?php endif; ?>
-                    
-                    <div>
-                        <h5 class="mb-1"><?php echo escape($user['username']); ?></h5>
-                        <p class="mb-0 text-muted">
-                            <small>Üyelik: <?php echo isset($user['created_at']) ? formatDate($user['created_at'], 'd.m.Y') : ''; ?></small>
-                        </p>
                     </div>
-                </div>
-                
-                <?php if (isset($user['email']) && !empty($user['email'])): ?>
-                <div class="mb-2">
-                    <strong><i class="fas fa-envelope me-1"></i> Email:</strong>
-                    <a href="mailto:<?php echo escape($user['email']); ?>"><?php echo escape($user['email']); ?></a>
-                </div>
+                    
+                    <table class="table table-sm">
+                        <tr>
+                            <th>Yaş:</th>
+                            <td><?php echo escape($user['age'] ?? 'Belirtilmemiş'); ?></td>
+                        </tr>
+                        <tr>
+                            <th>Cinsiyet:</th>
+                            <td><?php echo escape($user['gender'] ?? 'Belirtilmemiş'); ?></td>
+                        </tr>
+                        <tr>
+                            <th>Konum:</th>
+                            <td>
+                                <?php if ($user['city'] || $user['district']): ?>
+                                    <?php echo escape($user['city'] ?? ''); ?>
+                                    <?php if ($user['district']): ?>
+                                        / <?php echo escape($user['district']); ?>
+                                    <?php endif; ?>
+                                <?php else: ?>
+                                    Belirtilmemiş
+                                <?php endif; ?>
+                            </td>
+                        </tr>
+                        <tr>
+                            <th>Katılım:</th>
+                            <td><?php echo date('d.m.Y', strtotime($user['created_at'])); ?></td>
+                        </tr>
+                    </table>
+                    
+                    <div class="d-grid">
+                        <button class="btn btn-warning" onclick="blockUser('<?php echo $user['id']; ?>', '<?php echo escape($user['display_name'] ?? $user['username']); ?>')">
+                            <i class="fas fa-ban me-1"></i> Kullanıcıyı Engelle
+                        </button>
+                    </div>
+                <?php else: ?>
+                    <p class="text-muted">Kullanıcı bilgisi bulunamadı</p>
                 <?php endif; ?>
-                
-                <?php if (isset($user['phone_number']) && !empty($user['phone_number'])): ?>
-                <div class="mb-2">
-                    <strong><i class="fas fa-phone me-1"></i> Telefon:</strong>
-                    <span><?php echo escape($user['phone_number']); ?></span>
-                </div>
-                <?php endif; ?>
-                
-                <?php if (isset($user['city']) || isset($user['district'])): ?>
-                <div class="mb-2">
-                    <strong><i class="fas fa-map-marker-alt me-1"></i> Konum:</strong>
-                    <span>
-                        <?php 
-                        $location = [];
-                        if (isset($user['district']) && !empty($user['district'])) {
-                            $location[] = escape($user['district']);
-                        }
-                        if (isset($user['city']) && !empty($user['city'])) {
-                            $location[] = escape($user['city']);
-                        }
-                        echo implode(', ', $location);
-                        ?>
-                    </span>
-                </div>
-                <?php endif; ?>
-                
-                <?php if (isset($user['role']) && !empty($user['role'])): ?>
-                <div class="mb-3">
-                    <strong><i class="fas fa-user-tag me-1"></i> Rol:</strong>
-                    <span class="badge bg-<?php echo $user['role'] === 'admin' ? 'danger' : 'primary'; ?>">
-                        <?php echo $user['role'] === 'admin' ? 'Yönetici' : 'Kullanıcı'; ?>
-                    </span>
-                </div>
-                <?php endif; ?>
-                
-                <div class="mt-3">
-                    <a href="index.php?page=users&id=<?php echo $user['id']; ?>" class="btn btn-sm btn-primary">
-                        <i class="fas fa-user me-1"></i> Kullanıcı Detaylarını Gör
-                    </a>
-                </div>
             </div>
         </div>
-        <?php endif; ?>
-        
-        <!-- İstatistikler Kartı -->
+
+        <!-- Gönderi Bilgileri -->
         <div class="card mb-4">
             <div class="card-header">
-                <i class="fas fa-chart-pie me-1"></i>
-                İstatistikler
+                <h5 class="mb-0">ℹ️ Gönderi Bilgileri</h5>
             </div>
             <div class="card-body">
-                <ul class="list-group list-group-flush">
-                    <li class="list-group-item d-flex justify-content-between align-items-center">
-                        Beğeni Sayısı
-                        <span class="badge bg-primary rounded-pill"><?php echo isset($post['like_count']) ? $post['like_count'] : 0; ?></span>
-                    </li>
-                    <li class="list-group-item d-flex justify-content-between align-items-center">
-                        Yorum Sayısı
-                        <span class="badge bg-primary rounded-pill"><?php echo isset($post['comment_count']) ? $post['comment_count'] : 0; ?></span>
-                    </li>
-                    <?php if (isset($post['monthly_featured_count'])): ?>
-                    <li class="list-group-item d-flex justify-content-between align-items-center">
-                        Aylık Öne Çıkarılma
-                        <span class="badge bg-info rounded-pill"><?php echo $post['monthly_featured_count']; ?></span>
-                    </li>
+                <table class="table table-sm">
+                    <tr>
+                        <th>ID:</th>
+                        <td><code><?php echo escape($post_id); ?></code></td>
+                    </tr>
+                    <tr>
+                        <th>Tür:</th>
+                        <td><?php echo $post_type['name']; ?></td>
+                    </tr>
+                    <tr>
+                        <th>Durum:</th>
+                        <td><?php echo $post_status['name']; ?></td>
+                    </tr>
+                    <tr>
+                        <th>Kategori:</th>
+                        <td>
+                            <?php 
+                            $categories = [
+                                'transportation' => 'Ulaşım',
+                                'environment' => 'Çevre',
+                                'infrastructure' => 'Altyapı',
+                                'health' => 'Sağlık',
+                                'education' => 'Eğitim',
+                                'social' => 'Sosyal',
+                                'other' => 'Diğer'
+                            ];
+                            echo $categories[$post['category']] ?? ($post['category'] ?? 'Belirtilmemiş');
+                            ?>
+                        </td>
+                    </tr>
+                    <tr>
+                        <th>Konum:</th>
+                        <td>
+                            <?php if ($city_name || $district_name): ?>
+                                <?php echo escape($city_name); ?>
+                                <?php if ($district_name): ?>
+                                    / <?php echo escape($district_name); ?>
+                                <?php endif; ?>
+                            <?php else: ?>
+                                Belirtilmemiş
+                            <?php endif; ?>
+                        </td>
+                    </tr>
+                    <tr>
+                        <th>Oluşturulma:</th>
+                        <td><?php echo date('d.m.Y H:i', strtotime($post['created_at'])); ?></td>
+                    </tr>
+                    <tr>
+                        <th>Güncellenme:</th>
+                        <td><?php echo $post['updated_at'] ? date('d.m.Y H:i', strtotime($post['updated_at'])) : '-'; ?></td>
+                    </tr>
+                </table>
+            </div>
+        </div>
+
+        <!-- Beğeniler -->
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0">❤️ Beğeniler (<?php echo count($likes); ?>)</h5>
+            </div>
+            <div class="card-body" style="max-height: 300px; overflow-y: auto;">
+                <?php if (!empty($likes)): ?>
+                    <?php foreach (array_slice($likes, 0, 20) as $like): ?>
+                        <?php
+                        $like_user = null;
+                        if ($like['user_id']) {
+                            $like_user_result = getDataById('users', $like['user_id']);
+                            $like_user = $like_user_result['data'] ?? null;
+                        }
+                        ?>
+                        <div class="d-flex align-items-center mb-2">
+                            <?php if ($like_user && $like_user['profile_image_url']): ?>
+                                <img src="<?php echo escape($like_user['profile_image_url']); ?>" 
+                                     class="rounded-circle me-2" width="24" height="24">
+                            <?php else: ?>
+                                <div class="bg-secondary rounded-circle me-2 d-flex align-items-center justify-content-center" 
+                                     style="width: 24px; height: 24px; font-size: 12px; color: white;">
+                                    <?php echo strtoupper(substr($like_user['display_name'] ?? $like_user['username'] ?? 'U', 0, 1)); ?>
+                                </div>
+                            <?php endif; ?>
+                            
+                            <div class="flex-grow-1">
+                                <small class="fw-semibold">
+                                    <?php echo escape($like_user['display_name'] ?? $like_user['username'] ?? 'Anonim'); ?>
+                                </small>
+                                <br>
+                                <small class="text-muted">
+                                    <?php echo date('d.m.Y H:i', strtotime($like['created_at'])); ?>
+                                </small>
+                            </div>
+                        </div>
+                    <?php endforeach; ?>
+                    
+                    <?php if (count($likes) > 20): ?>
+                        <small class="text-muted">Ve <?php echo count($likes) - 20; ?> kişi daha...</small>
                     <?php endif; ?>
-                    <?php if (isset($post['featured_count'])): ?>
-                    <li class="list-group-item d-flex justify-content-between align-items-center">
-                        Toplam Öne Çıkarılma
-                        <span class="badge bg-info rounded-pill"><?php echo $post['featured_count']; ?></span>
-                    </li>
-                    <?php endif; ?>
-                    <li class="list-group-item d-flex justify-content-between align-items-center">
-                        Oluşturulma Tarihi
-                        <span class="badge bg-secondary"><?php echo isset($post['created_at']) ? formatDate($post['created_at'], 'd.m.Y') : '-'; ?></span>
-                    </li>
-                    <?php if (isset($post['updated_at']) && $post['updated_at'] !== $post['created_at']): ?>
-                    <li class="list-group-item d-flex justify-content-between align-items-center">
-                        Son Güncelleme
-                        <span class="badge bg-secondary"><?php echo formatDate($post['updated_at'], 'd.m.Y'); ?></span>
-                    </li>
-                    <?php endif; ?>
-                </ul>
+                <?php else: ?>
+                    <p class="text-muted text-center">Henüz beğeni yok</p>
+                <?php endif; ?>
             </div>
         </div>
     </div>
 </div>
+
+<!-- Gizli Form -->
+<form id="hiddenForm" method="post" style="display: none;">
+    <input type="hidden" name="action" id="hiddenAction">
+    <input type="hidden" name="comment_id" id="hiddenCommentId">
+    <input type="hidden" name="user_id" id="hiddenUserId">
+</form>
+
+<script>
+function deleteComment(commentId) {
+    if (confirm('Bu yorumu silmek istediğinizden emin misiniz?')) {
+        document.getElementById('hiddenAction').value = 'delete_comment';
+        document.getElementById('hiddenCommentId').value = commentId;
+        document.getElementById('hiddenForm').submit();
+    }
+}
+
+function blockUser(userId, userName) {
+    if (confirm('Bu kullanıcıyı engellemek istediğinizden emin misiniz?\n\n' + userName)) {
+        document.getElementById('hiddenAction').value = 'block_user';
+        document.getElementById('hiddenUserId').value = userId;
+        document.getElementById('hiddenForm').submit();
+    }
+}
+</script>
