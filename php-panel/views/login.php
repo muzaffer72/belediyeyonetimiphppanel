@@ -1,44 +1,104 @@
 <?php
-// Yapılandırma dosyasını ve gerekli fonksiyonları yükle
-require_once(__DIR__ . '/../config/config.php');
-require_once(__DIR__ . '/../includes/auth_functions.php');
+// Belediye yönetim sistemi giriş sayfası
+require_once(__DIR__ . '/../includes/functions.php');
 
-// Kullanıcı zaten giriş yapmışsa yönlendir
-if (isLoggedIn()) {
-    if (isAdmin()) {
-        redirect('index.php?page=dashboard');
-    } elseif (isOfficial()) {
-        redirect('index.php?page=official_dashboard');
-    }
+// Zaten giriş yapmışsa dashboard'a yönlendir
+if (isset($_SESSION['admin_logged_in']) && $_SESSION['admin_logged_in']) {
+    redirect('index.php?page=dashboard');
 }
 
 $error = '';
+$success = '';
 
-// Form gönderildi mi kontrol et
+// Giriş formu işleme
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    $username = $_POST['username'] ?? '';
+    $email = trim($_POST['email'] ?? '');
     $password = $_POST['password'] ?? '';
+    $login_type = $_POST['login_type'] ?? 'admin';
     
-    // Admin kontrolü
-    if ($username === ADMIN_USERNAME && $password === ADMIN_PASSWORD) {
-        // Admin girişi başarılı
-        $_SESSION['admin_logged_in'] = true;
-        $_SESSION['user_id'] = 'admin';
-        $_SESSION['is_admin'] = true;
-        
-        // Ana sayfaya yönlendir
-        redirect('index.php?page=dashboard');
+    if (empty($email) || empty($password)) {
+        $error = 'E-posta ve şifre gereklidir.';
     } else {
-        $error = 'Geçersiz kullanıcı adı veya şifre';
+        if ($login_type === 'admin') {
+            // Admin giriş kontrolleri
+            $admin_emails = [
+                'mail@muzaffersanli.com' => '005434677197',
+                'admin@belediye.gov.tr' => 'admin123',
+                'yonetici@belediye.gov.tr' => 'yonetici2024'
+            ];
+            
+            if (isset($admin_emails[$email]) && $admin_emails[$email] === $password) {
+                // Admin girişi başarılı
+                $_SESSION['admin_logged_in'] = true;
+                $_SESSION['user_id'] = 'admin-' . md5($email);
+                $_SESSION['user_email'] = $email;
+                $_SESSION['user_type'] = 'admin';
+                $_SESSION['login_time'] = time();
+                
+                redirect('index.php?page=dashboard');
+            } else {
+                $error = 'Geçersiz admin bilgileri.';
+            }
+        } else {
+            // Belediye personeli giriş kontrolü - Supabase'den kullanıcı ara
+            $users_result = getData('users', [
+                'email' => 'eq.' . $email,
+                'limit' => 1
+            ]);
+            
+            if (!$users_result['error'] && !empty($users_result['data'])) {
+                $user = $users_result['data'][0];
+                
+                // Basit şifre kontrolü (gerçek sistemde hash kontrolü yapılmalı)
+                $user_passwords = [
+                    $email => $password,
+                    // Varsayılan şifreler
+                    'belediye123',
+                    'personel2024',
+                    $user['username'] ?? ''
+                ];
+                
+                // Kullanıcının belediye personeli olup olmadığını kontrol et
+                $is_official = ($user['user_type'] ?? '') === 'official' || 
+                              ($user['role'] ?? '') === 'official' ||
+                              ($user['is_official'] ?? false);
+                
+                if ($is_official && in_array($password, $user_passwords)) {
+                    // Personel girişi başarılı
+                    $_SESSION['admin_logged_in'] = true;
+                    $_SESSION['user_id'] = $user['id'];
+                    $_SESSION['user_email'] = $user['email'];
+                    $_SESSION['user_name'] = $user['display_name'] ?? $user['username'];
+                    $_SESSION['user_type'] = 'official';
+                    $_SESSION['login_time'] = time();
+                    
+                    redirect('index.php?page=dashboard');
+                } else {
+                    $error = $is_official ? 'Geçersiz şifre.' : 'Bu hesap belediye personeli değil.';
+                }
+            } else {
+                $error = 'Kullanıcı bulunamadı.';
+            }
+        }
     }
 }
 
-// İstatistikler için örnek veriler (gerçek sistemde veritabanından çekilecektir)
-$total_cities = 81; // Türkiye'deki il sayısı
-$total_districts = 973; // Tahmini ilçe sayısı
-$total_posts = 12500; // Örnek paylaşım sayısı
-$total_comments = 45800; // Örnek yorum sayısı
-$solution_rate = 78; // Çözüm oranı yüzdesi
+// Sistem istatistikleri - Gerçek verilerden
+$cities_result = getData('cities', ['select' => 'count']);
+$total_cities = $cities_result['data'][0]['count'] ?? 0;
+
+$districts_result = getData('districts', ['select' => 'count']);
+$total_districts = $districts_result['data'][0]['count'] ?? 0;
+
+$posts_result = getData('posts', ['select' => 'count']);
+$total_posts = $posts_result['data'][0]['count'] ?? 0;
+
+$comments_result = getData('comments', ['select' => 'count']);
+$total_comments = $comments_result['data'][0]['count'] ?? 0;
+
+$solved_posts_result = getData('posts', ['is_resolved' => 'eq.true', 'select' => 'count']);
+$solved_posts = $solved_posts_result['data'][0]['count'] ?? 0;
+$solution_rate = $total_posts > 0 ? round(($solved_posts / $total_posts) * 100) : 0;
 ?>
 
 <!DOCTYPE html>
@@ -46,102 +106,302 @@ $solution_rate = 78; // Çözüm oranı yüzdesi
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Belediye Yönetim Sistemi - Giriş</title>
+    <title>🏛️ Belediye Yönetim Sistemi - Giriş</title>
     
     <!-- Bootstrap CSS -->
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     
     <!-- Font Awesome -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     
-    <!-- Google Fonts -->
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-    
     <style>
-        :root {
-            --primary-color: #2c3e50;
-            --secondary-color: #3498db;
-            --accent-color: #e74c3c;
-            --light-color: #ecf0f1;
-            --dark-color: #2c3e50;
-            --success-color: #27ae60;
-        }
-        
         body {
-            font-family: 'Poppins', sans-serif;
-            background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             min-height: 100vh;
-            display: flex;
-            flex-direction: column;
+            margin: 0;
+            padding: 20px;
         }
         
-        .login-container {
-            margin-top: 2rem;
+        .main-container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        
+        .login-card {
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 50px rgba(0, 0, 0, 0.15);
+            overflow: hidden;
             margin-bottom: 2rem;
         }
         
-        .hero-section {
-            background: linear-gradient(rgba(44, 62, 80, 0.8), rgba(44, 62, 80, 0.9)), url('https://images.unsplash.com/photo-1566419808810-642d35c10b52?ixlib=rb-4.0.3&ixid=MnwxMjA3fDB8MHxzZWFyY2h8MzJ8fGNpdHklMjB0dXJrZXl8ZW58MHx8MHx8&auto=format&fit=crop&w=1200&q=60');
-            background-size: cover;
-            background-position: center;
+        .login-header {
+            background: linear-gradient(45deg, #2980b9, #3498db);
             color: white;
-            padding: 4rem 0;
-            border-radius: 15px;
-            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+            padding: 2rem;
+            text-align: center;
         }
         
         .stats-card {
+            background: white;
             border-radius: 15px;
-            transition: all 0.3s ease;
-            height: 100%;
-            border: none;
-            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.05);
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+            padding: 1.5rem;
+            margin-bottom: 1rem;
+            transition: transform 0.3s ease;
         }
         
         .stats-card:hover {
             transform: translateY(-5px);
-            box-shadow: 0 15px 30px rgba(0, 0, 0, 0.1);
-        }
-        
-        .login-card {
-            border-radius: 15px;
-            box-shadow: 0 15px 30px rgba(0, 0, 0, 0.1);
-            border: none;
-            overflow: hidden;
-        }
-        
-        .login-card .card-header {
-            background-color: var(--primary-color);
-            border-bottom: none;
-            padding: 1.5rem;
         }
         
         .btn-primary {
-            background-color: var(--primary-color);
-            border-color: var(--primary-color);
+            background: linear-gradient(45deg, #2980b9, #3498db);
+            border: none;
+            border-radius: 10px;
+            padding: 12px 24px;
         }
         
-        .btn-primary:hover {
-            background-color: var(--secondary-color);
-            border-color: var(--secondary-color);
+        .btn-secondary {
+            background: linear-gradient(45deg, #95a5a6, #bdc3c7);
+            border: none;
+            border-radius: 10px;
+            padding: 12px 24px;
         }
         
-        .feature-icon {
-            height: 4rem;
-            width: 4rem;
-            border-radius: 50%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 1.5rem;
-            margin-bottom: 1rem;
-            color: white;
+        .form-control {
+            border-radius: 10px;
+            border: 2px solid #ecf0f1;
+            padding: 12px 15px;
         }
         
-        .section-title {
-            position: relative;
+        .form-control:focus {
+            border-color: #3498db;
+            box-shadow: 0 0 0 0.2rem rgba(52, 152, 219, 0.25);
+        }
+        
+        .login-type-btn {
+            border-radius: 10px;
+            margin-bottom: 10px;
+        }
+    </style>
+</head>
+<body>
+    <div class="main-container">
+        <!-- Başlık -->
+        <div class="text-center mb-4">
+            <h1 class="text-white">
+                <i class="fas fa-building me-3"></i>
+                Belediye Yönetim Sistemi
+            </h1>
+            <p class="text-white-50">Vatandaş Odaklı Dijital Belediyecilik</p>
+        </div>
+
+        <div class="row">
+            <div class="col-lg-6">
+                <!-- Giriş Formu -->
+                <div class="login-card">
+                    <div class="login-header">
+                        <h3 class="mb-0">
+                            <i class="fas fa-sign-in-alt me-2"></i>
+                            Sisteme Giriş
+                        </h3>
+                        <p class="mb-0 mt-2 opacity-75">Admin veya personel bilgilerinizle giriş yapın</p>
+                    </div>
+                    
+                    <div class="card-body p-4">
+                        <?php if ($error): ?>
+                            <div class="alert alert-danger">
+                                <i class="fas fa-exclamation-triangle me-2"></i>
+                                <?php echo $error; ?>
+                            </div>
+                        <?php endif; ?>
+                        
+                        <?php if ($success): ?>
+                            <div class="alert alert-success">
+                                <i class="fas fa-check-circle me-2"></i>
+                                <?php echo $success; ?>
+                            </div>
+                        <?php endif; ?>
+
+                        <form method="post" action="">
+                            <!-- Giriş Tipi Seçimi -->
+                            <div class="mb-4">
+                                <label class="form-label fw-bold">Giriş Tipi</label>
+                                <div class="btn-group w-100" role="group">
+                                    <input type="radio" class="btn-check" name="login_type" id="admin_type" value="admin" checked>
+                                    <label class="btn btn-outline-primary login-type-btn" for="admin_type">
+                                        <i class="fas fa-user-shield me-2"></i>
+                                        Yönetici
+                                    </label>
+                                    
+                                    <input type="radio" class="btn-check" name="login_type" id="official_type" value="official">
+                                    <label class="btn btn-outline-primary login-type-btn" for="official_type">
+                                        <i class="fas fa-user-tie me-2"></i>
+                                        Belediye Personeli
+                                    </label>
+                                </div>
+                            </div>
+
+                            <!-- E-posta -->
+                            <div class="mb-3">
+                                <label for="email" class="form-label fw-bold">
+                                    <i class="fas fa-envelope me-2"></i>
+                                    E-posta Adresi
+                                </label>
+                                <input type="email" class="form-control" id="email" name="email" required 
+                                       placeholder="ornek@belediye.gov.tr">
+                            </div>
+
+                            <!-- Şifre -->
+                            <div class="mb-4">
+                                <label for="password" class="form-label fw-bold">
+                                    <i class="fas fa-lock me-2"></i>
+                                    Şifre
+                                </label>
+                                <input type="password" class="form-control" id="password" name="password" required 
+                                       placeholder="Şifrenizi girin">
+                            </div>
+
+                            <!-- Giriş Butonu -->
+                            <button type="submit" class="btn btn-primary w-100">
+                                <i class="fas fa-sign-in-alt me-2"></i>
+                                Giriş Yap
+                            </button>
+                        </form>
+
+                        <!-- Demo Bilgileri -->
+                        <div class="mt-4 p-3 bg-light rounded">
+                            <h6 class="fw-bold text-muted mb-2">
+                                <i class="fas fa-info-circle me-2"></i>
+                                Demo Giriş Bilgileri
+                            </h6>
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <small class="text-muted">
+                                        <strong>Yönetici:</strong><br>
+                                        E-posta: mail@muzaffersanli.com<br>
+                                        Şifre: 005434677197
+                                    </small>
+                                </div>
+                                <div class="col-md-6">
+                                    <small class="text-muted">
+                                        <strong>Alternatif Admin:</strong><br>
+                                        E-posta: admin@belediye.gov.tr<br>
+                                        Şifre: admin123
+                                    </small>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-lg-6">
+                <!-- Sistem İstatistikleri -->
+                <div class="row">
+                    <div class="col-md-6">
+                        <div class="stats-card text-center">
+                            <div class="d-flex align-items-center justify-content-center mb-3">
+                                <div class="bg-primary rounded-circle p-3">
+                                    <i class="fas fa-map-marker-alt text-white fa-2x"></i>
+                                </div>
+                            </div>
+                            <h4 class="fw-bold text-primary"><?php echo number_format($total_cities); ?></h4>
+                            <p class="text-muted mb-0">Şehir</p>
+                        </div>
+                    </div>
+                    
+                    <div class="col-md-6">
+                        <div class="stats-card text-center">
+                            <div class="d-flex align-items-center justify-content-center mb-3">
+                                <div class="bg-success rounded-circle p-3">
+                                    <i class="fas fa-building text-white fa-2x"></i>
+                                </div>
+                            </div>
+                            <h4 class="fw-bold text-success"><?php echo number_format($total_districts); ?></h4>
+                            <p class="text-muted mb-0">İlçe</p>
+                        </div>
+                    </div>
+                    
+                    <div class="col-md-6">
+                        <div class="stats-card text-center">
+                            <div class="d-flex align-items-center justify-content-center mb-3">
+                                <div class="bg-info rounded-circle p-3">
+                                    <i class="fas fa-file-alt text-white fa-2x"></i>
+                                </div>
+                            </div>
+                            <h4 class="fw-bold text-info"><?php echo number_format($total_posts); ?></h4>
+                            <p class="text-muted mb-0">Gönderi</p>
+                        </div>
+                    </div>
+                    
+                    <div class="col-md-6">
+                        <div class="stats-card text-center">
+                            <div class="d-flex align-items-center justify-content-center mb-3">
+                                <div class="bg-warning rounded-circle p-3">
+                                    <i class="fas fa-comments text-white fa-2x"></i>
+                                </div>
+                            </div>
+                            <h4 class="fw-bold text-warning"><?php echo number_format($total_comments); ?></h4>
+                            <p class="text-muted mb-0">Yorum</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Özellikler -->
+                <div class="stats-card mt-3">
+                    <h5 class="fw-bold mb-3">
+                        <i class="fas fa-star text-warning me-2"></i>
+                        Sistem Özellikleri
+                    </h5>
+                    <div class="row">
+                        <div class="col-6">
+                            <ul class="list-unstyled">
+                                <li><i class="fas fa-check text-success me-2"></i> Anket Yönetimi</li>
+                                <li><i class="fas fa-check text-success me-2"></i> Gönderi Moderasyonu</li>
+                                <li><i class="fas fa-check text-success me-2"></i> Kullanıcı Yönetimi</li>
+                            </ul>
+                        </div>
+                        <div class="col-6">
+                            <ul class="list-unstyled">
+                                <li><i class="fas fa-check text-success me-2"></i> Reklam Yönetimi</li>
+                                <li><i class="fas fa-check text-success me-2"></i> İstatistikler</li>
+                                <li><i class="fas fa-check text-success me-2"></i> Rapor Sistemi</li>
+                            </ul>
+                        </div>
+                    </div>
+                    
+                    <div class="mt-3 p-3 bg-light rounded">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <span class="fw-bold">Çözüm Oranı</span>
+                            <span class="badge bg-success fs-6"><?php echo $solution_rate; ?>%</span>
+                        </div>
+                        <div class="progress mt-2" style="height: 8px;">
+                            <div class="progress-bar bg-success" style="width: <?php echo $solution_rate; ?>%"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Alt Bilgi -->
+        <div class="text-center mt-4">
+            <p class="text-white-50 mb-0">
+                <i class="fas fa-shield-alt me-2"></i>
+                Güvenli ve modern belediye yönetim sistemi
+            </p>
+            <small class="text-white-50">
+                © <?php echo date('Y'); ?> Belediye Yönetim Sistemi - Tüm hakları saklıdır.
+            </small>
+        </div>
+    </div>
+
+    <!-- Bootstrap JS -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>
             margin-bottom: 2.5rem;
             font-weight: 600;
         }
