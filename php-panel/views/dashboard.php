@@ -1,73 +1,241 @@
 <?php
 // Fonksiyonları dahil et
 require_once(__DIR__ . '/../includes/functions.php');
-// İstatistikleri al
-$stats = getDashboardStats();
 
-// Son aktiviteleri al
-$activities = getRecentActivities(10);
+// Kullanıcı yetki kontrolü
+$is_admin = ($_SESSION['user_type'] ?? '') === 'admin';
+$is_official = ($_SESSION['user_type'] ?? '') === 'official';
+$assigned_city_id = $_SESSION['assigned_city_id'] ?? null;
+$assigned_district_id = $_SESSION['assigned_district_id'] ?? null;
+$assigned_city_name = $_SESSION['assigned_city_name'] ?? null;
+$assigned_district_name = $_SESSION['assigned_district_name'] ?? null;
 
-// Gönderi kategorilerinin dağılımını al
-$post_categories = getPostCategoriesDistribution();
-
-// Siyasi parti dağılımını al
-$party_distribution = getPoliticalPartyDistribution();
+// İstatistikleri personelin yetkisine göre al
+if ($is_official && ($assigned_city_id || $assigned_district_id)) {
+    // Personel sadece atandığı bölgedeki verileri görebilir
+    $location_filter = [];
+    if ($assigned_district_id) {
+        $location_filter['district_id'] = 'eq.' . $assigned_district_id;
+    } elseif ($assigned_city_id) {
+        $location_filter['city_id'] = 'eq.' . $assigned_city_id;
+    }
+    
+    // Bölgesel istatistikler
+    $posts_result = getData('posts', array_merge($location_filter, ['select' => 'count']));
+    $total_posts = $posts_result['data'][0]['count'] ?? 0;
+    
+    $pending_posts_result = getData('posts', array_merge($location_filter, ['status' => 'eq.pending', 'select' => 'count']));
+    $pending_posts = $pending_posts_result['data'][0]['count'] ?? 0;
+    
+    $solved_posts_result = getData('posts', array_merge($location_filter, ['is_resolved' => 'eq.true', 'select' => 'count']));
+    $solved_posts = $solved_posts_result['data'][0]['count'] ?? 0;
+    
+    $complaints_result = getData('posts', array_merge($location_filter, ['type' => 'eq.complaint', 'select' => 'count']));
+    $total_complaints = $complaints_result['data'][0]['count'] ?? 0;
+    
+    $stats = [
+        'total_posts' => $total_posts,
+        'pending_posts' => $pending_posts,
+        'solved_posts' => $solved_posts,
+        'total_complaints' => $total_complaints,
+        'solution_rate' => $total_posts > 0 ? round(($solved_posts / $total_posts) * 100) : 0
+    ];
+    
+    // Son gönderiler (personelin bölgesinden)
+    $recent_posts_result = getData('posts', array_merge($location_filter, [
+        'order' => 'created_at.desc',
+        'limit' => 10
+    ]));
+    $recent_posts = $recent_posts_result['data'] ?? [];
+    
+} else {
+    // Admin tüm verileri görebilir
+    $cities_result = getData('cities', ['select' => 'count']);
+    $total_cities = $cities_result['data'][0]['count'] ?? 0;
+    
+    $users_result = getData('users', ['select' => 'count']);
+    $total_users = $users_result['data'][0]['count'] ?? 0;
+    
+    $posts_result = getData('posts', ['select' => 'count']);
+    $total_posts = $posts_result['data'][0]['count'] ?? 0;
+    
+    $pending_posts_result = getData('posts', ['status' => 'eq.pending', 'select' => 'count']);
+    $pending_posts = $pending_posts_result['data'][0]['count'] ?? 0;
+    
+    $solved_posts_result = getData('posts', ['is_resolved' => 'eq.true', 'select' => 'count']);
+    $solved_posts = $solved_posts_result['data'][0]['count'] ?? 0;
+    
+    $stats = [
+        'total_cities' => $total_cities,
+        'total_users' => $total_users,
+        'total_posts' => $total_posts,
+        'pending_posts' => $pending_posts,
+        'solved_posts' => $solved_posts,
+        'solution_rate' => $total_posts > 0 ? round(($solved_posts / $total_posts) * 100) : 0
+    ];
+    
+    // Son gönderiler (tümü)
+    $recent_posts_result = getData('posts', [
+        'order' => 'created_at.desc',
+        'limit' => 10
+    ]);
+    $recent_posts = $recent_posts_result['data'] ?? [];
+}
 ?>
 
-<!-- İstatistik Kartları -->
+<?php if ($is_official): ?>
+<!-- Personel Dashboard -->
+<div class="alert alert-info mb-4">
+    <div class="d-flex align-items-center">
+        <i class="fas fa-map-marker-alt fa-2x me-3"></i>
+        <div>
+            <h5 class="mb-1">👤 <?php echo $_SESSION['user_name']; ?> - <?php echo $_SESSION['official_title']; ?></h5>
+            <p class="mb-0">
+                <strong>Atandığı Bölge:</strong> 
+                <?php echo $assigned_city_name; ?>
+                <?php if ($assigned_district_name): ?>
+                    / <?php echo $assigned_district_name; ?>
+                <?php endif; ?>
+            </p>
+        </div>
+    </div>
+</div>
+
+<!-- Bölgesel İstatistikler -->
 <div class="row">
-    <!-- Toplam Şehir Sayısı -->
-    <div class="col-md-6 col-lg-3">
-        <div class="stat-card primary">
-            <div class="stat-card-icon">
-                <i class="fas fa-city"></i>
-            </div>
-            <div class="stat-card-info">
-                <div class="stat-card-value"><?php echo number_format($stats['total_cities']); ?></div>
-                <div class="stat-card-label">Toplam Şehir</div>
-            </div>
-        </div>
-    </div>
-    
-    <!-- Aktif Kullanıcı Sayısı -->
-    <div class="col-md-6 col-lg-3">
-        <div class="stat-card info">
-            <div class="stat-card-icon">
-                <i class="fas fa-users"></i>
-            </div>
-            <div class="stat-card-info">
-                <div class="stat-card-value"><?php echo number_format($stats['active_users']); ?></div>
-                <div class="stat-card-label">Aktif Kullanıcı</div>
+    <div class="col-md-3">
+        <div class="card bg-primary text-white">
+            <div class="card-body">
+                <div class="d-flex align-items-center">
+                    <div class="flex-grow-1">
+                        <h5 class="card-title">Toplam Gönderi</h5>
+                        <h2 class="mb-0"><?php echo number_format($stats['total_posts']); ?></h2>
+                    </div>
+                    <div class="ms-3">
+                        <i class="fas fa-file-alt fa-2x opacity-75"></i>
+                    </div>
+                </div>
             </div>
         </div>
     </div>
     
-    <!-- Toplam Gönderi Sayısı -->
-    <div class="col-md-6 col-lg-3">
-        <div class="stat-card success">
-            <div class="stat-card-icon">
-                <i class="fas fa-newspaper"></i>
-            </div>
-            <div class="stat-card-info">
-                <div class="stat-card-value"><?php echo number_format($stats['total_posts']); ?></div>
-                <div class="stat-card-label">Toplam Gönderi</div>
+    <div class="col-md-3">
+        <div class="card bg-warning text-white">
+            <div class="card-body">
+                <div class="d-flex align-items-center">
+                    <div class="flex-grow-1">
+                        <h5 class="card-title">Bekleyen</h5>
+                        <h2 class="mb-0"><?php echo number_format($stats['pending_posts']); ?></h2>
+                    </div>
+                    <div class="ms-3">
+                        <i class="fas fa-clock fa-2x opacity-75"></i>
+                    </div>
+                </div>
             </div>
         </div>
     </div>
     
-    <!-- Bekleyen Şikayet Sayısı -->
-    <div class="col-md-6 col-lg-3">
-        <div class="stat-card warning">
-            <div class="stat-card-icon">
-                <i class="fas fa-exclamation-circle"></i>
+    <div class="col-md-3">
+        <div class="card bg-success text-white">
+            <div class="card-body">
+                <div class="d-flex align-items-center">
+                    <div class="flex-grow-1">
+                        <h5 class="card-title">Çözülen</h5>
+                        <h2 class="mb-0"><?php echo number_format($stats['solved_posts']); ?></h2>
+                    </div>
+                    <div class="ms-3">
+                        <i class="fas fa-check fa-2x opacity-75"></i>
+                    </div>
+                </div>
             </div>
-            <div class="stat-card-info">
-                <div class="stat-card-value"><?php echo number_format($stats['pending_complaints']); ?></div>
-                <div class="stat-card-label">Bekleyen Şikayet</div>
+        </div>
+    </div>
+    
+    <div class="col-md-3">
+        <div class="card bg-danger text-white">
+            <div class="card-body">
+                <div class="d-flex align-items-center">
+                    <div class="flex-grow-1">
+                        <h5 class="card-title">Şikayetler</h5>
+                        <h2 class="mb-0"><?php echo number_format($stats['total_complaints']); ?></h2>
+                    </div>
+                    <div class="ms-3">
+                        <i class="fas fa-exclamation-triangle fa-2x opacity-75"></i>
+                    </div>
+                </div>
             </div>
         </div>
     </div>
 </div>
+
+<?php else: ?>
+<!-- Admin Dashboard -->
+<div class="row">
+    <div class="col-md-3">
+        <div class="card bg-primary text-white">
+            <div class="card-body">
+                <div class="d-flex align-items-center">
+                    <div class="flex-grow-1">
+                        <h5 class="card-title">Toplam Şehir</h5>
+                        <h2 class="mb-0"><?php echo number_format($stats['total_cities']); ?></h2>
+                    </div>
+                    <div class="ms-3">
+                        <i class="fas fa-city fa-2x opacity-75"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-3">
+        <div class="card bg-info text-white">
+            <div class="card-body">
+                <div class="d-flex align-items-center">
+                    <div class="flex-grow-1">
+                        <h5 class="card-title">Toplam Kullanıcı</h5>
+                        <h2 class="mb-0"><?php echo number_format($stats['total_users']); ?></h2>
+                    </div>
+                    <div class="ms-3">
+                        <i class="fas fa-users fa-2x opacity-75"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-3">
+        <div class="card bg-success text-white">
+            <div class="card-body">
+                <div class="d-flex align-items-center">
+                    <div class="flex-grow-1">
+                        <h5 class="card-title">Toplam Gönderi</h5>
+                        <h2 class="mb-0"><?php echo number_format($stats['total_posts']); ?></h2>
+                    </div>
+                    <div class="ms-3">
+                        <i class="fas fa-file-alt fa-2x opacity-75"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-3">
+        <div class="card bg-warning text-white">
+            <div class="card-body">
+                <div class="d-flex align-items-center">
+                    <div class="flex-grow-1">
+                        <h5 class="card-title">Bekleyen</h5>
+                        <h2 class="mb-0"><?php echo number_format($stats['pending_posts']); ?></h2>
+                    </div>
+                    <div class="ms-3">
+                        <i class="fas fa-clock fa-2x opacity-75"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+<?php endif; ?>
 
 <!-- Ana Kartlar -->
 <div class="row">

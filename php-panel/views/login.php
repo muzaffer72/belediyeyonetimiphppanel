@@ -49,32 +49,56 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             if (!$users_result['error'] && !empty($users_result['data'])) {
                 $user = $users_result['data'][0];
                 
+                // Officials tablosunda bu kullanıcının belediye personeli olup olmadığını kontrol et
+                $officials_result = getData('officials', [
+                    'user_id' => 'eq.' . $user['id'],
+                    'limit' => 1
+                ]);
+                
+                $is_official = !$officials_result['error'] && !empty($officials_result['data']);
+                $official_data = $is_official ? $officials_result['data'][0] : null;
+                
                 // Basit şifre kontrolü (gerçek sistemde hash kontrolü yapılmalı)
-                $user_passwords = [
-                    $email => $password,
-                    // Varsayılan şifreler
+                $valid_passwords = [
                     'belediye123',
                     'personel2024',
-                    $user['username'] ?? ''
+                    '123456',
+                    $user['username'] ?? '',
+                    $user['email'] ?? ''
                 ];
                 
-                // Kullanıcının belediye personeli olup olmadığını kontrol et
-                $is_official = ($user['user_type'] ?? '') === 'official' || 
-                              ($user['role'] ?? '') === 'official' ||
-                              ($user['is_official'] ?? false);
-                
-                if ($is_official && in_array($password, $user_passwords)) {
+                if ($is_official && in_array($password, $valid_passwords)) {
+                    // Personelin atandığı şehir/ilçe bilgilerini getir
+                    $assigned_city = null;
+                    $assigned_district = null;
+                    
+                    if ($official_data['city_id']) {
+                        $city_result = getDataById('cities', $official_data['city_id']);
+                        $assigned_city = $city_result['data'] ?? null;
+                    }
+                    
+                    if ($official_data['district_id']) {
+                        $district_result = getDataById('districts', $official_data['district_id']);
+                        $assigned_district = $district_result['data'] ?? null;
+                    }
+                    
                     // Personel girişi başarılı
                     $_SESSION['admin_logged_in'] = true;
                     $_SESSION['user_id'] = $user['id'];
                     $_SESSION['user_email'] = $user['email'];
                     $_SESSION['user_name'] = $user['display_name'] ?? $user['username'];
                     $_SESSION['user_type'] = 'official';
+                    $_SESSION['official_id'] = $official_data['id'];
+                    $_SESSION['assigned_city_id'] = $official_data['city_id'];
+                    $_SESSION['assigned_district_id'] = $official_data['district_id'];
+                    $_SESSION['assigned_city_name'] = $assigned_city['name'] ?? null;
+                    $_SESSION['assigned_district_name'] = $assigned_district['name'] ?? null;
+                    $_SESSION['official_title'] = $official_data['title'] ?? 'Belediye Personeli';
                     $_SESSION['login_time'] = time();
                     
                     redirect('index.php?page=dashboard');
                 } else {
-                    $error = $is_official ? 'Geçersiz şifre.' : 'Bu hesap belediye personeli değil.';
+                    $error = $is_official ? 'Geçersiz şifre.' : 'Bu hesap belediye personeli değil veya yetkisi bulunmuyor.';
                 }
             } else {
                 $error = 'Kullanıcı bulunamadı.';
@@ -280,16 +304,26 @@ $solution_rate = $total_posts > 0 ? round(($solved_posts / $total_posts) * 100) 
                             <div class="row">
                                 <div class="col-md-6">
                                     <small class="text-muted">
-                                        <strong>Yönetici:</strong><br>
+                                        <strong>🔑 Yönetici:</strong><br>
                                         E-posta: mail@muzaffersanli.com<br>
                                         Şifre: 005434677197
                                     </small>
                                 </div>
                                 <div class="col-md-6">
                                     <small class="text-muted">
-                                        <strong>Alternatif Admin:</strong><br>
+                                        <strong>🔑 Alternatif Admin:</strong><br>
                                         E-posta: admin@belediye.gov.tr<br>
                                         Şifre: admin123
+                                    </small>
+                                </div>
+                            </div>
+                            <hr class="my-3">
+                            <div class="row">
+                                <div class="col-12">
+                                    <small class="text-muted">
+                                        <strong>👤 Belediye Personeli:</strong><br>
+                                        Supabase'deki gerçek kullanıcı e-postası + aşağıdaki şifrelerden biri:<br>
+                                        <code>belediye123</code> | <code>personel2024</code> | <code>123456</code>
                                     </small>
                                 </div>
                             </div>

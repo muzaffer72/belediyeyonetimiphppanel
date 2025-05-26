@@ -139,6 +139,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     redirect('index.php?page=posts');
 }
 
+// Kullanıcı yetki kontrolü
+$is_admin = ($_SESSION['user_type'] ?? '') === 'admin';
+$is_official = ($_SESSION['user_type'] ?? '') === 'official';
+$assigned_city_id = $_SESSION['assigned_city_id'] ?? null;
+$assigned_district_id = $_SESSION['assigned_district_id'] ?? null;
+
 // Filtreleme için veri çekme
 $cities_result = getData('cities', ['order' => 'name']);
 $cities = $cities_result['data'] ?? [];
@@ -149,6 +155,15 @@ $districts = $districts_result['data'] ?? [];
 // Gönderileri filtreli şekilde getir
 $posts_filters = [];
 $where_conditions = [];
+
+// Personel ise sadece atandığı bölgedeki gönderileri görebilir
+if ($is_official && ($assigned_city_id || $assigned_district_id)) {
+    if ($assigned_district_id) {
+        $posts_filters['district_id'] = 'eq.' . $assigned_district_id;
+    } elseif ($assigned_city_id) {
+        $posts_filters['city_id'] = 'eq.' . $assigned_city_id;
+    }
+}
 
 // Arama
 if ($search) {
@@ -268,7 +283,18 @@ $categories = [
 ?>
 
 <div class="d-flex justify-content-between align-items-center mb-4">
-    <h1 class="h3">📝 Gönderiler Yönetimi</h1>
+    <div>
+        <h1 class="h3">📝 Gönderiler Yönetimi</h1>
+        <?php if ($is_official): ?>
+            <p class="text-muted mb-0">
+                <i class="fas fa-map-marker-alt me-1"></i>
+                Bölge: <?php echo $_SESSION['assigned_city_name']; ?>
+                <?php if ($_SESSION['assigned_district_name']): ?>
+                    / <?php echo $_SESSION['assigned_district_name']; ?>
+                <?php endif; ?>
+            </p>
+        <?php endif; ?>
+    </div>
     <div>
         <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#advancedFilters">
             <i class="fas fa-filter me-1"></i> Gelişmiş Filtreler
