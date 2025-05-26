@@ -142,6 +142,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 // Kullanıcı yetki kontrolü
 $is_admin = ($_SESSION['user_type'] ?? '') === 'admin';
 $is_official = ($_SESSION['user_type'] ?? '') === 'official';
+$is_moderator = ($_SESSION['user_type'] ?? '') === 'moderator';
 $assigned_city_id = $_SESSION['assigned_city_id'] ?? null;
 $assigned_district_id = $_SESSION['assigned_district_id'] ?? null;
 
@@ -156,8 +157,8 @@ $districts = $districts_result['data'] ?? [];
 $posts_filters = [];
 $where_conditions = [];
 
-// Personel ise sadece atandığı bölgedeki gönderileri görebilir
-if ($is_official && ($assigned_city_id || $assigned_district_id)) {
+// Personel ise sadece atandığı bölgedeki gönderileri görebilir, moderatör tüm gönderileri görebilir
+if ($is_official && !$is_moderator && ($assigned_city_id || $assigned_district_id)) {
     if ($assigned_district_id) {
         $posts_filters['district_id'] = 'eq.' . $assigned_district_id;
     } elseif ($assigned_city_id) {

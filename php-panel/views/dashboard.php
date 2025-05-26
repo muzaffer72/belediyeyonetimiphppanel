@@ -5,19 +5,22 @@ require_once(__DIR__ . '/../includes/functions.php');
 // Kullanıcı yetki kontrolü
 $is_admin = ($_SESSION['user_type'] ?? '') === 'admin';
 $is_official = ($_SESSION['user_type'] ?? '') === 'official';
+$is_moderator = ($_SESSION['user_type'] ?? '') === 'moderator';
 $assigned_city_id = $_SESSION['assigned_city_id'] ?? null;
 $assigned_district_id = $_SESSION['assigned_district_id'] ?? null;
 $assigned_city_name = $_SESSION['assigned_city_name'] ?? null;
 $assigned_district_name = $_SESSION['assigned_district_name'] ?? null;
 
 // İstatistikleri personelin yetkisine göre al
-if ($is_official && ($assigned_city_id || $assigned_district_id)) {
-    // Personel sadece atandığı bölgedeki verileri görebilir
+if ($is_moderator || ($is_official && ($assigned_city_id || $assigned_district_id))) {
+    // Personel sadece atandığı bölgedeki verileri görebilir, moderatör tüm verileri görebilir
     $location_filter = [];
-    if ($assigned_district_id) {
-        $location_filter['district_id'] = 'eq.' . $assigned_district_id;
-    } elseif ($assigned_city_id) {
-        $location_filter['city_id'] = 'eq.' . $assigned_city_id;
+    if ($is_official && !$is_moderator) {
+        if ($assigned_district_id) {
+            $location_filter['district_id'] = 'eq.' . $assigned_district_id;
+        } elseif ($assigned_city_id) {
+            $location_filter['city_id'] = 'eq.' . $assigned_city_id;
+        }
     }
     
     // Bölgesel istatistikler

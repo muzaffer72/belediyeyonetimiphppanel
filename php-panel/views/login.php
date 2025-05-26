@@ -49,6 +49,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             if (!$users_result['error'] && !empty($users_result['data'])) {
                 $user = $users_result['data'][0];
                 
+                // Kullanıcının rolünü kontrol et
+                $user_role = $user['role'] ?? '';
+                $is_moderator = $user_role === 'moderator';
+                
                 // Officials tablosunda bu kullanıcının belediye personeli olup olmadığını kontrol et
                 $officials_result = getData('officials', [
                     'user_id' => 'eq.' . $user['id'],
@@ -67,38 +71,52 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     $user['email'] ?? ''
                 ];
                 
-                if ($is_official && in_array($password, $valid_passwords)) {
+                if (($is_official || $is_moderator) && in_array($password, $valid_passwords)) {
                     // Personelin atandığı şehir/ilçe bilgilerini getir
                     $assigned_city = null;
                     $assigned_district = null;
                     
-                    if ($official_data['city_id']) {
-                        $city_result = getDataById('cities', $official_data['city_id']);
-                        $assigned_city = $city_result['data'] ?? null;
+                    if ($is_official && $official_data) {
+                        if ($official_data['city_id']) {
+                            $city_result = getDataById('cities', $official_data['city_id']);
+                            $assigned_city = $city_result['data'] ?? null;
+                        }
+                        
+                        if ($official_data['district_id']) {
+                            $district_result = getDataById('districts', $official_data['district_id']);
+                            $assigned_district = $district_result['data'] ?? null;
+                        }
                     }
                     
-                    if ($official_data['district_id']) {
-                        $district_result = getDataById('districts', $official_data['district_id']);
-                        $assigned_district = $district_result['data'] ?? null;
-                    }
-                    
-                    // Personel girişi başarılı
+                    // Giriş başarılı
                     $_SESSION['admin_logged_in'] = true;
                     $_SESSION['user_id'] = $user['id'];
                     $_SESSION['user_email'] = $user['email'];
                     $_SESSION['user_name'] = $user['display_name'] ?? $user['username'];
-                    $_SESSION['user_type'] = 'official';
-                    $_SESSION['official_id'] = $official_data['id'];
-                    $_SESSION['assigned_city_id'] = $official_data['city_id'];
-                    $_SESSION['assigned_district_id'] = $official_data['district_id'];
-                    $_SESSION['assigned_city_name'] = $assigned_city['name'] ?? null;
-                    $_SESSION['assigned_district_name'] = $assigned_district['name'] ?? null;
-                    $_SESSION['official_title'] = $official_data['title'] ?? 'Belediye Personeli';
+                    $_SESSION['user_type'] = $is_moderator ? 'moderator' : 'official';
+                    $_SESSION['user_role'] = $user['role'];
+                    
+                    if ($is_official && $official_data) {
+                        $_SESSION['official_id'] = $official_data['id'];
+                        $_SESSION['assigned_city_id'] = $official_data['city_id'];
+                        $_SESSION['assigned_district_id'] = $official_data['district_id'];
+                        $_SESSION['assigned_city_name'] = $assigned_city['name'] ?? null;
+                        $_SESSION['assigned_district_name'] = $assigned_district['name'] ?? null;
+                        $_SESSION['official_title'] = $official_data['title'] ?? 'Belediye Personeli';
+                    } else {
+                        // Moderatör için varsayılan değerler
+                        $_SESSION['assigned_city_id'] = null;
+                        $_SESSION['assigned_district_id'] = null;
+                        $_SESSION['assigned_city_name'] = null;
+                        $_SESSION['assigned_district_name'] = null;
+                        $_SESSION['official_title'] = 'Moderatör';
+                    }
+                    
                     $_SESSION['login_time'] = time();
                     
                     redirect('index.php?page=dashboard');
                 } else {
-                    $error = $is_official ? 'Geçersiz şifre.' : 'Bu hesap belediye personeli değil veya yetkisi bulunmuyor.';
+                    $error = ($is_official || $is_moderator) ? 'Geçersiz şifre.' : 'Bu hesap yetkili personel değil.';
                 }
             } else {
                 $error = 'Kullanıcı bulunamadı.';
@@ -216,10 +234,13 @@ $solution_rate = $total_posts > 0 ? round(($solved_posts / $total_posts) * 100) 
         <!-- Başlık -->
         <div class="text-center mb-4">
             <h1 class="text-white">
-                <i class="fas fa-building me-3"></i>
-                Belediye Yönetim Sistemi
+                <i class="fas fa-shield-alt me-3"></i>
+                Belediye Yönetim Paneli
             </h1>
-            <p class="text-white-50">Vatandaş Odaklı Dijital Belediyecilik</p>
+            <p class="text-white-50">
+                <i class="fas fa-lock me-1"></i>
+                Yetkili Personel ve Moderatör Erişimi
+            </p>
         </div>
 
         <div class="row">
@@ -228,10 +249,10 @@ $solution_rate = $total_posts > 0 ? round(($solved_posts / $total_posts) * 100) 
                 <div class="login-card">
                     <div class="login-header">
                         <h3 class="mb-0">
-                            <i class="fas fa-sign-in-alt me-2"></i>
-                            Sisteme Giriş
+                            <i class="fas fa-user-shield me-2"></i>
+                            Yetkili Giriş
                         </h3>
-                        <p class="mb-0 mt-2 opacity-75">Admin veya personel bilgilerinizle giriş yapın</p>
+                        <p class="mb-0 mt-2 opacity-75">Sadece admin ve moderatör erişimi</p>
                     </div>
                     
                     <div class="card-body p-4">
@@ -252,20 +273,24 @@ $solution_rate = $total_posts > 0 ? round(($solved_posts / $total_posts) * 100) 
                         <form method="post" action="">
                             <!-- Giriş Tipi Seçimi -->
                             <div class="mb-4">
-                                <label class="form-label fw-bold">Giriş Tipi</label>
+                                <label class="form-label fw-bold">Yetkili Giriş</label>
                                 <div class="btn-group w-100" role="group">
                                     <input type="radio" class="btn-check" name="login_type" id="admin_type" value="admin" checked>
                                     <label class="btn btn-outline-primary login-type-btn" for="admin_type">
                                         <i class="fas fa-user-shield me-2"></i>
-                                        Yönetici
+                                        Sistem Yöneticisi
                                     </label>
                                     
                                     <input type="radio" class="btn-check" name="login_type" id="official_type" value="official">
                                     <label class="btn btn-outline-primary login-type-btn" for="official_type">
                                         <i class="fas fa-user-tie me-2"></i>
-                                        Belediye Personeli
+                                        Personel/Moderatör
                                     </label>
                                 </div>
+                                <small class="text-muted mt-2 d-block">
+                                    <i class="fas fa-info-circle me-1"></i>
+                                    Bu panel sadece yetkili personel içindir
+                                </small>
                             </div>
 
                             <!-- E-posta -->
@@ -321,9 +346,10 @@ $solution_rate = $total_posts > 0 ? round(($solved_posts / $total_posts) * 100) 
                             <div class="row">
                                 <div class="col-12">
                                     <small class="text-muted">
-                                        <strong>👤 Belediye Personeli:</strong><br>
+                                        <strong>👤 Belediye Personeli/Moderatör:</strong><br>
                                         Supabase'deki gerçek kullanıcı e-postası + aşağıdaki şifrelerden biri:<br>
-                                        <code>belediye123</code> | <code>personel2024</code> | <code>123456</code>
+                                        <code>belediye123</code> | <code>personel2024</code> | <code>123456</code><br>
+                                        <em>Not: role="moderator" olan kullanıcılar tüm verileri görebilir</em>
                                     </small>
                                 </div>
                             </div>
