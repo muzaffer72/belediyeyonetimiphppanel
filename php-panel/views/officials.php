@@ -28,10 +28,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $action === 'add') {
     $title = $_POST['title'] ?? '';
     $notes = $_POST['notes'] ?? '';
     
-    // Moderatör sadece kendi şehrine personel ekleyebilir
-    if ($is_moderator && $assigned_city_id && $city_id !== $assigned_city_id) {
-        $error_message = 'Sadece kendi şehrinize personel ekleyebilirsiniz.';
-    } elseif (empty($user_id)) {
+    // Form doğrulama
+    if (empty($user_id)) {
         $error_message = 'Kullanıcı seçimi zorunludur';
     } elseif (empty($city_id)) {
         $error_message = 'Şehir seçimi zorunludur';
