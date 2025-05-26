@@ -7,19 +7,29 @@
  */
 function getMenuItems($current_page) {
     // Kullanıcı tipine göre menü öğelerini ayarla
-    $is_official = isset($_SESSION['is_official']) && $_SESSION['is_official'] === true;
-    $is_admin = isset($_SESSION['is_admin']) && $_SESSION['is_admin'] === true;
+    $user_type = $_SESSION['user_type'] ?? '';
     
-    if ($is_official) {
-        // Belediye görevlisi menüsü
+    if ($user_type === 'official') {
+        // Belediye personeli menüsü (sınırlı erişim)
         $menu_items = [
-            ['id' => 'official_dashboard', 'icon' => 'fas fa-tachometer-alt', 'text' => 'Görevli Paneli'],
-            ['id' => 'official_dashboard&filter=pending', 'icon' => 'fas fa-hourglass', 'text' => 'Bekleyen Gönderiler'],
-            ['id' => 'official_dashboard&filter=in_progress', 'icon' => 'fas fa-spinner', 'text' => 'İşlemdeki Gönderiler'],
-            ['id' => 'official_dashboard&filter=solved', 'icon' => 'fas fa-check-circle', 'text' => 'Çözülen Gönderiler'],
+            ['id' => 'dashboard', 'icon' => 'fas fa-tachometer-alt', 'text' => 'Dashboard'],
+            ['id' => 'posts', 'icon' => 'fas fa-clipboard-list', 'text' => 'Gönderiler'],
+            ['id' => 'comments', 'icon' => 'fas fa-comments', 'text' => 'Yorumlar'],
+            ['id' => 'users', 'icon' => 'fas fa-users', 'text' => 'Kullanıcılar'],
+        ];
+    } elseif ($user_type === 'moderator') {
+        // Moderatör menüsü (şehir bazlı yönetim)
+        $menu_items = [
+            ['id' => 'dashboard', 'icon' => 'fas fa-tachometer-alt', 'text' => 'Dashboard'],
+            ['id' => 'posts', 'icon' => 'fas fa-clipboard-list', 'text' => 'Gönderiler'],
+            ['id' => 'comments', 'icon' => 'fas fa-comments', 'text' => 'Yorumlar'],
+            ['id' => 'polls', 'icon' => 'fas fa-poll', 'text' => 'Anketler'],
+            ['id' => 'users', 'icon' => 'fas fa-users', 'text' => 'Kullanıcılar'],
+            ['id' => 'officials', 'icon' => 'fas fa-user-tie', 'text' => 'Personel Yönetimi'],
+            ['id' => 'advertisements', 'icon' => 'fas fa-ad', 'text' => 'Reklamlar'],
         ];
     } else {
-        // Yönetici menüsü
+        // Admin menüsü (tam erişim)
         $menu_items = [
             ['id' => 'dashboard', 'icon' => 'fas fa-tachometer-alt', 'text' => 'Dashboard'],
             ['id' => 'cities', 'icon' => 'fas fa-city', 'text' => 'Şehirler'],
