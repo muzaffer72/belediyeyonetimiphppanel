@@ -40,14 +40,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $error = 'Geçersiz admin bilgileri.';
             }
         } else {
-            // Belediye personeli giriş kontrolü - Supabase'den kullanıcı ara
-            $users_result = getData('users', [
-                'email' => 'eq.' . $email,
+            // Belediye personeli giriş kontrolü - officials tablosundan ara
+            $officials_result = getData('officials', [
+                'select' => 'id,user_id,city_id,district_id,title,users(id,email,full_name),cities(id,name),districts(id,name)',
+                'users.email' => 'eq.' . $email,
                 'limit' => 1
             ]);
             
-            if (!$users_result['error'] && !empty($users_result['data'])) {
-                $user = $users_result['data'][0];
+            if (!$officials_result['error'] && !empty($officials_result['data'])) {
+                $official = $officials_result['data'][0];
+                $user = $official['users'];
                 
                 // Kullanıcının rolünü kontrol et
                 $user_role = $user['role'] ?? '';

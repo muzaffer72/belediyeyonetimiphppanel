@@ -1,13 +1,20 @@
 <?php
-// Yapılandırma dosyasını ve gerekli fonksiyonları yükle
-require_once(__DIR__ . '/../config/config.php');
+// Belediye personeli yönetimi sayfası
 require_once(__DIR__ . '/../includes/functions.php');
-require_once(__DIR__ . '/../includes/auth_functions.php');
 
-// Sadece admin erişimi kontrolü
-if (!isLoggedIn() || !isAdmin()) {
-    redirect('index.php?page=login');
+// Yetki kontrolü - sadece admin ve moderatör erişebilir
+$user_type = $_SESSION['user_type'] ?? '';
+$is_admin = $user_type === 'admin';
+$is_moderator = $user_type === 'moderator';
+
+if (!$is_admin && !$is_moderator) {
+    $_SESSION['message'] = 'Bu sayfaya erişim yetkiniz yok.';
+    $_SESSION['message_type'] = 'danger';
+    redirect('index.php?page=dashboard');
 }
+
+// Moderatör sadece kendi şehrindeki personeli yönetebilir
+$assigned_city_id = $_SESSION['assigned_city_id'] ?? null;
 
 // İşlem kontrolü
 $action = isset($_GET['action']) ? $_GET['action'] : '';
@@ -23,11 +30,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $action === 'add') {
     $title = $_POST['title'] ?? '';
     $notes = $_POST['notes'] ?? '';
     
-    // Form verilerini ekrana yazdır (Debug için)
-    error_log('Form verileri: ' . json_encode($_POST));
-    
-    // Kullanıcı ID ve şehir ID kontrolü
-    if (empty($user_id)) {
+    // Moderatör sadece kendi şehrine personel ekleyebilir
+    if ($is_moderator && $assigned_city_id && $city_id !== $assigned_city_id) {
+        $error_message = 'Sadece kendi şehrinize personel ekleyebilirsiniz.';
+    } elseif (empty($user_id)) {
         $error_message = 'Kullanıcı seçimi zorunludur';
     } elseif (empty($city_id)) {
         $error_message = 'Şehir seçimi zorunludur';
@@ -120,11 +126,13 @@ if (empty($users) && empty($error_message)) {
     $error_message = 'Kullanıcı listesi yüklenemedi. Lütfen sayfayı yenileyin veya önce kullanıcı ekleyin.';
 }
 
-// Görevlileri al
-$officials_result = getData('officials', [
-    'select' => '*',
-    'order' => 'created_at.desc'
-]);
+// Görevlileri al - moderatör sadece kendi şehrindeki personeli görebilir
+$officials_filters = ['select' => '*', 'order' => 'created_at.desc'];
+if ($is_moderator && $assigned_city_id) {
+    $officials_filters['city_id'] = 'eq.' . $assigned_city_id;
+}
+
+$officials_result = getData('officials', $officials_filters);
 $officials = $officials_result['error'] ? [] : $officials_result['data'];
 
 // Kullanıcı ve şehir bilgilerini eşleştir

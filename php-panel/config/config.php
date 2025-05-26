@@ -86,13 +86,68 @@ if (!function_exists('isAdmin')) {
 
 if (!function_exists('isOfficial')) {
     /**
-     * Kullanıcının belediye görevlisi olup olmadığını kontrol eder
+     * Kullanıcının belediye personeli olup olmadığını kontrol eder
      * 
-     * @return bool Belediye görevlisi ise true, değilse false
+     * @return bool Belediye personeli ise true, değilse false
      */
     function isOfficial() {
-        return isset($_SESSION['is_official']) && $_SESSION['is_official'] === true || 
-               isset($_SESSION['user_type']) && $_SESSION['user_type'] === 'official';
+        return isset($_SESSION['user_type']) && $_SESSION['user_type'] === 'official';
+    }
+}
+
+if (!function_exists('isModerator')) {
+    /**
+     * Kullanıcının moderatör olup olmadığını kontrol eder
+     * 
+     * @return bool Moderatör ise true, değilse false
+     */
+    function isModerator() {
+        return isset($_SESSION['user_type']) && $_SESSION['user_type'] === 'moderator';
+    }
+}
+
+if (!function_exists('hasPermission')) {
+    /**
+     * Kullanıcının belirli bir işlem için yetkisi olup olmadığını kontrol eder
+     * 
+     * @param string $permission Yetki türü (admin, moderator, official)
+     * @return bool Yetki var ise true, yoksa false
+     */
+    function hasPermission($permission) {
+        $user_type = $_SESSION['user_type'] ?? '';
+        
+        switch ($permission) {
+            case 'admin':
+                return $user_type === 'admin';
+            case 'moderator':
+                return $user_type === 'admin' || $user_type === 'moderator';
+            case 'official':
+                return $user_type === 'admin' || $user_type === 'moderator' || $user_type === 'official';
+            default:
+                return false;
+        }
+    }
+}
+
+if (!function_exists('getUserCity')) {
+    /**
+     * Kullanıcının atanmış şehrini getirir
+     * 
+     * @return string|null Şehir ID'si veya null
+     */
+    function getUserCity() {
+        return $_SESSION['assigned_city_id'] ?? null;
+    }
+}
+
+if (!function_exists('getUserDistrict')) {
+    /**
+     * Kullanıcının atanmış ilçesini getirir
+     * 
+     * @return string|null İlçe ID'si veya null
+     */
+    function getUserDistrict() {
+        return $_SESSION['assigned_district_id'] ?? null;
     }
 }
 
