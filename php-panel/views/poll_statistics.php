@@ -262,7 +262,7 @@ if ($selected_poll) {
                 
                 <div class="col-md-2">
                     <label class="form-label">Şehir</label>
-                    <select class="form-select" name="city_id">
+                    <select class="form-select" name="city_id" id="city_select" onchange="filterDistricts()">
                         <option value="">Tüm Şehirler</option>
                         <?php foreach ($cities as $city): ?>
                             <option value="<?php echo $city['id']; ?>" <?php echo $selected_city === $city['id'] ? 'selected' : ''; ?>>
@@ -277,11 +277,11 @@ if ($selected_poll) {
                     <select class="form-select" name="district_id" id="district_select">
                         <option value="">Tüm İlçeler</option>
                         <?php foreach ($districts as $district): ?>
-                            <?php if (!$selected_city || $district['city_id'] === $selected_city): ?>
-                                <option value="<?php echo $district['id']; ?>" <?php echo $selected_district === $district['id'] ? 'selected' : ''; ?>>
-                                    <?php echo escape($district['name']); ?>
-                                </option>
-                            <?php endif; ?>
+                            <option value="<?php echo $district['id']; ?>" 
+                                    data-city-id="<?php echo $district['city_id']; ?>"
+                                    <?php echo $selected_district === $district['id'] ? 'selected' : ''; ?>>
+                                <?php echo escape($district['name']); ?>
+                            </option>
                         <?php endforeach; ?>
                     </select>
                 </div>
@@ -511,3 +511,38 @@ if ($selected_poll) {
     transition: width 0.6s ease;
 }
 </style>
+
+<script>
+function filterDistricts() {
+    const citySelect = document.getElementById('city_select');
+    const districtSelect = document.getElementById('district_select');
+    const selectedCityId = citySelect.value;
+    
+    // Tüm district seçeneklerini gizle
+    const allOptions = districtSelect.querySelectorAll('option[value!=""]');
+    allOptions.forEach(option => {
+        option.style.display = 'none';
+    });
+    
+    // Seçili şehre ait ilçeleri göster
+    if (selectedCityId) {
+        const cityDistrictOptions = districtSelect.querySelectorAll(`option[data-city-id="${selectedCityId}"]`);
+        cityDistrictOptions.forEach(option => {
+            option.style.display = 'block';
+        });
+    } else {
+        // Hiç şehir seçili değilse tüm ilçeleri göster
+        allOptions.forEach(option => {
+            option.style.display = 'block';
+        });
+    }
+    
+    // İlçe seçimini sıfırla
+    districtSelect.value = '';
+}
+
+// Sayfa yüklendiğinde filtrelemeyi uygula
+document.addEventListener('DOMContentLoaded', function() {
+    filterDistricts();
+});
+</script>

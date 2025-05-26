@@ -156,7 +156,7 @@ foreach ($poll_options as $option) {
                     ?>
                     <?php foreach ($poll_options as $index => $option): ?>
                         <?php 
-                        $vote_count = intval($option['vote_count']);
+                        $vote_count = intval($option['real_vote_count'] ?? 0);
                         $percentage = $total_votes > 0 ? ($vote_count / $total_votes) * 100 : 0;
                         $color = $colors[$index % count($colors)];
                         ?>

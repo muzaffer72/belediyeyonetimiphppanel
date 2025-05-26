@@ -13,20 +13,17 @@ if (isset($_GET['delete']) && !empty($_GET['delete'])) {
     $poll_id = $_GET['delete'];
     
     try {
-        // Önce oy verme kayıtlarını sil
-        deleteData('poll_votes', null, ['poll_id' => 'eq.' . $poll_id]);
+        // Anketi pasif yap (silmek yerine)
+        $update_result = updateData('polls', $poll_id, [
+            'is_active' => false,
+            'deleted_at' => date('Y-m-d H:i:s')
+        ]);
         
-        // Sonra seçenekleri sil
-        deleteData('poll_options', null, ['poll_id' => 'eq.' . $poll_id]);
-        
-        // Son olarak anketi sil
-        $delete_result = deleteData('polls', $poll_id);
-        
-        if (!$delete_result['error']) {
-            $_SESSION['message'] = 'Anket başarıyla silindi.';
+        if (!$update_result['error']) {
+            $_SESSION['message'] = 'Anket başarıyla devre dışı bırakıldı.';
             $_SESSION['message_type'] = 'success';
         } else {
-            $_SESSION['message'] = 'Anket silinirken hata oluştu: ' . $delete_result['message'];
+            $_SESSION['message'] = 'İşlem sırasında hata oluştu: ' . ($update_result['message'] ?? 'Bilinmeyen hata');
             $_SESSION['message_type'] = 'danger';
         }
     } catch (Exception $e) {
