@@ -64,7 +64,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['update_city'])) {
             'phone' => trim($_POST['phone'] ?? ''),
             'address' => trim($_POST['address'] ?? ''),
             'cover_image_url' => trim($_POST['cover_image_url'] ?? ''),
-            'description' => trim($_POST['description'] ?? ''),
             'updated_at' => date('Y-m-d H:i:s')
         ];
     } else {
