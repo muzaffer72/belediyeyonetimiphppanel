@@ -3,6 +3,14 @@
 require_once(__DIR__ . '/../config/config.php');
 require_once(__DIR__ . '/../includes/functions.php');
 
+// Moderatör erişim kontrolü - Users sayfasına erişim yasak
+if (isset($_SESSION['user_type']) && $_SESSION['user_type'] === 'moderator') {
+    $_SESSION['message'] = 'Bu sayfaya erişim yetkiniz bulunmamaktadır.';
+    $_SESSION['message_type'] = 'danger';
+    header('Location: index.php?page=dashboard');
+    exit;
+}
+
 // URL parametrelerini al
 $current_page = isset($_GET['p']) ? intval($_GET['p']) : 1;
 $items_per_page = 10;

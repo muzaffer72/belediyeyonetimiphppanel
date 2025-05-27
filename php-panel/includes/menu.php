@@ -22,7 +22,6 @@ function getMenuItems($current_page) {
         $menu_items = [
             ['id' => 'dashboard', 'icon' => 'fas fa-tachometer-alt', 'text' => 'Dashboard'],
             ['id' => 'posts', 'icon' => 'fas fa-clipboard-list', 'text' => 'Gönderiler'],
-            ['id' => 'users', 'icon' => 'fas fa-users', 'text' => 'Kullanıcılar'],
             ['id' => 'cities', 'icon' => 'fas fa-city', 'text' => 'Şehir Profili'],
             ['id' => 'districts', 'icon' => 'fas fa-map-marker-alt', 'text' => 'İlçe Profilleri'],
         ];

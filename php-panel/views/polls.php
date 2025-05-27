@@ -2,6 +2,14 @@
 // Anket yönetimi sayfası
 require_once(__DIR__ . '/../includes/functions.php');
 
+// Moderatör erişim kontrolü - Polls sayfasına erişim yasak
+if (isset($_SESSION['user_type']) && $_SESSION['user_type'] === 'moderator') {
+    $_SESSION['message'] = 'Bu sayfaya erişim yetkiniz bulunmamaktadır.';
+    $_SESSION['message_type'] = 'danger';
+    header('Location: index.php?page=dashboard');
+    exit;
+}
+
 // Anketleri getir
 $polls_result = getData('polls', [
     'order' => 'created_at.desc'
