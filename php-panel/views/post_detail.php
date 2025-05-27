@@ -2,6 +2,12 @@
 // Gönderi detay sayfası
 require_once(__DIR__ . '/../includes/functions.php');
 
+// Kullanıcı yetki kontrolü
+$user_type = $_SESSION['user_type'] ?? '';
+$is_admin = $user_type === 'admin';
+$is_moderator = $user_type === 'moderator';
+$assigned_city_id = $_SESSION['assigned_city_id'] ?? null;
+
 if (!isset($_GET['id']) || empty($_GET['id'])) {
     $_SESSION['message'] = 'Geçersiz gönderi ID';
     $_SESSION['message_type'] = 'danger';
@@ -20,34 +26,92 @@ if ($post_result['error'] || !$post_result['data']) {
 
 $post = $post_result['data'];
 
-// Yorum işlemleri
+// İşlem kontrolleri
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $action = $_POST['action'] ?? '';
     
     switch ($action) {
-        case 'delete_comment':
-            $comment_id = $_POST['comment_id'] ?? '';
-            $update_result = updateData('comments', $comment_id, [
-                'is_hidden' => true,
-                'updated_at' => date('Y-m-d H:i:s')
-            ]);
+        case 'change_status':
+            // Hem admin hem moderatör durum değiştirebilir
+            if ($is_admin || $is_moderator) {
+                $new_status = $_POST['new_status'] ?? '';
+                $valid_statuses = ['pending', 'in_progress', 'solved', 'rejected', 'completed'];
+                
+                if (in_array($new_status, $valid_statuses)) {
+                    $update_result = updateData('posts', $post_id, [
+                        'status' => $new_status,
+                        'updated_at' => date('Y-m-d H:i:s')
+                    ]);
+                    
+                    if (!$update_result['error']) {
+                        $_SESSION['message'] = 'Gönderi durumu güncellendi.';
+                        $_SESSION['message_type'] = 'success';
+                    } else {
+                        $_SESSION['message'] = 'Hata: ' . ($update_result['message'] ?? 'Bilinmeyen hata');
+                        $_SESSION['message_type'] = 'danger';
+                    }
+                } else {
+                    $_SESSION['message'] = 'Geçersiz durum seçimi.';
+                    $_SESSION['message_type'] = 'danger';
+                }
+            }
+            break;
             
-            if (!$update_result['error']) {
-                $_SESSION['message'] = 'Yorum silindi.';
-                $_SESSION['message_type'] = 'success';
-            } else {
-                $_SESSION['message'] = 'Hata: ' . ($update_result['message'] ?? 'Bilinmeyen hata');
-                $_SESSION['message_type'] = 'danger';
+        case 'add_comment':
+            // Moderatör ve admin yorum ekleyebilir
+            if ($is_admin || $is_moderator) {
+                $comment_content = trim($_POST['comment_content'] ?? '');
+                
+                if (!empty($comment_content)) {
+                    $comment_data = [
+                        'post_id' => $post_id,
+                        'user_id' => $_SESSION['user_id'],
+                        'content' => $comment_content,
+                        'created_at' => date('Y-m-d H:i:s'),
+                        'updated_at' => date('Y-m-d H:i:s')
+                    ];
+                    
+                    $add_result = addData('comments', $comment_data);
+                    
+                    if (!$add_result['error']) {
+                        $_SESSION['message'] = 'Yorumunuz eklendi.';
+                        $_SESSION['message_type'] = 'success';
+                    } else {
+                        $_SESSION['message'] = 'Yorum eklenirken hata: ' . ($add_result['message'] ?? 'Bilinmeyen hata');
+                        $_SESSION['message_type'] = 'danger';
+                    }
+                }
+            }
+            break;
+            
+        case 'delete_comment':
+            // Sadece admin yorum silebilir
+            if ($is_admin) {
+                $comment_id = $_POST['comment_id'] ?? '';
+                $update_result = updateData('comments', $comment_id, [
+                    'is_hidden' => true,
+                    'updated_at' => date('Y-m-d H:i:s')
+                ]);
+                
+                if (!$update_result['error']) {
+                    $_SESSION['message'] = 'Yorum silindi.';
+                    $_SESSION['message_type'] = 'success';
+                } else {
+                    $_SESSION['message'] = 'Hata: ' . ($update_result['message'] ?? 'Bilinmeyen hata');
+                    $_SESSION['message_type'] = 'danger';
+                }
             }
             break;
             
         case 'block_user':
-            $user_id = $_POST['user_id'] ?? '';
-            $update_result = updateData('users', $user_id, [
-                'is_blocked' => true,
-                'blocked_at' => date('Y-m-d H:i:s'),
-                'updated_at' => date('Y-m-d H:i:s')
-            ]);
+            // Sadece admin kullanıcı engelleyebilir
+            if ($is_admin) {
+                $user_id = $_POST['user_id'] ?? '';
+                $update_result = updateData('users', $user_id, [
+                    'is_blocked' => true,
+                    'blocked_at' => date('Y-m-d H:i:s'),
+                    'updated_at' => date('Y-m-d H:i:s')
+                ]);
             
             if (!$update_result['error']) {
                 $_SESSION['message'] = 'Kullanıcı engellendi.';
@@ -280,6 +344,7 @@ $post_status = $status_types[$post['status']] ?? ['name' => 'Bilinmiyor', 'color
                                             </small>
                                         </div>
                                         
+                                        <?php if ($is_admin): ?>
                                         <div class="dropdown">
                                             <button class="btn btn-sm btn-outline-secondary dropdown-toggle" 
                                                     type="button" data-bs-toggle="dropdown">
@@ -305,6 +370,7 @@ $post_status = $status_types[$post['status']] ?? ['name' => 'Bilinmiyor', 'color
                                                 <?php endif; ?>
                                             </ul>
                                         </div>
+                                        <?php endif; ?>
                                     </div>
                                     
                                     <p class="mb-0 mt-2"><?php echo nl2br(escape($comment['content'])); ?></p>
@@ -448,8 +514,54 @@ $post_status = $status_types[$post['status']] ?? ['name' => 'Bilinmiyor', 'color
             </div>
         </div>
 
+        <!-- Durum Değişikliği - Moderatör ve Admin için -->
+        <?php if ($is_admin || $is_moderator): ?>
+        <div class="card mb-4">
+            <div class="card-header">
+                <h5 class="mb-0">⚙️ Gönderi Durumu</h5>
+            </div>
+            <div class="card-body">
+                <form method="post" class="d-flex gap-2">
+                    <input type="hidden" name="action" value="change_status">
+                    <select name="new_status" class="form-select" required>
+                        <option value="">Yeni durumu seçin</option>
+                        <option value="pending" <?php echo ($post['status'] ?? '') === 'pending' ? 'selected' : ''; ?>>Beklemede</option>
+                        <option value="in_progress" <?php echo ($post['status'] ?? '') === 'in_progress' ? 'selected' : ''; ?>>İşlemde</option>
+                        <option value="solved" <?php echo ($post['status'] ?? '') === 'solved' ? 'selected' : ''; ?>>Çözüldü</option>
+                        <option value="rejected" <?php echo ($post['status'] ?? '') === 'rejected' ? 'selected' : ''; ?>>Reddedildi</option>
+                        <option value="completed" <?php echo ($post['status'] ?? '') === 'completed' ? 'selected' : ''; ?>>Tamamlandı</option>
+                    </select>
+                    <button type="submit" class="btn btn-primary">
+                        <i class="fas fa-save"></i> Güncelle
+                    </button>
+                </form>
+            </div>
+        </div>
+        <?php endif; ?>
+
+        <!-- Yorum Ekleme - Moderatör ve Admin için -->
+        <?php if ($is_admin || $is_moderator): ?>
+        <div class="card mb-4">
+            <div class="card-header">
+                <h5 class="mb-0">💬 Yanıt Ver</h5>
+            </div>
+            <div class="card-body">
+                <form method="post">
+                    <input type="hidden" name="action" value="add_comment">
+                    <div class="mb-3">
+                        <textarea name="comment_content" class="form-control" rows="3" 
+                                  placeholder="Gönderiye yanıt yazın..." required></textarea>
+                    </div>
+                    <button type="submit" class="btn btn-success">
+                        <i class="fas fa-reply"></i> Yanıt Ver
+                    </button>
+                </form>
+            </div>
+        </div>
+        <?php endif; ?>
+
         <!-- Beğeniler -->
-        <div class="card">
+        <div class="card"
             <div class="card-header">
                 <h5 class="mb-0">❤️ Beğeniler (<?php echo count($likes); ?>)</h5>
             </div>

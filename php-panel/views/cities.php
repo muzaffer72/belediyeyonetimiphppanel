@@ -83,8 +83,39 @@ if ($is_admin && $_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['add_city
     }
 }
 
-// Şehir sil
-if (isset($_GET['delete']) && !empty($_GET['delete'])) {
+// Moderatör profil güncelleme - sadece logo, açıklama, iletişim bilgileri
+if ($is_moderator && $_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['update_city_profile'])) {
+    $city_id = $_POST['city_id'] ?? '';
+    
+    // Moderatör sadece kendi şehrini güncelleyebilir
+    if ($city_id === $assigned_city_id) {
+        $update_data = [
+            'logo_url' => trim($_POST['logo_url'] ?? ''),
+            'email' => trim($_POST['email'] ?? ''),
+            'phone' => trim($_POST['phone'] ?? ''),
+            'website' => trim($_POST['website'] ?? ''),
+            'description' => trim($_POST['description'] ?? ''),
+            'address' => trim($_POST['address'] ?? ''),
+            'updated_at' => date('Y-m-d H:i:s')
+        ];
+        
+        $response = updateData('cities', $city_id, $update_data);
+        
+        if (!$response['error']) {
+            $_SESSION['message'] = 'Şehir profili başarıyla güncellendi';
+            $_SESSION['message_type'] = 'success';
+        } else {
+            $_SESSION['message'] = 'Güncelleme hatası: ' . $response['message'];
+            $_SESSION['message_type'] = 'danger';
+        }
+    } else {
+        $_SESSION['message'] = 'Sadece kendi şehrinizin profilini güncelleyebilirsiniz';
+        $_SESSION['message_type'] = 'danger';
+    }
+}
+
+// Şehir sil - sadece admin
+if ($is_admin && isset($_GET['delete']) && !empty($_GET['delete'])) {
     $city_id = $_GET['delete'];
     $response = deleteData('cities', $city_id);
     
