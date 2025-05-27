@@ -244,6 +244,70 @@ if (!function_exists('updateData')) {
     }
 }
 
+if (!function_exists('addData')) {
+    /**
+     * Veri ekleme fonksiyonu
+     * 
+     * @param string $table Tablo adı
+     * @param array $data Eklenecek veriler
+     * @return array Sonuç
+     */
+    function addData($table, $data) {
+        // ID alanını ekle (UUID oluştur)
+        if (!isset($data['id'])) {
+            $data['id'] = generateUUID();
+        }
+        
+        $url = SUPABASE_URL . "/rest/v1/$table";
+        
+        $options = [
+            'http' => [
+                'header' => [
+                    "Content-Type: application/json",
+                    "Authorization: Bearer " . SUPABASE_SERVICE_KEY,
+                    "apikey: " . SUPABASE_SERVICE_KEY,
+                    "Prefer: return=minimal"
+                ],
+                'method' => 'POST',
+                'content' => json_encode($data)
+            ]
+        ];
+        
+        $context = stream_context_create($options);
+        $response = file_get_contents($url, false, $context);
+        
+        if ($response === FALSE) {
+            return [
+                'error' => true,
+                'message' => 'Veri eklenirken bir hata oluştu'
+            ];
+        }
+        
+        return [
+            'error' => false,
+            'message' => 'Veri başarıyla eklendi',
+            'data' => $data
+        ];
+    }
+}
+
+if (!function_exists('generateUUID')) {
+    /**
+     * UUID oluşturma fonksiyonu
+     * 
+     * @return string UUID
+     */
+    function generateUUID() {
+        return sprintf('%04x%04x-%04x-%04x-%04x-%04x%04x%04x',
+            mt_rand(0, 0xffff), mt_rand(0, 0xffff),
+            mt_rand(0, 0xffff),
+            mt_rand(0, 0x0fff) | 0x4000,
+            mt_rand(0, 0x3fff) | 0x8000,
+            mt_rand(0, 0xffff), mt_rand(0, 0xffff), mt_rand(0, 0xffff)
+        );
+    }
+}
+
 if (!function_exists('truncateText')) {
     /**
      * Metni kısalt
