@@ -2,6 +2,13 @@
 // Fonksiyonları dahil et
 require_once(__DIR__ . '/../includes/functions.php');
 
+// Kullanıcı yetki kontrolü
+$user_type = $_SESSION['user_type'] ?? '';
+$is_admin = $user_type === 'admin';
+$is_moderator = $user_type === 'moderator';
+$assigned_city_id = $_SESSION['assigned_city_id'] ?? null;
+$assigned_district_id = $_SESSION['assigned_district_id'] ?? null;
+
 // ID kontrolü
 if (!isset($_GET['id']) || empty($_GET['id'])) {
     $_SESSION['message'] = 'Geçersiz ilçe ID\'si';
@@ -11,7 +18,8 @@ if (!isset($_GET['id']) || empty($_GET['id'])) {
 
 // İlçe bilgilerini al
 $district_id = $_GET['id'];
-$district = getDataById('districts', $district_id);
+$district_result = getDataById('districts', $district_id);
+$district = $district_result['error'] ? null : $district_result['data'];
 
 if (!$district) {
     $_SESSION['message'] = 'İlçe bulunamadı';
@@ -19,10 +27,18 @@ if (!$district) {
     safeRedirect('index.php?page=districts');
 }
 
+// Moderatör sadece kendi ilçesini görebilir
+if ($is_moderator && $assigned_district_id && $district_id !== $assigned_district_id) {
+    $_SESSION['message'] = 'Sadece kendi ilçenizin performansını görüntüleyebilirsiniz.';
+    $_SESSION['message_type'] = 'danger';
+    safeRedirect('index.php?page=districts');
+}
+
 // Bağlı olduğu şehri bul
 $city = null;
 if (isset($district['city_id'])) {
-    $city = getDataById('cities', $district['city_id']);
+    $city_result = getDataById('cities', $district['city_id']);
+    $city = $city_result['error'] ? null : $city_result['data'];
 }
 
 // Parti verilerini al
@@ -72,16 +88,28 @@ for($i = 5; $i >= 0; $i--) {
     ];
 }
 
+// Karşılaştırma verileri
+$compare_district = null;
+$compare_city_data = null;
+if (isset($_GET['compare_city']) && isset($_GET['compare_district']) && !empty($_GET['compare_district'])) {
+    $compare_district_result = getDataById('districts', $_GET['compare_district']);
+    $compare_district = $compare_district_result['error'] ? null : $compare_district_result['data'];
+    
+    if ($compare_district && isset($_GET['compare_city'])) {
+        $compare_city_result = getDataById('cities', $_GET['compare_city']);
+        $compare_city_data = $compare_city_result['error'] ? null : $compare_city_result['data'];
+    }
+}
+
 // Benzer ilçelerle karşılaştırma
-// Aynı şehirdeki diğer ilçeleri al
 $similar_districts = [];
 if (!empty($city)) {
-    $districts_result = getData('districts', ['city_id' => 'eq.' . $city['id']]);
-    $all_districts = $districts_result['data'];
+    $districts_result = getData('districts');
+    $all_districts = $districts_result['data'] ?? [];
     
     // Bu ilçe dışındaki ilçeleri filtrele
     foreach ($all_districts as $d) {
-        if ($d['id'] != $district_id) {
+        if ($d['id'] != $district_id && $d['city_id'] == $city['id']) {
             $similar_districts[] = $d;
         }
     }
@@ -90,7 +118,7 @@ if (!empty($city)) {
 
 <!-- Üst Başlık ve Butonlar -->
 <div class="d-flex justify-content-between mb-4">
-    <h1 class="h3"><?php echo escape($district['name']); ?> İlçesi Performans Analizi</h1>
+    <h1 class="h3"><?php echo escape($district['name'] ?? 'İlçe'); ?> İlçesi Performans Analizi</h1>
     
     <div>
         <a href="index.php?page=district_detail&id=<?php echo $district_id; ?>" class="btn btn-primary me-2">
@@ -101,6 +129,131 @@ if (!empty($city)) {
         </a>
     </div>
 </div>
+
+<?php if ($is_moderator): ?>
+<!-- Karşılaştırma Paneli - Sadece Moderatörler -->
+<div class="card mb-4">
+    <div class="card-header">
+        <i class="fas fa-balance-scale me-1"></i>
+        İlçe Karşılaştırma Aracı
+    </div>
+    <div class="card-body">
+        <p class="text-muted mb-3">Bu araçla ilçenizin performansını başka şehir ve ilçelerle karşılaştırabilirsiniz.</p>
+        
+        <form method="GET" action="" class="row g-3">
+            <input type="hidden" name="page" value="district_performance">
+            <input type="hidden" name="id" value="<?php echo $district_id; ?>">
+            
+            <div class="col-md-4">
+                <label for="compare_city" class="form-label">Karşılaştırılacak Şehir</label>
+                <select class="form-select" id="compare_city" name="compare_city" onchange="loadCompareDistricts(this.value)">
+                    <option value="">Şehir Seçiniz</option>
+                    <?php
+                    $all_cities_result = getData('cities');
+                    $all_cities = $all_cities_result['data'] ?? [];
+                    foreach($all_cities as $c):
+                    ?>
+                        <option value="<?php echo $c['id']; ?>" <?php echo (isset($_GET['compare_city']) && $_GET['compare_city'] == $c['id']) ? 'selected' : ''; ?>>
+                            <?php echo escape($c['name']); ?>
+                        </option>
+                    <?php endforeach; ?>
+                </select>
+            </div>
+            
+            <div class="col-md-4">
+                <label for="compare_district" class="form-label">Karşılaştırılacak İlçe</label>
+                <select class="form-select" id="compare_district" name="compare_district">
+                    <option value="">Önce şehir seçiniz</option>
+                </select>
+            </div>
+            
+            <div class="col-md-4 d-flex align-items-end">
+                <button type="submit" class="btn btn-primary me-2">
+                    <i class="fas fa-search me-1"></i> Karşılaştır
+                </button>
+                <a href="?page=district_performance&id=<?php echo $district_id; ?>" class="btn btn-outline-secondary">
+                    <i class="fas fa-times me-1"></i> Temizle
+                </a>
+            </div>
+        </form>
+        
+        <?php if ($compare_district): ?>
+        <!-- Karşılaştırma Sonuçları -->
+        <div class="mt-4">
+            <h5 class="mb-3">
+                <i class="fas fa-chart-bar me-2"></i>
+                Karşılaştırma Sonuçları: <?php echo escape($district['name']); ?> vs <?php echo escape($compare_district['name']); ?>
+            </h5>
+            
+            <div class="row">
+                <div class="col-md-6">
+                    <div class="card bg-primary text-white">
+                        <div class="card-body">
+                            <h6><?php echo escape($district['name']); ?> (<?php echo escape($city['name'] ?? ''); ?>)</h6>
+                            <div class="row text-center">
+                                <div class="col-4">
+                                    <div class="h5"><?php echo number_format($district['solution_rate'] ?? 0, 1); ?>%</div>
+                                    <small>Çözüm Oranı</small>
+                                </div>
+                                <div class="col-4">
+                                    <div class="h5"><?php echo number_format($district['total_complaints'] ?? 0); ?></div>
+                                    <small>Toplam Şikayet</small>
+                                </div>
+                                <div class="col-4">
+                                    <div class="h5"><?php echo number_format($district['thanks_count'] ?? 0); ?></div>
+                                    <small>Teşekkür</small>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="col-md-6">
+                    <div class="card bg-info text-white">
+                        <div class="card-body">
+                            <h6><?php echo escape($compare_district['name']); ?> (<?php echo escape($compare_city_data['name'] ?? ''); ?>)</h6>
+                            <div class="row text-center">
+                                <div class="col-4">
+                                    <div class="h5"><?php echo number_format($compare_district['solution_rate'] ?? 0, 1); ?>%</div>
+                                    <small>Çözüm Oranı</small>
+                                </div>
+                                <div class="col-4">
+                                    <div class="h5"><?php echo number_format($compare_district['total_complaints'] ?? 0); ?></div>
+                                    <small>Toplam Şikayet</small>
+                                </div>
+                                <div class="col-4">
+                                    <div class="h5"><?php echo number_format($compare_district['thanks_count'] ?? 0); ?></div>
+                                    <small>Teşekkür</small>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Karşılaştırma Analizi -->
+            <div class="alert alert-info mt-3">
+                <i class="fas fa-lightbulb me-2"></i>
+                <strong>Analiz:</strong>
+                <?php
+                $my_rate = floatval($district['solution_rate'] ?? 0);
+                $compare_rate = floatval($compare_district['solution_rate'] ?? 0);
+                $difference = $my_rate - $compare_rate;
+                
+                if ($difference > 0) {
+                    echo "İlçeniz " . abs($difference) . " puan daha yüksek çözüm oranına sahip.";
+                } elseif ($difference < 0) {
+                    echo "Karşılaştırılan ilçe " . abs($difference) . " puan daha yüksek çözüm oranına sahip.";
+                } else {
+                    echo "Her iki ilçe de benzer çözüm oranlarına sahip.";
+                }
+                ?>
+            </div>
+        </div>
+        <?php endif; ?>
+    </div>
+</div>
+<?php endif; ?>
 
 <!-- Performans Özeti -->
 <div class="row mb-4">
@@ -623,5 +776,53 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     });
     <?php endif; ?>
+    
+    // Karşılaştırma için şehir değiştiğinde ilçeleri yükle
+    window.loadCompareDistricts = function(cityId) {
+        const districtSelect = document.getElementById('compare_district');
+        districtSelect.innerHTML = '<option value="">Yükleniyor...</option>';
+        
+        if (!cityId) {
+            districtSelect.innerHTML = '<option value="">Önce şehir seçiniz</option>';
+            return;
+        }
+        
+        // Ajax ile ilçeleri yükle
+        fetch('index.php?page=get_districts&city_id=' + cityId)
+            .then(response => response.json())
+            .then(data => {
+                districtSelect.innerHTML = '<option value="">İlçe Seçiniz</option>';
+                
+                if (data.success && data.districts) {
+                    data.districts.forEach(district => {
+                        const option = document.createElement('option');
+                        option.value = district.id;
+                        option.textContent = district.name;
+                        // Mevcut ilçeyi karşılaştırmadan çıkar
+                        if (district.id !== '<?php echo $district_id; ?>') {
+                            districtSelect.appendChild(option);
+                        }
+                    });
+                } else {
+                    districtSelect.innerHTML = '<option value="">İlçe bulunamadı</option>';
+                }
+                
+                // Eğer URL'de seçili ilçe varsa seç
+                const selectedDistrict = '<?php echo $_GET['compare_district'] ?? ''; ?>';
+                if (selectedDistrict) {
+                    districtSelect.value = selectedDistrict;
+                }
+            })
+            .catch(error => {
+                console.error('İlçeler yüklenirken hata:', error);
+                districtSelect.innerHTML = '<option value="">Hata oluştu</option>';
+            });
+    };
+    
+    // Sayfa yüklendiğinde seçili şehir varsa ilçeleri yükle
+    const selectedCity = '<?php echo $_GET['compare_city'] ?? ''; ?>';
+    if (selectedCity) {
+        loadCompareDistricts(selectedCity);
+    }
 });
 </script>
