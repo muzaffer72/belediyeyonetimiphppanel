@@ -1,6 +1,8 @@
 <?php
-// Oturum başlat
-session_start();
+// Oturum başlat (eğer başlamamışsa)
+if (session_status() === PHP_SESSION_NONE) {
+    session_start();
+}
 
 // Hata raporlamasını açık tut
 ini_set('display_errors', 1);
@@ -10,23 +12,39 @@ error_reporting(E_ALL);
 // Zaman dilimini ayarla 
 date_default_timezone_set('Europe/Istanbul');
 
-// Temel sabitler
-define('SITE_TITLE', 'Belediye Yönetim Paneli');
-define('SITE_URL', 'https://onvao.net/adminpanel');
-define('ASSETS_URL', SITE_URL . '/assets');
+// Temel sabitler (eğer tanımlanmamışsa)
+if (!defined('SITE_TITLE')) {
+    define('SITE_TITLE', 'Belediye Yönetim Paneli');
+}
+if (!defined('SITE_URL')) {
+    define('SITE_URL', 'https://onvao.net/adminpanel');
+}
+if (!defined('ASSETS_URL')) {
+    define('ASSETS_URL', SITE_URL . '/assets');
+}
 
 // Çevre değişkenleri
 $_ENV['SUPABASE_URL'] = getenv('SUPABASE_URL') ?: 'https://bimer.onvao.net:8443';
 $_ENV['SUPABASE_KEY'] = getenv('SUPABASE_SERVICE_ROLE_KEY') ?: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyAgCiAgICAicm9sZSI6ICJzZXJ2aWNlX3JvbGUiLAogICAgImlzcyI6ICJzdXBhYmFzZS1kZW1vIiwKICAgICJpYXQiOiAxNjQxNzY5MjAwLAogICAgImV4cCI6IDE3OTk1MzU2MDAKfQ.DaYlNEoUrrEn2Ig7tqibS-PHK5vgusbcbo7X36XVt4Q';
 
-// API sabitleri
-define('SUPABASE_REST_URL', $_ENV['SUPABASE_URL'] . '/rest/v1');
-define('SUPABASE_API_KEY', $_ENV['SUPABASE_KEY']);
-define('SUPABASE_AUTH_HEADER', 'Bearer ' . $_ENV['SUPABASE_KEY']);
+// API sabitleri (eğer tanımlanmamışsa)
+if (!defined('SUPABASE_REST_URL')) {
+    define('SUPABASE_REST_URL', $_ENV['SUPABASE_URL'] . '/rest/v1');
+}
+if (!defined('SUPABASE_API_KEY')) {
+    define('SUPABASE_API_KEY', $_ENV['SUPABASE_KEY']);
+}
+if (!defined('SUPABASE_AUTH_HEADER')) {
+    define('SUPABASE_AUTH_HEADER', 'Bearer ' . $_ENV['SUPABASE_KEY']);
+}
 
-// Yönetici kimlik bilgileri (gerçek uygulamada bunlar veritabanında olmalı)
-define('ADMIN_USERNAME', 'admin');
-define('ADMIN_PASSWORD', 'admin123');
+// Yönetici kimlik bilgileri (eğer tanımlanmamışsa)
+if (!defined('ADMIN_USERNAME')) {
+    define('ADMIN_USERNAME', 'admin');
+}
+if (!defined('ADMIN_PASSWORD')) {
+    define('ADMIN_PASSWORD', 'admin123');
+}
 
 // functions.php dahil et - tüm sayfalardan erişilebilir olması için global scope'da dahil ediyoruz
 require_once(__DIR__ . '/../includes/functions.php');
