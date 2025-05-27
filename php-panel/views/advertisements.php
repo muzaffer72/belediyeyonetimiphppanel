@@ -32,11 +32,10 @@ if (!empty($ad_ids)) {
     
     $all_interactions = $all_interactions_result['data'] ?? [];
     
-    // Etkileşimleri reklam ID'sine ve tipine göre grupla
+    // Etkileşimleri reklam ID'sine göre grupla
     $grouped_interactions = [];
     foreach ($all_interactions as $interaction) {
         $ad_id = $interaction['ad_id'];
-        $type = $interaction['interaction_type'];
         
         if (!isset($grouped_interactions[$ad_id])) {
             $grouped_interactions[$ad_id] = [
@@ -45,9 +44,8 @@ if (!empty($ad_ids)) {
             ];
         }
         
-        if ($type === 'impression') {
-            $grouped_interactions[$ad_id]['impression']++;
-        } elseif ($type === 'click') {
+        // Basit sayım - interaction tablosundaki her kayıt bir etkileşim
+        $grouped_interactions[$ad_id]['impression']++;
             $grouped_interactions[$ad_id]['click']++;
         }
     }
