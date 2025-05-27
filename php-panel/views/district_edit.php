@@ -2,13 +2,20 @@
 // Fonksiyonları dahil et
 require_once(__DIR__ . '/../includes/functions.php');
 
+// Kullanıcı yetki kontrolü
+$user_type = $_SESSION['user_type'] ?? '';
+$is_admin = $user_type === 'admin';
+$is_moderator = $user_type === 'moderator';
+$assigned_city_id = $_SESSION['assigned_city_id'] ?? null;
+$assigned_district_id = $_SESSION['assigned_district_id'] ?? null;
+
 // Şehir verilerini al (ilçenin bağlı olduğu şehri seçmek için)
 $cities_result = getData('cities');
-$cities = $cities_result['data'];
+$cities = $cities_result['data'] ?? [];
 
 // Parti verilerini al
 $parties_result = getData('political_parties');
-$parties = $parties_result['data'];
+$parties = $parties_result['data'] ?? [];
 
 // ID kontrolü
 if (!isset($_GET['id']) || empty($_GET['id'])) {
@@ -26,7 +33,17 @@ if (!isset($_GET['id']) || empty($_GET['id'])) {
 }
 
 $district_id = $_GET['id'];
-$district = getDataById('districts', $district_id);
+
+// Moderatör sadece kendi ilçesini düzenleyebilir
+if ($is_moderator && $assigned_district_id && $district_id !== $assigned_district_id) {
+    $_SESSION['message'] = 'Sadece kendi ilçenizin profilini düzenleyebilirsiniz.';
+    $_SESSION['message_type'] = 'danger';
+    header('Location: index.php?page=districts');
+    exit;
+}
+
+$district_result = getDataById('districts', $district_id);
+$district = $district_result['error'] ? null : $district_result['data'];
 
 if (!$district) {
     $_SESSION['message'] = 'İlçe bulunamadı';
@@ -44,25 +61,39 @@ if (!$district) {
 
 // Form gönderildi mi kontrol et
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['update_district'])) {
-    // Form verilerini al
-    $name = trim($_POST['name'] ?? '');
-    $city_id = trim($_POST['city_id'] ?? '');
-    $email = trim($_POST['email'] ?? '');
-    $mayor_name = trim($_POST['mayor_name'] ?? '');
-    $political_party_id = trim($_POST['political_party_id'] ?? '');
-    $population = trim($_POST['population'] ?? '');
-    $logo_url = trim($_POST['logo_url'] ?? '');
-    $website = trim($_POST['website'] ?? '');
-    $phone = trim($_POST['phone'] ?? '');
-    $address = trim($_POST['address'] ?? '');
-    $cover_image_url = trim($_POST['cover_image_url'] ?? '');
+    if ($is_moderator) {
+        // Moderatör sadece belirli alanları güncelleyebilir
+        $update_data = [
+            'email' => trim($_POST['email'] ?? ''),
+            'logo_url' => trim($_POST['logo_url'] ?? ''),
+            'website' => trim($_POST['website'] ?? ''),
+            'phone' => trim($_POST['phone'] ?? ''),
+            'address' => trim($_POST['address'] ?? ''),
+            'cover_image_url' => trim($_POST['cover_image_url'] ?? ''),
+            'description' => trim($_POST['description'] ?? ''),
+            'updated_at' => date('Y-m-d H:i:s')
+        ];
+    } else {
+        // Admin tüm alanları güncelleyebilir
+        $name = trim($_POST['name'] ?? '');
+        $city_id = trim($_POST['city_id'] ?? '');
+        $email = trim($_POST['email'] ?? '');
+        $mayor_name = trim($_POST['mayor_name'] ?? '');
+        $political_party_id = trim($_POST['political_party_id'] ?? '');
+        $population = trim($_POST['population'] ?? '');
+        $logo_url = trim($_POST['logo_url'] ?? '');
+        $website = trim($_POST['website'] ?? '');
+        $phone = trim($_POST['phone'] ?? '');
+        $address = trim($_POST['address'] ?? '');
+        $cover_image_url = trim($_POST['cover_image_url'] ?? '');
+    }
     
-    // Basit doğrulama
+    // Doğrulama
     $errors = [];
-    if (empty($name)) {
+    if (!$is_moderator && empty($name)) {
         $errors[] = 'İlçe adı gereklidir';
     }
-    if (empty($city_id)) {
+    if (!$is_moderator && empty($city_id)) {
         $errors[] = 'Bağlı olduğu şehir gereklidir';
     }
     
@@ -92,34 +123,39 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['update_district'])) {
     
     // Hata yoksa ilçeyi güncelle
     if (empty($errors)) {
-        // Parti bilgilerini political_party_id'ye göre al
-        $party_info = getPartyInfoById($political_party_id);
-        $mayor_party = '';
-        $party_logo_url = '';
-        
-        if ($party_info) {
-            $mayor_party = $party_info['name'];
-            $party_logo_url = $party_info['logo_url'] ?? '';
+        if ($is_moderator) {
+            // Moderatör sadece belirli alanları güncelleyebilir
+            $response = updateData('districts', $district_id, $update_data);
+        } else {
+            // Admin tüm alanları güncelleyebilir
+            $party_info = getPartyInfoById($political_party_id);
+            $mayor_party = '';
+            $party_logo_url = '';
+            
+            if ($party_info) {
+                $mayor_party = $party_info['name'];
+                $party_logo_url = $party_info['logo_url'] ?? '';
+            }
+            
+            $admin_update_data = [
+                'name' => $name,
+                'city_id' => $city_id,
+                'email' => $email,
+                'mayor_name' => $mayor_name,
+                'political_party_id' => $political_party_id,
+                'mayor_party' => $mayor_party,
+                'party_logo_url' => $party_logo_url,
+                'population' => $population,
+                'logo_url' => $logo_url,
+                'website' => $website,
+                'phone' => $phone,
+                'address' => $address,
+                'cover_image_url' => $cover_image_url,
+                'updated_at' => date('Y-m-d H:i:s')
+            ];
+            
+            $response = updateData('districts', $district_id, $admin_update_data);
         }
-        
-        $update_data = [
-            'name' => $name,
-            'city_id' => $city_id,
-            'email' => $email,
-            'mayor_name' => $mayor_name,
-            'political_party_id' => $political_party_id,
-            'mayor_party' => $mayor_party, // Parti adını otomatik doldur
-            'party_logo_url' => $party_logo_url, // Parti logo URL'sini otomatik doldur
-            'population' => $population,
-            'logo_url' => $logo_url,
-            'website' => $website,
-            'phone' => $phone,
-            'address' => $address,
-            'cover_image_url' => $cover_image_url,
-            'updated_at' => date('Y-m-d H:i:s')
-        ];
-        
-        $response = updateData('districts', $district_id, $update_data);
         
         if (!$response['error']) {
             $_SESSION['message'] = 'İlçe başarıyla güncellendi';
@@ -180,37 +216,66 @@ if (isset($district['city_id'])) {
         <form method="post" action="index.php?page=district_edit&id=<?php echo $district_id; ?>" enctype="multipart/form-data">
             <div class="row mb-3">
                 <div class="col-md-6">
-                    <label for="name" class="form-label">İlçe Adı <span class="text-danger">*</span></label>
-                    <input type="text" class="form-control" id="name" name="name" value="<?php echo escape($district['name'] ?? ''); ?>" required>
+                    <label for="name" class="form-label">İlçe Adı</label>
+                    <?php if ($is_moderator): ?>
+                        <input type="text" class="form-control bg-light" id="name" name="name" value="<?php echo escape($district['name'] ?? ''); ?>" readonly>
+                        <small class="text-muted">Bu alan değiştirilemez</small>
+                    <?php else: ?>
+                        <input type="text" class="form-control" id="name" name="name" value="<?php echo escape($district['name'] ?? ''); ?>" required>
+                    <?php endif; ?>
                 </div>
                 <div class="col-md-6">
-                    <label for="city_id" class="form-label">Bağlı Olduğu Şehir <span class="text-danger">*</span></label>
-                    <select class="form-select" id="city_id" name="city_id" required>
-                        <option value="">Seçiniz</option>
-                        <?php foreach($cities as $city): ?>
-                            <option value="<?php echo $city['id']; ?>" <?php echo (isset($district['city_id']) && $district['city_id'] === $city['id']) ? 'selected' : ''; ?>>
-                                <?php echo $city['name']; ?>
-                            </option>
-                        <?php endforeach; ?>
-                    </select>
+                    <label for="city_id" class="form-label">Bağlı Olduğu Şehir</label>
+                    <?php if ($is_moderator): ?>
+                        <?php 
+                        $city_name = '';
+                        foreach($cities as $city) {
+                            if ($city['id'] === $district['city_id']) {
+                                $city_name = $city['name'];
+                                break;
+                            }
+                        }
+                        ?>
+                        <input type="text" class="form-control bg-light" value="<?php echo escape($city_name); ?>" readonly>
+                        <small class="text-muted">Bu alan değiştirilemez</small>
+                    <?php else: ?>
+                        <select class="form-select" id="city_id" name="city_id" required>
+                            <option value="">Seçiniz</option>
+                            <?php foreach($cities as $city): ?>
+                                <option value="<?php echo $city['id']; ?>" <?php echo (isset($district['city_id']) && $district['city_id'] === $city['id']) ? 'selected' : ''; ?>>
+                                    <?php echo $city['name']; ?>
+                                </option>
+                            <?php endforeach; ?>
+                        </select>
+                    <?php endif; ?>
                 </div>
             </div>
             
             <div class="row mb-3">
                 <div class="col-md-6">
                     <label for="mayor_name" class="form-label">Belediye Başkanı</label>
-                    <input type="text" class="form-control" id="mayor_name" name="mayor_name" value="<?php echo escape($district['mayor_name'] ?? ''); ?>">
+                    <?php if ($is_moderator): ?>
+                        <input type="text" class="form-control bg-light" id="mayor_name" name="mayor_name" value="<?php echo escape($district['mayor_name'] ?? ''); ?>" readonly>
+                        <small class="text-muted">Bu alan değiştirilemez</small>
+                    <?php else: ?>
+                        <input type="text" class="form-control" id="mayor_name" name="mayor_name" value="<?php echo escape($district['mayor_name'] ?? ''); ?>">
+                    <?php endif; ?>
                 </div>
                 <div class="col-md-6">
                     <label for="political_party_id" class="form-label">Parti</label>
-                    <select class="form-select" id="political_party_id" name="political_party_id">
-                        <option value="">Seçiniz</option>
-                        <?php foreach($parties as $party): ?>
-                            <option value="<?php echo $party['id']; ?>" <?php echo (isset($district['political_party_id']) && $district['political_party_id'] == $party['id']) ? 'selected' : ''; ?>>
-                                <?php echo $party['name']; ?>
-                            </option>
-                        <?php endforeach; ?>
-                    </select>
+                    <?php if ($is_moderator): ?>
+                        <input type="text" class="form-control bg-light" value="<?php echo escape($district['mayor_party'] ?? 'Belirtilmemiş'); ?>" readonly>
+                        <small class="text-muted">Bu alan değiştirilemez</small>
+                    <?php else: ?>
+                        <select class="form-select" id="political_party_id" name="political_party_id">
+                            <option value="">Seçiniz</option>
+                            <?php foreach($parties as $party): ?>
+                                <option value="<?php echo $party['id']; ?>" <?php echo (isset($district['political_party_id']) && $district['political_party_id'] == $party['id']) ? 'selected' : ''; ?>>
+                                    <?php echo $party['name']; ?>
+                                </option>
+                            <?php endforeach; ?>
+                        </select>
+                    <?php endif; ?>
                 </div>
             </div>
             
