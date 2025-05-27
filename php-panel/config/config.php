@@ -202,6 +202,48 @@ if (!function_exists('redirect')) {
     }
 }
 
+if (!function_exists('updateData')) {
+    /**
+     * Veri güncelleme fonksiyonu
+     * 
+     * @param string $table Tablo adı
+     * @param string $id Güncellenecek kayıt ID'si
+     * @param array $data Güncellenecek veriler
+     * @return array Sonuç
+     */
+    function updateData($table, $id, $data) {
+        $url = SUPABASE_URL . "/rest/v1/$table?id=eq.$id";
+        
+        $options = [
+            'http' => [
+                'header' => [
+                    "Content-Type: application/json",
+                    "Authorization: Bearer " . SUPABASE_SERVICE_KEY,
+                    "apikey: " . SUPABASE_SERVICE_KEY,
+                    "Prefer: return=minimal"
+                ],
+                'method' => 'PATCH',
+                'content' => json_encode($data)
+            ]
+        ];
+        
+        $context = stream_context_create($options);
+        $response = file_get_contents($url, false, $context);
+        
+        if ($response === FALSE) {
+            return [
+                'error' => true,
+                'message' => 'Veri güncellenirken bir hata oluştu'
+            ];
+        }
+        
+        return [
+            'error' => false,
+            'message' => 'Veri başarıyla güncellendi'
+        ];
+    }
+}
+
 if (!function_exists('truncateText')) {
     /**
      * Metni kısalt
